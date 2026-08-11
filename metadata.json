@@ -1,0 +1,6 @@
+{
+  "name": "ZeroTrack-Web",
+  "description": "A real-time stock portfolio and position tracker with interactive charts, profit/loss calculations, external K-line website integrations, and AI-powered stock analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

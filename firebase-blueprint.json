@@ -1,0 +1,17 @@
+{
+  "collections": [
+    {
+      "name": "users",
+      "documentId": "uid",
+      "rules": ["read: if request.auth.uid == uid", "write: if request.auth.uid == uid"],
+      "fields": [
+        { "name": "watchlist", "type": "array" },
+        { "name": "positions", "type": "array" },
+        { "name": "priceAlerts", "type": "array" },
+        { "name": "theme", "type": "string" },
+        { "name": "isUpRed", "type": "boolean" },
+        { "name": "updatedAt", "type": "timestamp" }
+      ]
+    }
+  ]
+}
