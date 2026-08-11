@@ -39,6 +39,24 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-default-jwt-secret';
 const app = express();
 const PORT = 3000;
 
+function isExpectedFetchFallback(err: any): boolean {
+  if (!err) return true;
+  const msg = String(err.message || err).toLowerCase();
+  const name = String(err.name || "");
+  return (
+    name === "AbortError" ||
+    name === "TimeoutError" ||
+    name === "TypeError" ||
+    msg.includes("aborted") ||
+    msg.includes("timeout") ||
+    msg.includes("fetch failed") ||
+    msg.includes("429") ||
+    msg.includes("too many requests") ||
+    msg.includes("unexpected token") ||
+    msg.includes("econnreset")
+  );
+}
+
 app.use(express.json({ limit: "10mb" }));
 
 // Initialize Gemini Client
@@ -476,9 +494,7 @@ app.get("/api/stocks", async (req, res) => {
       });
     }
   } catch (err: any) {
-    if (err?.message?.includes("429") || err?.message?.includes("Too Many Requests")) {
-      // Silently fallback to mock data on rate limit
-    } else {
+    if (!isExpectedFetchFallback(err)) {
       console.warn("Notice: Using mock data for initial quotes due to:", err?.message || err);
     }
   }
@@ -592,8 +608,7 @@ app.get("/api/stocks/search", async (req, res) => {
 
     return res.json(Array.from(map.values()).slice(0, 50));
   } catch (error: any) {
-    const isExpectedFallback = error?.message?.includes("429") || error?.message?.includes("Too Many Requests") || error?.message?.includes("fetch failed") || error?.name === "AbortError" || error?.name === "TypeError";
-    if (!isExpectedFallback) {
+    if (!isExpectedFetchFallback(error)) {
       console.warn("Notice: Search falling back to local due to:", error?.message || error);
     }
     const localMatches = STOCKS.filter(
@@ -609,7 +624,10 @@ app.get("/api/stocks/quote/:symbol", async (req, res) => {
   try {
     let quote: any = { symbol };
     try {
-      const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1d`, { headers: { 'User-Agent': 'Mozilla/5.0' }});
+      const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1d`, { 
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: AbortSignal.timeout(3000)
+      });
       if (res.ok) {
         const data = await res.json();
         const meta = data?.chart?.result?.[0]?.meta;
@@ -649,8 +667,7 @@ app.get("/api/stocks/quote/:symbol", async (req, res) => {
     
     return res.json(stockData);
   } catch (error: any) {
-    const isExpectedFallback = error?.message?.includes("429") || error?.message?.includes("Too Many Requests") || error?.message?.includes("fetch failed") || error?.name === "AbortError" || error?.name === "TypeError";
-    if (!isExpectedFallback) {
+    if (!isExpectedFetchFallback(error)) {
       console.warn("Notice: Quote falling back to mock due to:", error?.message || error);
     }
     const stock = ensureStockExists(symbol);
@@ -688,7 +705,10 @@ app.get("/api/stocks/candles/:symbol", async (req, res) => {
       interval = "1d";
     }
 
-    const resYahoo = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${Math.floor(period1.getTime()/1000)}&period2=${Math.floor(period2.getTime()/1000)}&interval=${interval}`, { headers: { 'User-Agent': 'Mozilla/5.0' }});
+    const resYahoo = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${Math.floor(period1.getTime()/1000)}&period2=${Math.floor(period2.getTime()/1000)}&interval=${interval}`, { 
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(3500)
+    });
     if (resYahoo.ok) {
       const data = await resYahoo.json();
       const result = data?.chart?.result?.[0];
@@ -757,8 +777,7 @@ app.get("/api/stocks/candles/:symbol", async (req, res) => {
       }
     }
   } catch (error: any) {
-    const isExpectedFallback = error?.message?.includes("429") || error?.message?.includes("Too Many Requests") || error?.message?.includes("fetch failed") || error?.name === "AbortError" || error?.name === "TypeError" || error?.message?.includes("Unexpected token 'T'");
-    if (!isExpectedFallback) {
+    if (!isExpectedFetchFallback(error)) {
       console.warn("Notice: Candles falling back to mock due to:", error?.message || error);
     }
   }
@@ -773,13 +792,10 @@ app.get("/api/stocks/candles/:symbol", async (req, res) => {
 app.get("/api/news", async (req, res) => {
   const query = (req.query.q as string) || "US Stocks";
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
     const resYahoo = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=5`, { 
       headers: { 'User-Agent': 'Mozilla/5.0' },
-      signal: controller.signal
+      signal: AbortSignal.timeout(3000)
     });
-    clearTimeout(timeoutId);
     if (resYahoo.ok) {
       const data = await resYahoo.json();
       if (data.news && Array.isArray(data.news) && data.news.length > 0) {
@@ -787,8 +803,7 @@ app.get("/api/news", async (req, res) => {
       }
     }
   } catch (err: any) {
-    const isExpectedFallback = err?.message?.includes("429") || err?.message?.includes("Too Many Requests") || err?.message?.includes("fetch failed") || err?.name === "AbortError" || err?.name === "TypeError";
-    if (!isExpectedFallback) {
+    if (!isExpectedFetchFallback(err)) {
       console.warn("Notice: News fallback due to:", err?.message || err);
     }
   }

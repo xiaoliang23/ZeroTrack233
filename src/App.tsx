@@ -500,8 +500,10 @@ export default function App() {
             return changed ? Array.from(newMap.values()) : prev;
           });
         }
-      } catch (err) {
-        console.error("Search fetch failed:", err);
+      } catch (err: any) {
+        if (err?.name !== "AbortError" && !err?.message?.toLowerCase().includes("aborted")) {
+          console.warn("Search fetch notice:", err?.message || err);
+        }
       }
     }, 250);
 
@@ -552,7 +554,9 @@ export default function App() {
       const data = await fetchCandlesticks(symbol, range);
       setCandles(data);
     } catch (err: any) {
-      console.error(err);
+      if (err?.name !== "AbortError" && !err?.message?.toLowerCase().includes("aborted")) {
+        console.warn("Candles fetch notice:", err?.message || err);
+      }
     } finally {
       setLoadingCandles(false);
     }
@@ -582,8 +586,10 @@ export default function App() {
     try {
       const newsItems = await fetchStockNews(query);
       setNews(newsItems);
-    } catch (err) {
-      console.error("News fetch error", err);
+    } catch (err: any) {
+      if (err?.name !== "AbortError" && !err?.message?.toLowerCase().includes("aborted")) {
+        console.warn("News fetch notice:", err?.message || err);
+      }
     } finally {
       setLoadingNews(false);
     }

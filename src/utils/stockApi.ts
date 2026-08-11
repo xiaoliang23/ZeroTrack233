@@ -77,36 +77,34 @@ export function saveStoredStocks(stocks: Stock[]) {
 }
 
 // Fetch helper via CORS Proxy for browser environment
-async function fetchWithProxy(url: string, timeoutMs = 4000): Promise<any> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    // Attempt direct fetch first
-    const directRes = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    if (directRes.ok) {
-      return await directRes.json();
+async function fetchWithProxy(url: string, timeoutMs = 5000): Promise<any> {
+  const fetchWithTimeout = async (targetUrl: string) => {
+    try {
+      const res = await fetch(targetUrl, { signal: AbortSignal.timeout(timeoutMs) });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // Ignore network / abort / timeout errors silently
     }
-  } catch {
-    // Direct fetch blocked by CORS or network error, fallback to CORS proxies
-  }
+    return null;
+  };
+
+  // Attempt direct fetch
+  const directData = await fetchWithTimeout(url);
+  if (directData) return directData;
 
   // Try AllOrigins CORS proxy
-  try {
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    const controller2 = new AbortController();
-    const timeoutId2 = setTimeout(() => controller2.abort(), timeoutMs);
-    const proxyRes = await fetch(proxyUrl, { signal: controller2.signal });
-    clearTimeout(timeoutId2);
-    if (proxyRes.ok) {
-      return await proxyRes.json();
-    }
-  } catch {
-    // Fallback to second proxy if available
-  }
+  const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+  const proxyData = await fetchWithTimeout(proxyUrl);
+  if (proxyData) return proxyData;
 
-  throw new Error("Unable to fetch via CORS proxy");
+  // Fallback to corsproxy.io if needed
+  const proxyUrl2 = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+  const proxyData2 = await fetchWithTimeout(proxyUrl2);
+  if (proxyData2) return proxyData2;
+
+  return null;
 }
 
 /**

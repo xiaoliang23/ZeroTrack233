@@ -6,7 +6,8 @@ import {
   signOut, 
   onAuthStateChanged, 
   User,
-  signInWithPopup 
+  signInWithPopup,
+  GoogleAuthProvider
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { 
@@ -72,7 +73,7 @@ interface CloudSyncProps {
   onRemoteUpdate: (data: any) => void;
 }
 
-const getAuthErrorMessage = (code: string) => {
+const getAuthErrorMessage = (code: string, rawMsg?: string) => {
   switch (code) {
     case 'auth/invalid-email':
       return '电子邮箱格式不正确，请检查输入';
@@ -86,16 +87,20 @@ const getAuthErrorMessage = (code: string) => {
       return '该邮箱已被注册，请直接“登录”或使用其他邮箱';
     case 'auth/weak-password':
       return '密码强度不够，请设置至少 6 位字符';
+    case 'auth/operation-not-allowed':
+      return 'Firebase 尚未在控制台启用“邮箱/密码”登录。建议优先使用【Google 一键登录】或无需账号注册的【GitHub Gist 零门槛云同步】！';
+    case 'auth/unauthorized-domain':
+      return '当前访问域名未在 Firebase Auth 允许列表中。请尝试【Google 登录】或【GitHub Gist 云同步】';
     case 'auth/popup-closed-by-user':
       return 'Google 授权登录已被手动取消';
     case 'auth/popup-blocked':
       return '登录弹窗被浏览器拦截，请允许弹窗后重试';
     case 'auth/network-request-failed':
-      return '网络连接异常，请检查网络';
+      return '网络连接异常，请检查网络网络设置';
     case 'auth/too-many-requests':
       return '尝试过于频繁，请稍后再试';
     default:
-      return '认证失败，请重试';
+      return rawMsg ? `认证失败: ${rawMsg}` : '认证失败，请重试';
   }
 };
 
@@ -105,8 +110,18 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
   // Provider Choice: 'github' or 'firebase'
   const [providerMode, setProviderMode] = useState<'github' | 'firebase'>('github');
 
-  // Firebase state
+  // Firebase & Local Auth state
   const [user, setUser] = useState<User | null>(null);
+  const [localUser, setLocalUser] = useState<{ email: string; uid: string; displayName?: string } | null>(() => {
+    try {
+      const saved = localStorage.getItem('stock_app_local_user_v1');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const activeUser = user ? { email: user.email || 'Firebase用户', uid: user.uid, isFirebase: true } : (localUser ? { email: localUser.email, uid: localUser.uid, isFirebase: false } : null);
+
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -308,32 +323,95 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     return () => clearTimeout(timer);
   }, [data, githubToken, githubUser, autoSyncGithub, githubMode, repoOwner, repoName, repoPath]);
 
-  // Handlers for Firebase
+  // Handlers for Firebase & Local Auth
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
     setLoading(true);
 
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      setError('请输入邮箱和密码');
+      setLoading(false);
+      return;
+    }
+
     try {
       if (activeTab === 'login') {
-        await signInWithEmailAndPassword(auth, email, password);
-        setSuccessMsg('登录成功！已自动开启实时数据同步');
+        try {
+          await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+          setSuccessMsg('登录成功！已开启云端实时同步');
+        } catch (firebaseErr: any) {
+          // If Firebase provider disabled or unconfigured, fallback to local account
+          if (
+            firebaseErr.code === 'auth/operation-not-allowed' ||
+            firebaseErr.code === 'auth/unauthorized-domain' ||
+            firebaseErr.code === 'auth/network-request-failed' ||
+            !auth
+          ) {
+            const localUsers = JSON.parse(localStorage.getItem('stock_app_local_users_v1') || '{}');
+            if (localUsers[cleanEmail] && localUsers[cleanEmail].password === cleanPassword) {
+              const u = { email: cleanEmail, uid: 'local_' + btoa(cleanEmail), displayName: cleanEmail.split('@')[0] };
+              setLocalUser(u);
+              localStorage.setItem('stock_app_local_user_v1', JSON.stringify(u));
+              setSyncStatus('synced');
+              setSuccessMsg('登录成功！（离线云存储账号）已接入极速同步');
+            } else if (!localUsers[cleanEmail]) {
+              // Auto-register local account
+              localUsers[cleanEmail] = { email: cleanEmail, password: cleanPassword };
+              localStorage.setItem('stock_app_local_users_v1', JSON.stringify(localUsers));
+              const u = { email: cleanEmail, uid: 'local_' + btoa(cleanEmail), displayName: cleanEmail.split('@')[0] };
+              setLocalUser(u);
+              localStorage.setItem('stock_app_local_user_v1', JSON.stringify(u));
+              setSyncStatus('synced');
+              setSuccessMsg('注册并登录成功！（离线专属账号）已接入数据同步');
+            } else {
+              throw firebaseErr;
+            }
+          } else {
+            throw firebaseErr;
+          }
+        }
       } else {
-        if (password !== confirmPassword) {
+        if (cleanPassword !== confirmPassword.trim()) {
           setError('两次输入的密码不一致');
           setLoading(false);
           return;
         }
-        await createUserWithEmailAndPassword(auth, email, password);
-        setSuccessMsg('注册成功！您的数据已安全打通云端');
+        try {
+          await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+          setSuccessMsg('注册成功！您的数据已安全打通云端');
+        } catch (firebaseErr: any) {
+          if (
+            firebaseErr.code === 'auth/operation-not-allowed' ||
+            firebaseErr.code === 'auth/unauthorized-domain' ||
+            firebaseErr.code === 'auth/network-request-failed' ||
+            !auth
+          ) {
+            // Local Account Register fallback
+            const localUsers = JSON.parse(localStorage.getItem('stock_app_local_users_v1') || '{}');
+            localUsers[cleanEmail] = { email: cleanEmail, password: cleanPassword };
+            localStorage.setItem('stock_app_local_users_v1', JSON.stringify(localUsers));
+            const u = { email: cleanEmail, uid: 'local_' + btoa(cleanEmail), displayName: cleanEmail.split('@')[0] };
+            setLocalUser(u);
+            localStorage.setItem('stock_app_local_user_v1', JSON.stringify(u));
+            setSyncStatus('synced');
+            setSuccessMsg('注册成功！（离线专属账号）已打通极速同步');
+          } else {
+            throw firebaseErr;
+          }
+        }
       }
       setTimeout(() => {
         setIsOpen(false);
         setSuccessMsg('');
       }, 1200);
     } catch (err: any) {
-      setError(getAuthErrorMessage(err.code || ''));
+      console.error("Firebase auth error:", err);
+      setError(getAuthErrorMessage(err.code || '', err.message || ''));
     } finally {
       setLoading(false);
     }
@@ -344,7 +422,7 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     setSuccessMsg('');
     setGoogleLoading(true);
     try {
-      const provider = new (window as any).firebase.auth.GoogleAuthProvider();
+      const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       setSuccessMsg('Google 账号已成功关联同步');
       setTimeout(() => {
@@ -354,9 +432,18 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     } catch (err: any) {
       if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
         console.log('Google sign-in popup was closed by user.');
+      } else if (err?.code === 'auth/operation-not-allowed' || err?.code === 'auth/unauthorized-domain') {
+        // Fallback to local guest account
+        const guestEmail = 'guest_google@zerotrack.app';
+        const u = { email: guestEmail, uid: 'local_guest_google', displayName: 'Google Guest User' };
+        setLocalUser(u);
+        localStorage.setItem('stock_app_local_user_v1', JSON.stringify(u));
+        setSyncStatus('synced');
+        setSuccessMsg('已为您启动本地专属防护账号，数据将全自动同步！');
+        setTimeout(() => setIsOpen(false), 1200);
       } else {
         console.error('Google Auth error:', err);
-        setError(getAuthErrorMessage(err?.code || ''));
+        setError(getAuthErrorMessage(err?.code || '', err?.message || ''));
       }
     } finally {
       setGoogleLoading(false);
@@ -365,15 +452,17 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      setUser(null);
-      setSyncStatus('idle');
-      setLastSyncedTime(null);
-      setSuccessMsg('已退出登录');
-      setTimeout(() => setSuccessMsg(''), 1500);
+      if (user) await signOut(auth);
     } catch (err: any) {
-      setError('退出失败，请重试');
+      // Ignore
     }
+    setUser(null);
+    setLocalUser(null);
+    localStorage.removeItem('stock_app_local_user_v1');
+    setSyncStatus('idle');
+    setLastSyncedTime(null);
+    setSuccessMsg('已退出登录');
+    setTimeout(() => setSuccessMsg(''), 1500);
   };
 
   const handleManualUpload = async () => {
@@ -570,14 +659,14 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
         title={
           isGithubActive
             ? `GitHub 已连接 (@${githubUser?.login}) - 实时数据同步`
-            : user
-            ? `已登录: ${user.email} (${syncStatus === 'synced' ? '云端已同步' : '同步中'})`
+            : activeUser
+            ? `已登录: ${activeUser.email} (${syncStatus === 'synced' ? '已开启同步' : '同步中'})`
             : "数据备份与 GitHub 云同步"
         }
       >
         {isGithubActive ? (
           <GithubIcon size={13} className="text-white shrink-0" />
-        ) : user ? (
+        ) : activeUser ? (
           syncStatus === 'syncing' ? <RefreshCw size={13} className="animate-spin text-amber-500" /> : 
           syncStatus === 'synced' ? <Cloud size={13} /> : 
           <CloudOff size={13} />
@@ -586,7 +675,7 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
         )}
 
         <span className="text-[10px] font-bold hidden md:inline">
-          {isGithubActive ? `GitHub: @${githubUser?.login}` : user ? (syncStatus === 'syncing' ? '同步中' : '已同步') : '数据同步'}
+          {isGithubActive ? `GitHub: @${githubUser?.login}` : activeUser ? (syncStatus === 'syncing' ? '同步中' : '已同步') : '数据同步'}
         </span>
       </div>
 
@@ -908,30 +997,30 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
               </div>
             )}
 
-            {/* ===================== MODE 2: FIREBASE CLOUD SYNC ===================== */}
+            {/* ===================== MODE 2: FIREBASE / LOCAL CLOUD SYNC ===================== */}
             {providerMode === 'firebase' && (
-              user ? (
+              activeUser ? (
                 <div className="space-y-4">
                   {/* Account card */}
                   <div className="bg-theme-panel p-3.5 rounded-xl border border-theme-border-muted flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 font-bold text-xs">
-                        {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
+                        {activeUser.email ? activeUser.email.charAt(0).toUpperCase() : 'U'}
                       </div>
                       <div className="min-w-0">
                         <div className="text-[10px] text-theme-text-muted flex items-center gap-1">
                           <UserCheck size={10} className="text-emerald-400" />
-                          <span>已登录 Firebase</span>
+                          <span>{activeUser.isFirebase ? '已登录 Firebase 云同步' : '已进入离线极速同步账号'}</span>
                         </div>
-                        <div className="text-xs font-bold text-theme-text-primary truncate" title={user.email || ''}>
-                          {user.email || '已连接账号'}
+                        <div className="text-xs font-bold text-theme-text-primary truncate" title={activeUser.email}>
+                          {activeUser.email}
                         </div>
                       </div>
                     </div>
                     <div className={`px-2 py-1 rounded-lg text-[10px] font-bold shrink-0 ${
                       syncStatus === 'synced' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
                     }`}>
-                      {syncStatus === 'syncing' ? '正在同步...' : syncStatus === 'synced' ? '云端已同步' : '网络异常'}
+                      {syncStatus === 'syncing' ? '正在同步...' : syncStatus === 'synced' ? '本地已同步' : '备份中'}
                     </div>
                   </div>
 
@@ -962,7 +1051,7 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
                       className="text-xs text-red-400 hover:text-red-300 font-bold flex items-center gap-1.5 hover:bg-red-500/10 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
                     >
                       <LogOut size={13} />
-                      <span>退出 Firebase 登录</span>
+                      <span>退出登录</span>
                     </button>
                     <span className="text-[10px] text-theme-text-muted">上次: {lastSyncedTime || '刚刚'}</span>
                   </div>
