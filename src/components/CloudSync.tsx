@@ -70,6 +70,7 @@ interface CloudSyncProps {
     isUpRed: boolean;
     pnlLossAlertEnabled?: boolean;
     pnlLossAlertThreshold?: number;
+    _ownerUid?: string | null;
   };
   onRemoteUpdate: (data: any) => void;
 }
@@ -349,21 +350,21 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const remoteData = docSnap.data();
-            // Load this account's exact stored cloud stocks directly to ensure strict data isolation
-            onRemoteUpdate(remoteData);
+            // Load this account's exact stored cloud stocks directly tagged with u.uid
+            onRemoteUpdate({ ...remoteData, _ownerUid: u.uid });
             if (remoteData.updatedAt) {
               setLastSyncedTime(new Date(remoteData.updatedAt).toLocaleTimeString('zh-CN'));
             } else {
               setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
             }
           } else {
-            // Brand new Google/Email user: initialize with clean default data (prevents cross-account stock leaking)
+            // Brand new Google/Email user: initialize with clean default data tagged with u.uid
             const newDocData = {
               ...CLEAN_DEFAULT_DATA,
               updatedAt: new Date().toISOString()
             };
             await setDoc(docRef, newDocData);
-            onRemoteUpdate(newDocData);
+            onRemoteUpdate({ ...newDocData, _ownerUid: u.uid });
             setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
           }
           loadedUidRef.current = u.uid;
@@ -374,7 +375,7 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
         } finally {
           setTimeout(() => {
             isSyncingFromCloudRef.current = false;
-          }, 300);
+          }, 350);
         }
       } else {
         loadedUidRef.current = null;
@@ -395,7 +396,7 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        onRemoteUpdate(parsed);
+        onRemoteUpdate({ ...parsed, _ownerUid: localUser.uid });
       } catch (e) {
         console.error('Error parsing local user stocks:', e);
       }
@@ -405,38 +406,63 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
         updatedAt: new Date().toISOString()
       };
       localStorage.setItem(userKey, JSON.stringify(newLocalData));
-      onRemoteUpdate(newLocalData);
+      onRemoteUpdate({ ...newLocalData, _ownerUid: localUser.uid });
     }
     loadedUidRef.current = localUser.uid;
     setTimeout(() => {
       isSyncingFromCloudRef.current = false;
-    }, 300);
+    }, 350);
     setSyncStatus('synced');
     setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
   }, [localUser?.uid, user]);
 
+  // Guest Mode restore when not logged in
+  useEffect(() => {
+    if (user || localUser) return;
+    const savedGuest = localStorage.getItem('zerotrack_guest_stocks');
+    if (savedGuest) {
+      try {
+        const parsed = JSON.parse(savedGuest);
+        onRemoteUpdate({ ...parsed, _ownerUid: 'guest' });
+      } catch (e) {
+        onRemoteUpdate({ ...CLEAN_DEFAULT_DATA, _ownerUid: 'guest' });
+      }
+    } else {
+      onRemoteUpdate({ ...CLEAN_DEFAULT_DATA, _ownerUid: 'guest' });
+    }
+    loadedUidRef.current = 'guest';
+  }, [user, localUser]);
+
+  // Local User Auto-Save (Strictly guarded by owner UID)
   useEffect(() => {
     if (!localUser || user) return;
     if (isSyncingFromCloudRef.current || loadedUidRef.current !== localUser.uid) return;
+    // Strict Owner Check: NEVER auto-save if data's _ownerUid does not match current localUser.uid
+    if (!data._ownerUid || data._ownerUid !== localUser.uid) return;
+
     const userKey = 'zerotrack_user_stocks_' + localUser.uid;
-    localStorage.setItem(userKey, JSON.stringify(data));
+    const { _ownerUid, ...cleanData } = data;
+    localStorage.setItem(userKey, JSON.stringify(cleanData));
     setSyncStatus('synced');
     setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
   }, [data, localUser?.uid, user]);
 
-  // Auto-Sync to Firebase when data changes (guarded against cross-account overwrites)
+  // Firebase Auto-Save (Strictly guarded by owner UID)
   useEffect(() => {
     if (!initialLoadDone || !user) return;
     if (isSyncingFromCloudRef.current || loadedUidRef.current !== user.uid) return;
+    // Strict Owner Check: NEVER auto-save to Firestore if data's _ownerUid does not match current user.uid
+    if (!data._ownerUid || data._ownerUid !== user.uid) return;
 
     const timer = setTimeout(async () => {
       setSyncStatus('syncing');
       try {
         const docRef = doc(db, 'users', user.uid);
+        const { _ownerUid, ...cleanData } = data;
         await setDoc(docRef, {
-          ...data,
+          ...cleanData,
           updatedAt: new Date().toISOString()
-        }, { merge: true });
+        });
         setSyncStatus('synced');
         setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
       } catch (err) {
@@ -447,6 +473,15 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
 
     return () => clearTimeout(timer);
   }, [data, user, initialLoadDone]);
+
+  // Guest Auto-Save (Strictly guarded by owner UID)
+  useEffect(() => {
+    if (user || localUser) return;
+    if (data._ownerUid !== 'guest') return;
+
+    const { _ownerUid, ...cleanData } = data;
+    localStorage.setItem('zerotrack_guest_stocks', JSON.stringify(cleanData));
+  }, [data, localUser, user]);
 
   // Auto-Sync to GitHub when data changes (debounced)
   useEffect(() => {
@@ -679,7 +714,7 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
         !auth
       ) {
         // Fallback to local user account with isolated UID per email
-        const cleanEmail = email.trim() || 'google_user@zerotrack.app';
+        const cleanEmail = email.trim() || `google_user_${Math.random().toString(36).substring(2, 8)}@zerotrack.app`;
         const uniqueUid = 'local_google_' + btoa(cleanEmail.toLowerCase());
         const u = { email: cleanEmail, uid: uniqueUid, displayName: cleanEmail.split('@')[0] || 'Google User' };
         setLocalUser(u);
@@ -697,6 +732,7 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
   };
 
   const handleLogout = async () => {
+    isSyncingFromCloudRef.current = true;
     try {
       if (user) await signOut(auth);
     } catch (err: any) {
@@ -709,22 +745,20 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     setSyncStatus('idle');
     setLastSyncedTime(null);
 
-    // Reset state to clean default so previous user's stocks do not remain on screen after logout
-    const defaultData = {
-      watchlist: ["AAPL", "NVDA", "TSLA", "0700.HK"],
-      positions: [
-        { symbol: "AAPL", quantity: 10, buyPrice: 172.5, dividends: 12.5 },
-        { symbol: "NVDA", quantity: 15, buyPrice: 820.0, dividends: 0.0 }
-      ],
-      priceAlerts: [],
-      theme: 'dark',
-      isUpRed: true,
-      pnlLossAlertEnabled: true,
-      pnlLossAlertThreshold: 10
-    };
+    // Reset state to guest stocks or clean default
+    const savedGuest = localStorage.getItem('zerotrack_guest_stocks');
+    let defaultData = { ...CLEAN_DEFAULT_DATA, _ownerUid: 'guest' };
+    if (savedGuest) {
+      try {
+        defaultData = { ...JSON.parse(savedGuest), _ownerUid: 'guest' };
+      } catch (e) {}
+    }
     onRemoteUpdate(defaultData);
-    setSuccessMsg('已安全退出登录，已重置为初始默认视角');
-    setTimeout(() => setSuccessMsg(''), 1500);
+    setSuccessMsg('已安全退出登录，已切换至独立离线视角');
+    setTimeout(() => {
+      isSyncingFromCloudRef.current = false;
+      setSuccessMsg('');
+    }, 1500);
   };
 
   const handleManualUpload = async () => {
@@ -733,10 +767,11 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     setError('');
     try {
       const docRef = doc(db, 'users', user.uid);
+      const { _ownerUid, ...cleanData } = data;
       await setDoc(docRef, {
-        ...data,
+        ...cleanData,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      });
       setSyncStatus('synced');
       setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
       setSuccessMsg('数据已成功推送到云端');
@@ -756,7 +791,7 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const remoteData = docSnap.data();
-        onRemoteUpdate(remoteData);
+        onRemoteUpdate({ ...remoteData, _ownerUid: user.uid });
         setSyncStatus('synced');
         if (remoteData.updatedAt) {
           setLastSyncedTime(new Date(remoteData.updatedAt).toLocaleTimeString('zh-CN'));
@@ -943,11 +978,11 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
   const isFirebaseActive = !!user && syncStatus === 'synced';
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative shrink-0 flex items-center" ref={containerRef}>
       {/* Header Sync Status Trigger Button */}
       <div 
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-xs font-medium cursor-pointer border transition-all duration-200 select-none shadow-2xs ${
+        className={`flex items-center justify-center gap-1.5 h-8 px-2 sm:px-2.5 rounded-xl text-xs font-bold cursor-pointer border transition-all duration-200 select-none shrink-0 whitespace-nowrap shadow-2xs ${
           isGithubActive
             ? 'bg-slate-900 dark:bg-slate-800 text-white border-slate-700 hover:border-slate-500'
             : isFirebaseActive
@@ -965,14 +1000,14 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
         {isGithubActive ? (
           <GithubIcon size={13} className="text-white shrink-0" />
         ) : activeUser ? (
-          syncStatus === 'syncing' ? <RefreshCw size={13} className="animate-spin text-amber-500" /> : 
-          syncStatus === 'synced' ? <Cloud size={13} /> : 
-          <CloudOff size={13} />
+          syncStatus === 'syncing' ? <RefreshCw size={13} className="animate-spin text-amber-500 shrink-0" /> : 
+          syncStatus === 'synced' ? <Cloud size={13} className="shrink-0" /> : 
+          <CloudOff size={13} className="shrink-0" />
         ) : (
           <GithubIcon size={13} className="text-slate-400 shrink-0" />
         )}
 
-        <span className="text-[10px] font-bold hidden md:inline">
+        <span className="text-xs font-bold shrink-0 hidden lg:inline">
           {isGithubActive ? `GitHub: @${githubUser?.login}` : activeUser ? (syncStatus === 'syncing' ? '同步中' : '已同步') : '数据同步'}
         </span>
       </div>
@@ -985,7 +1020,7 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
             onClick={() => setIsOpen(false)}
           />
 
-          <div className="fixed inset-x-3 top-14 sm:inset-auto sm:right-4 sm:top-14 sm:mt-1.5 w-auto sm:w-[420px] max-w-[calc(100vw-1.5rem)] bg-theme-card border border-theme-border rounded-2xl md:rounded-3xl shadow-2xl z-[100] p-4 sm:p-5 max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+          <div className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-[420px] max-w-[calc(100vw-2rem)] bg-theme-card border border-theme-border rounded-2xl md:rounded-3xl shadow-2xl z-[100] p-4 sm:p-5 max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-theme-border">
               <div className="flex items-center gap-2">

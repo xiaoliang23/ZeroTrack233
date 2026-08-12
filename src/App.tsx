@@ -315,6 +315,7 @@ export default function App() {
   const [pnlAlertDismissed, setPnlAlertDismissed] = useState<boolean>(false);
   const [showPnlAlertModal, setShowPnlAlertModal] = useState<boolean>(false);
   const [modalThresholdInput, setModalThresholdInput] = useState<string>("10");
+  const [showQuickSettings, setShowQuickSettings] = useState<boolean>(false);
 
   useEffect(() => {
     localStorage.setItem("pnlLossAlertEnabled", JSON.stringify(pnlLossAlertEnabled));
@@ -326,17 +327,9 @@ export default function App() {
 
 
   // Price Alerts
-  const [alerts, setAlerts] = useState<PriceAlert[]>(() => {
-    const saved = localStorage.getItem("priceAlerts");
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [showAlertDialog, setShowAlertDialog] = useState<string | null>(null); // symbol
   const [activeAlerts, setActiveAlerts] = useState<PriceAlert[]>([]); // triggered alerts to show notifications
-
-  // Save alerts to local storage
-  useEffect(() => {
-    localStorage.setItem("priceAlerts", JSON.stringify(alerts));
-  }, [alerts]);
 
   // Check alerts against stock prices
   useEffect(() => {
@@ -374,31 +367,14 @@ export default function App() {
   };
 
   // Watchlist (symbols list)
-  const [watchlist, setWatchlist] = useState<string[]>(() => {
-    const saved = localStorage.getItem("watchlist");
-    return saved ? JSON.parse(saved) : ["AAPL", "NVDA", "TSLA", "0700.HK"];
-  });
+  const [watchlist, setWatchlist] = useState<string[]>(["AAPL", "NVDA", "TSLA", "0700.HK"]);
 
   // User Custom Positions
   // Stored as an array of objects: { symbol: string, quantity: number, buyPrice: number, dividends?: number }
-  const [rawPositions, setRawPositions] = useState<{ symbol: string; quantity: number; buyPrice: number; dividends?: number }[]>(() => {
-    const saved = localStorage.getItem("positions");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return parsed.map((p: any) => ({
-          ...p,
-          dividends: typeof p.dividends === "number" ? p.dividends : 0
-        }));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    return [
-      { symbol: "AAPL", quantity: 10, buyPrice: 172.5, dividends: 12.5 },
-      { symbol: "NVDA", quantity: 15, buyPrice: 820.0, dividends: 0.0 }
-    ];
-  });
+  const [rawPositions, setRawPositions] = useState<{ symbol: string; quantity: number; buyPrice: number; dividends?: number }[]>([
+    { symbol: "AAPL", quantity: 10, buyPrice: 172.5, dividends: 12.5 },
+    { symbol: "NVDA", quantity: 15, buyPrice: 820.0, dividends: 0.0 }
+  ]);
 
   // Calculated Positions (fully populated with current prices and P&Ls)
   const [positions, setPositions] = useState<Position[]>([]);
@@ -417,7 +393,10 @@ export default function App() {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteConfirmSymbol, setDeleteConfirmSymbol] = useState<string | null>(null);
 
+  const [dataOwnerUid, setDataOwnerUid] = useState<string | null>(null);
+
   const handleRemoteUpdate = (data: any) => {
+    if (data._ownerUid !== undefined) setDataOwnerUid(data._ownerUid);
     if (data.watchlist) setWatchlist(data.watchlist);
     if (data.positions) setRawPositions(data.positions);
     if (data.priceAlerts) setAlerts(data.priceAlerts);
@@ -975,24 +954,24 @@ export default function App() {
         initial={{ y: -30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 400, damping: 30 }}
-        className="border-b border-theme-border/60 bg-theme-card/75 backdrop-blur-xl sticky top-0 z-40 px-3 md:px-5 py-2.5 flex items-center justify-between gap-3 shadow-sm"
+        className="border-b border-theme-border/60 bg-theme-card/75 backdrop-blur-xl sticky top-0 z-40 px-3 md:px-5 py-2.5 flex items-center justify-between gap-2 sm:gap-3 shadow-sm"
       >
-        <div className="flex items-center gap-2.5 sm:gap-4 md:gap-5 min-w-0 shrink">
+        <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0 flex-1 sm:flex-initial">
           <div className="flex items-center gap-2 group cursor-pointer shrink-0">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center font-bold text-xs shadow-sm group-hover:shadow-indigo-500/30 transition-all group-hover:scale-105">
               ZT
             </div>
-            <span className="font-bold text-base text-theme-text-heading tracking-tight hidden sm:block group-hover:text-indigo-400 transition-colors">ZeroTrack</span>
+            <span className="font-bold text-base text-theme-text-heading tracking-tight hidden md:block group-hover:text-indigo-400 transition-colors">ZeroTrack</span>
           </div>
 
-          <div className="h-5 w-[1px] bg-theme-border/80 hidden sm:block"></div>
+          <div className="h-5 w-[1px] bg-theme-border/80 hidden md:block"></div>
 
           {/* Compact Asset Value */}
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[10px] text-theme-text-muted uppercase tracking-widest font-extrabold hidden md:block">
+            <span className="text-[10px] text-theme-text-muted uppercase tracking-widest font-extrabold hidden lg:block">
               NET VALUE
             </span>
-            <div className="flex items-baseline gap-2 min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
               <h1 className="text-base sm:text-xl md:text-2xl font-mono font-bold text-theme-text-heading tracking-tight drop-shadow-xs truncate">
                 ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h1>
@@ -1005,7 +984,7 @@ export default function App() {
               >
                 {totalPnL >= 0 ? <TrendingUp size={12} className="animate-pulse hidden sm:block" /> : <TrendingDown size={12} className="animate-pulse hidden sm:block" />}
                 {totalPnL >= 0 ? "+" : ""}$<AnimatedNumber value={totalPnL} isUpRed={isUpRed} flashThreshold={0.5} formatter={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
-                <span className="opacity-80 hidden xs:inline ml-0.5">
+                <span className="opacity-80 hidden lg:inline ml-0.5">
                   (<AnimatedNumber value={totalPnLPercent} isUpRed={isUpRed} isPercent={true} flashThreshold={0.01} formatter={(v) => (v > 0 ? "+" : "") + v.toFixed(2) + "%"} />)
                 </span>
               </span>
@@ -1017,14 +996,14 @@ export default function App() {
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           
           {/* Market Status (Micro) */}
-          <div className="bg-emerald-500/10 border border-emerald-500/20 px-2.5 h-8 rounded-xl flex items-center gap-1.5 hidden lg:flex shrink-0" title="Live Agent Active">
+          <div className="bg-emerald-500/10 border border-emerald-500/20 px-2.5 h-8 rounded-xl flex items-center gap-1.5 hidden xl:flex shrink-0" title="Live Agent Active">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span className="text-[10px] text-emerald-500 font-bold tracking-wider font-mono">LIVE</span>
           </div>
 
           {/* Cloud Sync */}
           <CloudSync 
-            data={{ watchlist, positions: rawPositions, priceAlerts: alerts, theme, isUpRed, pnlLossAlertEnabled, pnlLossAlertThreshold }} 
+            data={{ watchlist, positions: rawPositions, priceAlerts: alerts, theme, isUpRed, pnlLossAlertEnabled, pnlLossAlertThreshold, _ownerUid: dataOwnerUid }} 
             onRemoteUpdate={handleRemoteUpdate} 
           />
           
@@ -1032,12 +1011,12 @@ export default function App() {
           <div className="flex shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs">
             <button 
               onClick={() => setTheme(theme === "dark" ? "light" : theme === "light" ? "sakura" : "dark")}
-              className="p-1 rounded-lg text-theme-text-muted hover:text-theme-text-primary transition sm:hidden"
+              className="p-1.5 rounded-lg text-theme-text-muted hover:text-theme-text-primary transition lg:hidden cursor-pointer"
               title="切换主题"
             >
               {theme === "dark" ? <Moon size={14} className="text-indigo-400" /> : theme === "sakura" ? <div className="text-pink-500 text-xs">🌸</div> : <Sun size={14} className="text-amber-500" />}
             </button>
-            <div className="hidden sm:flex items-center gap-0.5">
+            <div className="hidden lg:flex items-center gap-0.5">
               {theme === "dark" ? <Moon size={13} className="text-indigo-400 mx-1.5" /> : theme === "sakura" ? <div className="text-pink-500 mx-1.5 text-xs">🌸</div> : <Sun size={13} className="text-amber-500 mx-1.5" />}
               <button
                 onClick={() => setTheme("dark")}
@@ -1060,8 +1039,79 @@ export default function App() {
             </div>
           </div>
 
-          {/* Color Scheme Switcher */}
-          <div className="flex shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs hidden md:flex">
+          {/* Preferences Dropdown for Tablets / Smaller Screens */}
+          <div className="relative shrink-0 xl:hidden">
+            <button
+              onClick={() => setShowQuickSettings(!showQuickSettings)}
+              className={`h-8 px-2 sm:px-2.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
+                showQuickSettings 
+                  ? "bg-indigo-600 text-white border-indigo-500 shadow-sm" 
+                  : "bg-theme-bg-hover hover:bg-theme-border text-theme-text-muted hover:text-theme-text-primary border-theme-border/80"
+              }`}
+              title="偏好与图表设置"
+            >
+              <Sliders size={13} />
+              <span className="hidden lg:inline">偏好</span>
+            </button>
+
+            {showQuickSettings && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowQuickSettings(false)} />
+                <div className="absolute right-0 top-full mt-2 z-50 w-64 bg-theme-card border border-theme-border rounded-2xl shadow-xl p-3.5 space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
+                  <div>
+                    <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider mb-1.5">
+                      涨跌颜色习惯
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 bg-theme-panel p-1 rounded-xl border border-theme-border">
+                      <button
+                        onClick={() => setIsUpRed(true)}
+                        className={`py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          isUpRed ? "bg-red-500/20 text-red-500 border border-red-500/30 font-extrabold" : "text-theme-text-muted hover:text-theme-text-primary"
+                        }`}
+                      >
+                        红涨绿跌
+                      </button>
+                      <button
+                        onClick={() => setIsUpRed(false)}
+                        className={`py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                          !isUpRed ? "bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 font-extrabold" : "text-theme-text-muted hover:text-theme-text-primary"
+                        }`}
+                      >
+                        绿涨红跌
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider mb-1.5">
+                      K线形态展示
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 bg-theme-panel p-1 rounded-xl border border-theme-border">
+                      {[
+                        { id: 'candlestick', label: '实体K线' },
+                        { id: 'hollow', label: '空心K线' },
+                        { id: 'ohlc', label: '竹节线' },
+                        { id: 'area', label: '面积走势' },
+                      ].map((type) => (
+                        <button
+                          key={type.id}
+                          onClick={() => setChartType(type.id as any)}
+                          className={`py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                            chartType === type.id ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"
+                          }`}
+                        >
+                          {type.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Color Scheme Switcher (XL Screens) */}
+          <div className="shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs hidden xl:flex">
             <Settings size={13} className="text-theme-text-muted mx-1.5" />
             <div className="flex items-center gap-0.5">
               <button
@@ -1079,8 +1129,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Chart Toggle */}
-          <div className="flex shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs hidden lg:flex">
+          {/* Chart Toggle (XL Screens) */}
+          <div className="shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs hidden xl:flex">
             <LineChart size={13} className="text-theme-text-muted mx-1.5" />
             <div className="flex items-center gap-0.5">
               <button
