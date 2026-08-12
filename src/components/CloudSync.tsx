@@ -34,7 +34,8 @@ import {
   Sparkles,
   HelpCircle,
   Eye,
-  EyeOff
+  EyeOff,
+  Save
 } from 'lucide-react';
 
 function GithubIcon({ size = 16, className = "" }: { size?: number; className?: string }) {
@@ -193,6 +194,23 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
   const [lastSyncedTime, setLastSyncedTime] = useState<string | null>(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-Sync Toggle State (Default false as requested: "我不要同步了，加一个退出登录加保存吧")
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem('zerotrack_auto_sync_enabled');
+    return saved !== null ? JSON.parse(saved) : false;
+  });
+
+  const toggleAutoSync = (enabled: boolean) => {
+    setAutoSyncEnabled(enabled);
+    localStorage.setItem('zerotrack_auto_sync_enabled', JSON.stringify(enabled));
+    if (enabled) {
+      setSuccessMsg('已开启数据自动实时同步功能');
+    } else {
+      setSuccessMsg('已关闭后台自动同步，改动后请点击“保存当前数据”或“保存并退出”');
+    }
+    setTimeout(() => setSuccessMsg(''), 2500);
+  };
 
   // GitHub Sync State
   const [githubToken, setGithubToken] = useState('');
@@ -433,8 +451,9 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     loadedUidRef.current = 'guest';
   }, [user, localUser]);
 
-  // Local User Auto-Save (Strictly guarded by owner UID)
+  // Local User Auto-Save (Strictly guarded by owner UID and autoSyncEnabled)
   useEffect(() => {
+    if (!autoSyncEnabled) return;
     if (!localUser || user) return;
     if (isSyncingFromCloudRef.current || loadedUidRef.current !== localUser.uid) return;
     // Strict Owner Check: NEVER auto-save if data's _ownerUid does not match current localUser.uid
@@ -445,10 +464,11 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     localStorage.setItem(userKey, JSON.stringify(cleanData));
     setSyncStatus('synced');
     setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
-  }, [data, localUser?.uid, user]);
+  }, [data, localUser?.uid, user, autoSyncEnabled]);
 
-  // Firebase Auto-Save (Strictly guarded by owner UID)
+  // Firebase Auto-Save (Strictly guarded by owner UID and autoSyncEnabled)
   useEffect(() => {
+    if (!autoSyncEnabled) return;
     if (!initialLoadDone || !user) return;
     if (isSyncingFromCloudRef.current || loadedUidRef.current !== user.uid) return;
     // Strict Owner Check: NEVER auto-save to Firestore if data's _ownerUid does not match current user.uid
@@ -472,16 +492,17 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [data, user, initialLoadDone]);
+  }, [data, user, initialLoadDone, autoSyncEnabled]);
 
-  // Guest Auto-Save (Strictly guarded by owner UID)
+  // Guest Auto-Save (Strictly guarded by owner UID and autoSyncEnabled)
   useEffect(() => {
+    if (!autoSyncEnabled) return;
     if (user || localUser) return;
     if (data._ownerUid !== 'guest') return;
 
     const { _ownerUid, ...cleanData } = data;
     localStorage.setItem('zerotrack_guest_stocks', JSON.stringify(cleanData));
-  }, [data, localUser, user]);
+  }, [data, localUser, user, autoSyncEnabled]);
 
   // Auto-Sync to GitHub when data changes (debounced)
   useEffect(() => {
@@ -728,6 +749,55 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
       }
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  // Manual save handler for current active user or guest
+  const handleSaveData = async () => {
+    setSyncStatus('syncing');
+    setError('');
+    const { _ownerUid, ...cleanData } = data;
+    const nowTime = new Date().toLocaleTimeString('zh-CN');
+
+    try {
+      if (user) {
+        // Save to Firebase Firestore
+        const docRef = doc(db, 'users', user.uid);
+        await setDoc(docRef, {
+          ...cleanData,
+          updatedAt: new Date().toISOString()
+        });
+      } else if (localUser) {
+        // Save to Local User Storage
+        const userKey = 'zerotrack_user_stocks_' + localUser.uid;
+        localStorage.setItem(userKey, JSON.stringify(cleanData));
+      } else {
+        // Save to Guest Storage
+        localStorage.setItem('zerotrack_guest_stocks', JSON.stringify(cleanData));
+      }
+
+      setSyncStatus('synced');
+      setLastSyncedTime(nowTime);
+      setSuccessMsg('持仓与自选股数据已成功保存！');
+      setTimeout(() => setSuccessMsg(''), 2500);
+      return true;
+    } catch (err: any) {
+      console.error('Save data error:', err);
+      setSyncStatus('error');
+      setError('保存数据失败，请检查网络后再试');
+      return false;
+    }
+  };
+
+  // Save current data and logout immediately
+  const handleSaveAndLogout = async () => {
+    setSyncStatus('syncing');
+    const ok = await handleSaveData();
+    if (ok) {
+      setSuccessMsg('持仓数据已成功保存，正在安全退出...');
+      setTimeout(async () => {
+        await handleLogout();
+      }, 500);
     }
   };
 
@@ -1357,36 +1427,69 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
                     </div>
                   </div>
 
+                  {/* Auto-Sync Toggle Control */}
+                  <div className="flex items-center justify-between bg-theme-bg/60 p-3 rounded-xl border border-theme-border-muted">
+                    <div className="space-y-0.5">
+                      <div className="text-xs font-bold text-theme-text-primary flex items-center gap-1.5">
+                        <RefreshCw size={12} className={autoSyncEnabled ? "text-emerald-400" : "text-theme-text-muted"} />
+                        <span>后台修改时自动实时同步</span>
+                      </div>
+                      <p className="text-[10px] text-theme-text-muted">
+                        {autoSyncEnabled ? '开启中：增删持仓时会自动即时同步' : '已关闭自动同步：数据修改需手动保存'}
+                      </p>
+                    </div>
+                    <input 
+                      type="checkbox"
+                      checked={autoSyncEnabled}
+                      onChange={e => toggleAutoSync(e.target.checked)}
+                      className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0"
+                    />
+                  </div>
+
                   {/* Manual actions */}
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <button 
-                      onClick={handleManualUpload}
+                      onClick={handleSaveData}
                       disabled={syncStatus === 'syncing'}
-                      className="py-2 px-3 rounded-xl bg-theme-bg-hover hover:bg-theme-border border border-theme-border text-theme-text-primary text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                      className="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                      title="手动保存当前最新的自选与持仓记录"
                     >
-                      <UploadCloud size={14} className="text-indigo-400" />
-                      <span>手动推送</span>
+                      <Save size={14} />
+                      <span>保存当前持仓数据</span>
                     </button>
                     <button 
                       onClick={handleManualPull}
                       disabled={syncStatus === 'syncing'}
-                      className="py-2 px-3 rounded-xl bg-theme-bg-hover hover:bg-theme-border border border-theme-border text-theme-text-primary text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                      className="py-2.5 px-3 rounded-xl bg-theme-bg-hover hover:bg-theme-border border border-theme-border text-theme-text-primary text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                      title="从云端数据库恢复历史存档"
                     >
                       <DownloadCloud size={14} className="text-emerald-400" />
-                      <span>云端拉取</span>
+                      <span>从云端恢复</span>
                     </button>
                   </div>
 
-                  {/* Logout button */}
-                  <div className="pt-2 border-t border-theme-border flex justify-between items-center">
-                    <button 
-                      onClick={handleLogout}
-                      className="text-xs text-red-400 hover:text-red-300 font-bold flex items-center gap-1.5 hover:bg-red-500/10 px-2.5 py-1.5 rounded-lg transition-all cursor-pointer"
-                    >
-                      <LogOut size={13} />
-                      <span>退出登录</span>
-                    </button>
-                    <span className="text-[10px] text-theme-text-muted">上次: {lastSyncedTime || '刚刚'}</span>
+                  {/* Logout buttons */}
+                  <div className="pt-3 border-t border-theme-border flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={handleSaveAndLogout}
+                        disabled={syncStatus === 'syncing'}
+                        className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                        title="先保存当前数据，然后再安全退出登录"
+                      >
+                        <Save size={13} />
+                        <span>保存并退出登录</span>
+                      </button>
+                      <button 
+                        onClick={handleLogout}
+                        className="text-xs text-theme-text-muted hover:text-red-400 font-medium flex items-center gap-1 hover:bg-theme-bg-hover px-2.5 py-1.5 rounded-xl transition-all cursor-pointer"
+                        title="不保存直接退出登录"
+                      >
+                        <LogOut size={13} />
+                        <span>直接退出</span>
+                      </button>
+                    </div>
+                    <span className="text-[10px] font-mono text-theme-text-muted shrink-0">上次: {lastSyncedTime || '未保存'}</span>
                   </div>
                 </div>
               ) : (
