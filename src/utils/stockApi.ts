@@ -28,7 +28,7 @@ export interface NewsItem {
   link: string;
 }
 
-// Default initial stocks directory
+// Default initial stocks directory with rich global & US stocks coverage
 export const DEFAULT_STOCKS: Stock[] = [
   { symbol: "NVDA", name: "NVIDIA Corp. (英伟达 AI芯片)", basePrice: 120.0, currentPrice: 121.5, prevClose: 118.8, high: 123.4, low: 118.2, volume: 45000000, history: [118.8, 119.2, 120.1, 121.5] },
   { symbol: "AAPL", name: "Apple Inc. (苹果公司)", basePrice: 220.0, currentPrice: 222.3, prevClose: 219.5, high: 224.0, low: 219.0, volume: 38000000, history: [219.5, 220.5, 221.8, 222.3] },
@@ -38,15 +38,53 @@ export const DEFAULT_STOCKS: Stock[] = [
   { symbol: "GOOGL", name: "Alphabet Inc. (谷歌/Google)", basePrice: 175.0, currentPrice: 176.4, prevClose: 174.2, high: 177.8, low: 174.0, volume: 22000000, history: [174.2, 175.1, 175.8, 176.4] },
   { symbol: "META", name: "Meta Platforms (元宇宙/社交)", basePrice: 500.0, currentPrice: 504.2, prevClose: 495.0, high: 508.0, low: 494.0, volume: 16000000, history: [495.0, 498.2, 501.5, 504.2] },
   { symbol: "AMD", name: "Advanced Micro Devices (超威半导体)", basePrice: 150.0, currentPrice: 151.8, prevClose: 148.5, high: 153.2, low: 148.0, volume: 32000000, history: [148.5, 149.8, 150.5, 151.8] },
+  { symbol: "KO", name: "Coca-Cola Co. (可口可乐)", basePrice: 68.5, currentPrice: 69.2, prevClose: 68.2, high: 69.8, low: 68.1, volume: 14000000, history: [68.2, 68.5, 68.9, 69.2] },
+  { symbol: "NEE", name: "NextEra Energy Inc. (新纪元能源)", basePrice: 78.0, currentPrice: 79.4, prevClose: 77.5, high: 80.1, low: 77.2, volume: 8500000, history: [77.5, 78.1, 78.8, 79.4] },
+  { symbol: "PEP", name: "PepsiCo Inc. (百事可乐)", basePrice: 172.0, currentPrice: 173.5, prevClose: 171.2, high: 174.8, low: 171.0, volume: 6200000, history: [171.2, 172.0, 172.8, 173.5] },
+  { symbol: "DIS", name: "Walt Disney Co. (华特迪士尼)", basePrice: 96.0, currentPrice: 97.5, prevClose: 95.8, high: 98.2, low: 95.2, volume: 9800000, history: [95.8, 96.2, 96.9, 97.5] },
+  { symbol: "SPY", name: "SPDR S&P 500 ETF Trust (标普500 ETF)", basePrice: 550.0, currentPrice: 552.8, prevClose: 548.5, high: 554.2, low: 548.0, volume: 55000000, history: [548.5, 550.0, 551.5, 552.8] },
+  { symbol: "QQQ", name: "Invesco QQQ Trust (纳斯达克100 ETF)", basePrice: 475.0, currentPrice: 478.2, prevClose: 472.0, high: 480.0, low: 471.5, volume: 38000000, history: [472.0, 474.5, 476.8, 478.2] },
   { symbol: "INTC", name: "Intel Corp. (英特尔晶圆)", basePrice: 30.0, currentPrice: 29.8, prevClose: 30.5, high: 31.0, low: 29.5, volume: 41000000, history: [30.5, 30.2, 30.0, 29.8] },
   { symbol: "AVGO", name: "Broadcom Inc. (博通芯片)", basePrice: 160.0, currentPrice: 162.5, prevClose: 158.0, high: 164.0, low: 157.5, volume: 12000000, history: [158.0, 159.5, 161.0, 162.5] },
   { symbol: "QCOM", name: "Qualcomm Inc. (高通)", basePrice: 170.0, currentPrice: 171.2, prevClose: 169.0, high: 173.0, low: 168.5, volume: 11000000, history: [169.0, 170.1, 170.8, 171.2] },
   { symbol: "TSM", name: "TSMC (台积电 ADR)", basePrice: 140.0, currentPrice: 140.8, prevClose: 139.2, high: 142.0, low: 138.5, volume: 15000000, history: [139.2, 139.8, 140.2, 140.8] },
+  { symbol: "PLTR", name: "Palantir Technologies (帕兰提尔 AI)", basePrice: 32.0, currentPrice: 33.5, prevClose: 31.8, high: 34.0, low: 31.5, volume: 42000000, history: [31.8, 32.2, 32.9, 33.5] },
+  { symbol: "JNJ", name: "Johnson & Johnson (强生)", basePrice: 160.0, currentPrice: 161.2, prevClose: 159.5, high: 162.0, low: 159.0, volume: 7500000, history: [159.5, 160.2, 160.8, 161.2] },
+  { symbol: "WMT", name: "Walmart Inc. (沃尔玛)", basePrice: 73.0, currentPrice: 74.2, prevClose: 72.8, high: 74.8, low: 72.5, volume: 15000000, history: [72.8, 73.2, 73.8, 74.2] },
+  { symbol: "COST", name: "Costco Wholesale (开市客)", basePrice: 880.0, currentPrice: 888.5, prevClose: 875.0, high: 892.0, low: 872.0, volume: 2800000, history: [875.0, 880.2, 884.5, 888.5] },
+  { symbol: "PG", name: "Procter & Gamble (宝洁)", basePrice: 168.0, currentPrice: 169.5, prevClose: 167.2, high: 170.2, low: 167.0, volume: 6100000, history: [167.2, 168.0, 168.8, 169.5] },
+  { symbol: "JPM", name: "JPMorgan Chase & Co. (摩根大通)", basePrice: 215.0, currentPrice: 217.2, prevClose: 213.8, high: 218.5, low: 213.5, volume: 9200000, history: [213.8, 215.0, 216.1, 217.2] },
+  { symbol: "BAC", name: "Bank of America (美国银行)", basePrice: 40.0, currentPrice: 40.8, prevClose: 39.8, high: 41.2, low: 39.5, volume: 28000000, history: [39.8, 40.1, 40.5, 40.8] },
+  { symbol: "UNH", name: "UnitedHealth Group (联合健康)", basePrice: 560.0, currentPrice: 565.0, prevClose: 558.0, high: 568.0, low: 556.0, volume: 3200000, history: [558.0, 560.5, 562.8, 565.0] },
+  { symbol: "LLY", name: "Eli Lilly and Co. (礼来制药)", basePrice: 920.0, currentPrice: 932.0, prevClose: 915.0, high: 938.0, low: 912.0, volume: 3900000, history: [915.0, 921.0, 926.5, 932.0] },
+  { symbol: "NVO", name: "Novo Nordisk (诺和诺德)", basePrice: 130.0, currentPrice: 131.8, prevClose: 129.2, high: 132.5, low: 129.0, volume: 4500000, history: [129.2, 130.1, 131.0, 131.8] },
+  { symbol: "XOM", name: "Exxon Mobil Corp. (埃克森美孚)", basePrice: 118.0, currentPrice: 119.2, prevClose: 117.5, high: 120.0, low: 117.2, volume: 13000000, history: [117.5, 118.2, 118.8, 119.2] },
+  { symbol: "CVX", name: "Chevron Corp. (雪佛龙)", basePrice: 145.0, currentPrice: 146.5, prevClose: 144.2, high: 147.2, low: 144.0, volume: 7800000, history: [144.2, 145.0, 145.8, 146.5] },
+  { symbol: "CRM", name: "Salesforce Inc. (赛富时)", basePrice: 250.0, currentPrice: 253.2, prevClose: 248.5, high: 255.0, low: 248.0, volume: 5100000, history: [248.5, 250.2, 251.8, 253.2] },
+  { symbol: "ORCL", name: "Oracle Corp. (甲骨文)", basePrice: 140.0, currentPrice: 142.1, prevClose: 139.0, high: 143.5, low: 138.8, volume: 8200000, history: [139.0, 140.2, 141.2, 142.1] },
+  { symbol: "NFLX", name: "Netflix Inc. (网飞/奈飞)", basePrice: 650.0, currentPrice: 658.0, prevClose: 645.0, high: 662.0, low: 644.0, volume: 3400000, history: [645.0, 650.2, 654.1, 658.0] },
+  { symbol: "NKE", name: "Nike Inc. (耐克)", basePrice: 80.0, currentPrice: 81.2, prevClose: 79.5, high: 82.0, low: 79.2, volume: 9500000, history: [79.5, 80.1, 80.6, 81.2] },
+  { symbol: "MCD", name: "McDonald's Corp. (麦当劳)", basePrice: 285.0, currentPrice: 288.0, prevClose: 283.5, high: 289.5, low: 283.0, volume: 3100000, history: [283.5, 285.2, 286.8, 288.0] },
+  { symbol: "SBUX", name: "Starbucks Corp. (星巴克)", basePrice: 95.0, currentPrice: 96.4, prevClose: 94.2, high: 97.0, low: 94.0, volume: 7200000, history: [94.2, 95.0, 95.8, 96.4] },
+  { symbol: "BA", name: "Boeing Co. (波音)", basePrice: 175.0, currentPrice: 177.2, prevClose: 173.8, high: 178.5, low: 173.2, volume: 6800000, history: [173.8, 175.0, 176.1, 177.2] },
+  { symbol: "V", name: "Visa Inc. (维萨)", basePrice: 270.0, currentPrice: 272.5, prevClose: 268.5, high: 274.0, low: 268.0, volume: 5500000, history: [268.5, 270.1, 271.2, 272.5] },
+  { symbol: "MA", name: "Mastercard Inc. (万事达卡)", basePrice: 460.0, currentPrice: 464.8, prevClose: 458.0, high: 467.0, low: 457.5, volume: 2900000, history: [458.0, 460.5, 462.8, 464.8] },
   { symbol: "BABA", name: "Alibaba Group (阿里巴巴 ADR)", basePrice: 72.0, currentPrice: 71.8, prevClose: 72.5, high: 73.2, low: 71.0, volume: 19000000, history: [72.5, 72.2, 72.0, 71.8] },
   { symbol: "PDD", name: "PDD Holdings (拼多多 ADR)", basePrice: 120.0, currentPrice: 121.5, prevClose: 118.9, high: 124.0, low: 118.0, volume: 11000000, history: [118.9, 119.8, 120.5, 121.5] },
+  { symbol: "BIDU", name: "Baidu Inc. (百度 ADR)", basePrice: 88.0, currentPrice: 89.2, prevClose: 87.5, high: 90.0, low: 87.0, volume: 4200000, history: [87.5, 88.1, 88.8, 89.2] },
+  { symbol: "BILI", name: "Bilibili Inc. (哔哩哔哩 ADR)", basePrice: 14.5, currentPrice: 14.8, prevClose: 14.2, high: 15.2, low: 14.0, volume: 8200000, history: [14.2, 14.5, 14.6, 14.8] },
+  { symbol: "JD", name: "JD.com Inc. (京东 ADR)", basePrice: 26.0, currentPrice: 26.5, prevClose: 25.8, high: 27.0, low: 25.5, volume: 12000000, history: [25.8, 26.1, 26.3, 26.5] },
+  { symbol: "NIO", name: "NIO Inc. (蔚来汽车 ADR)", basePrice: 4.2, currentPrice: 4.35, prevClose: 4.15, high: 4.45, low: 4.10, volume: 28000000, history: [4.15, 4.22, 4.28, 4.35] },
+  { symbol: "XPEV", name: "XPeng Inc. (小鹏汽车 ADR)", basePrice: 7.8, currentPrice: 8.05, prevClose: 7.70, high: 8.20, low: 7.65, volume: 16000000, history: [7.70, 7.82, 7.95, 8.05] },
+  { symbol: "LI", name: "Li Auto Inc. (理想汽车 ADR)", basePrice: 19.5, currentPrice: 20.1, prevClose: 19.2, high: 20.5, low: 19.0, volume: 11000000, history: [19.2, 19.6, 19.8, 20.1] },
   { symbol: "0700.HK", name: "Tencent Holdings (腾讯控股)", basePrice: 380.0, currentPrice: 382.4, prevClose: 378.0, high: 385.0, low: 377.2, volume: 12000000, history: [378.0, 379.5, 381.0, 382.4] },
   { symbol: "9988.HK", name: "Alibaba HK (阿里巴巴-SW)", basePrice: 73.0, currentPrice: 72.8, prevClose: 73.5, high: 74.2, low: 72.0, volume: 35000000, history: [73.5, 73.2, 73.0, 72.8] },
-  { symbol: "600519.SH", name: "Kweichow Moutai (贵州茅台 A股)", basePrice: 1650.0, currentPrice: 1654.5, prevClose: 1642.0, high: 1670.0, low: 1640.0, volume: 1800000, history: [1642.0, 1648.0, 1650.0, 1654.5] }
+  { symbol: "3690.HK", name: "Meituan (美团-W)", basePrice: 115.0, currentPrice: 116.8, prevClose: 113.5, high: 118.0, low: 113.0, volume: 22000000, history: [113.5, 114.8, 115.9, 116.8] },
+  { symbol: "1810.HK", name: "Xiaomi Corp. (小米集团-W)", basePrice: 17.2, currentPrice: 17.5, prevClose: 17.0, high: 17.8, low: 16.9, volume: 48000000, history: [17.0, 17.2, 17.3, 17.5] },
+  { symbol: "600519.SH", name: "Kweichow Moutai (贵州茅台 A股)", basePrice: 1650.0, currentPrice: 1654.5, prevClose: 1642.0, high: 1670.0, low: 1640.0, volume: 1800000, history: [1642.0, 1648.0, 1650.0, 1654.5] },
+  { symbol: "000858.SZ", name: "Wuliangye (五粮液 A股)", basePrice: 125.0, currentPrice: 126.2, prevClose: 124.0, high: 127.5, low: 123.8, volume: 8500000, history: [124.0, 125.0, 125.6, 126.2] },
+  { symbol: "300750.SZ", name: "CATL (宁德时代 A股)", basePrice: 180.0, currentPrice: 182.5, prevClose: 178.2, high: 184.0, low: 178.0, volume: 14000000, history: [178.2, 179.8, 181.0, 182.5] },
+  { symbol: "002594.SZ", name: "BYD Co. (比亚迪 A股)", basePrice: 240.0, currentPrice: 243.8, prevClose: 238.5, high: 246.0, low: 238.0, volume: 9200000, history: [238.5, 240.5, 242.0, 243.8] }
 ];
 
 const LOCAL_STORAGE_STOCKS_KEY = "stock_app_custom_stocks_v1";
@@ -189,48 +227,80 @@ export async function searchStocks(query: string): Promise<Stock[]> {
   if (!q) return [];
 
   const localStocks = loadStoredStocks();
-  const localMatches = localStocks.filter(
-    s => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)
-  );
+  const map = new Map<string, Stock>();
 
+  // 1. Add all local matches
+  localStocks.forEach(s => {
+    if (s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)) {
+      map.set(s.symbol, s);
+    }
+  });
+
+  const cleanSym = query.trim().toUpperCase();
+
+  // 2. If query looks like a valid ticker symbol (e.g. KO, NEE, PEP) and not in local matches yet
+  if (/^[A-Z0-9\.\-]{1,10}$/.test(cleanSym) && !map.has(cleanSym)) {
+    try {
+      const quote = await fetchStockQuote(cleanSym);
+      if (quote) {
+        map.set(cleanSym, quote);
+      } else {
+        // Fallback stock item for static host
+        map.set(cleanSym, {
+          symbol: cleanSym,
+          name: `${cleanSym} (美股/证券)`,
+          basePrice: 100.0,
+          currentPrice: 100.5,
+          prevClose: 100.0,
+          high: 102.0,
+          low: 99.5,
+          volume: 5000000,
+          history: [100.0, 100.2, 100.5]
+        });
+      }
+    } catch {
+      // Ignore error
+    }
+  }
+
+  // 3. Try Yahoo Finance remote search API via CORS Proxy
   const searchUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=8`;
 
   try {
     const data = await fetchWithProxy(searchUrl, 3000);
     if (data?.quotes && Array.isArray(data.quotes)) {
-      const remoteQuotes = data.quotes.filter((item: any) => item.symbol && item.isYahooFinance);
+      const remoteQuotes = data.quotes.filter((item: any) => item.symbol && (item.isYahooFinance !== false));
 
-      const fetchedStocks = await Promise.all(
+      await Promise.allSettled(
         remoteQuotes.map(async (item: any) => {
           const sym = item.symbol.toUpperCase();
-          const quote = await fetchStockQuote(sym);
-          if (quote) return quote;
-          return {
-            symbol: sym,
-            name: item.longname || item.shortname || sym,
-            basePrice: 100,
-            currentPrice: 100,
-            prevClose: 100,
-            high: 100,
-            low: 100,
-            volume: 1000000
-          };
+          if (!map.has(sym)) {
+            const quote = await fetchStockQuote(sym);
+            if (quote) {
+              map.set(sym, quote);
+            } else {
+              map.set(sym, {
+                symbol: sym,
+                name: item.longname || item.shortname || sym,
+                basePrice: 100,
+                currentPrice: 100,
+                prevClose: 100,
+                high: 100,
+                low: 100,
+                volume: 1000000
+              });
+            }
+          }
         })
       );
-
-      const map = new Map<string, Stock>();
-      localMatches.forEach(s => map.set(s.symbol, s));
-      fetchedStocks.forEach(s => map.set(s.symbol, s));
-
-      const merged = Array.from(map.values());
-      saveStoredStocks(merged);
-      return merged.slice(0, 30);
     }
   } catch {
-    // Fallback to local search
+    // Fallback to local map
   }
 
-  return localMatches;
+  const resultList = Array.from(map.values());
+  saveStoredStocks(resultList);
+  return resultList.slice(0, 30);
 }
 
 /**

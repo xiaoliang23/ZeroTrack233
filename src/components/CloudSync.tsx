@@ -3,6 +3,7 @@ import { auth, db } from '../firebase';
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
+  sendPasswordResetEmail,
   signOut, 
   onAuthStateChanged, 
   User,
@@ -106,6 +107,61 @@ const getAuthErrorMessage = (code: string, rawMsg?: string) => {
 
 const GITHUB_CONFIG_KEY = 'stock_app_github_config_v1';
 
+// Helper function to merge local and remote stock data smartly without losing stocks
+function mergeSyncPayload(localData: any, remoteData: any) {
+  if (!remoteData) return localData;
+
+  // 1. Merge Watchlist (unique array of string symbols)
+  const localWatchlist: string[] = Array.isArray(localData?.watchlist) ? localData.watchlist : [];
+  const remoteWatchlist: string[] = Array.isArray(remoteData?.watchlist) ? remoteData.watchlist : [];
+  const mergedWatchlist = Array.from(new Set([...remoteWatchlist, ...localWatchlist]));
+
+  // 2. Merge Positions
+  const localPositions: any[] = Array.isArray(localData?.positions) ? localData.positions : [];
+  const remotePositions: any[] = Array.isArray(remoteData?.positions) ? remoteData.positions : [];
+
+  const posMap = new Map<string, any>();
+  remotePositions.forEach((pos) => {
+    if (pos && pos.symbol) {
+      posMap.set(String(pos.symbol).toUpperCase(), pos);
+    }
+  });
+  localPositions.forEach((pos) => {
+    if (pos && pos.symbol && !posMap.has(String(pos.symbol).toUpperCase())) {
+      posMap.set(String(pos.symbol).toUpperCase(), pos);
+    }
+  });
+  const mergedPositions = Array.from(posMap.values());
+
+  // 3. Merge Price Alerts
+  const localAlerts: any[] = Array.isArray(localData?.priceAlerts) ? localData.priceAlerts : [];
+  const remoteAlerts: any[] = Array.isArray(remoteData?.priceAlerts) ? remoteData.priceAlerts : [];
+  const alertsMap = new Map<string, any>();
+  remoteAlerts.forEach((a) => {
+    if (a && a.symbol) {
+      alertsMap.set(`${String(a.symbol).toUpperCase()}_${a.targetPrice}_${a.condition}`, a);
+    }
+  });
+  localAlerts.forEach((a) => {
+    if (a && a.symbol) {
+      const key = `${String(a.symbol).toUpperCase()}_${a.targetPrice}_${a.condition}`;
+      if (!alertsMap.has(key)) alertsMap.set(key, a);
+    }
+  });
+  const mergedAlerts = Array.from(alertsMap.values());
+
+  return {
+    watchlist: mergedWatchlist.length > 0 ? mergedWatchlist : localWatchlist,
+    positions: mergedPositions.length > 0 ? mergedPositions : localPositions,
+    priceAlerts: mergedAlerts,
+    theme: remoteData.theme || localData?.theme || 'dark',
+    isUpRed: remoteData.isUpRed !== undefined ? remoteData.isUpRed : localData?.isUpRed,
+    pnlLossAlertEnabled: remoteData.pnlLossAlertEnabled !== undefined ? remoteData.pnlLossAlertEnabled : localData?.pnlLossAlertEnabled,
+    pnlLossAlertThreshold: remoteData.pnlLossAlertThreshold !== undefined ? remoteData.pnlLossAlertThreshold : localData?.pnlLossAlertThreshold,
+    updatedAt: new Date().toISOString()
+  };
+}
+
 export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
   // Provider Choice: 'github' or 'firebase'
   const [providerMode, setProviderMode] = useState<'github' | 'firebase'>('github');
@@ -123,10 +179,11 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
   const activeUser = user ? { email: user.email || 'Firebase用户', uid: user.uid, isFirebase: true } : (localUser ? { email: localUser.email, uid: localUser.uid, isFirebase: false } : null);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const [activeTab, setActiveTab] = useState<'login' | 'register' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
@@ -150,40 +207,84 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
   const [ghSyncStatus, setGhSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   const [ghLastSynced, setGhLastSynced] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [ghHasPulledInitial, setGhHasPulledInitial] = useState(false);
 
-  // Load saved GitHub config on mount
+  // Keep a ref to latest data to avoid stale closures during async sync/merge
+  const dataRef = useRef(data);
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
+  const isSyncingFromCloudRef = useRef(false);
+  const loadedUidRef = useRef<string | null>(null);
+
+  // Load saved GitHub config on mount & perform initial pull
   useEffect(() => {
     try {
       const saved = localStorage.getItem(GITHUB_CONFIG_KEY);
       let tokenToVerify = ((import.meta as any).env?.VITE_GITHUB_TOKEN as string) || '';
+      let savedMode: 'gist' | 'repo' = 'gist';
+      let savedOwner = '';
+      let savedRepo = '';
+      let savedPath = 'stock_trading_data.json';
+      let savedGist: GitHubGistInfo | null = null;
+      let savedAutoSync = true;
       
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.token) {
           tokenToVerify = parsed.token;
-          if (parsed.mode) setGithubMode(parsed.mode);
-          if (parsed.repoOwner) setRepoOwner(parsed.repoOwner);
-          if (parsed.repoName) setRepoName(parsed.repoName);
-          if (parsed.repoPath) setRepoPath(parsed.repoPath);
-          if (parsed.gistInfo) setGistInfo(parsed.gistInfo);
-          if (typeof parsed.autoSync === 'boolean') setAutoSyncGithub(parsed.autoSync);
+          if (parsed.mode) { setGithubMode(parsed.mode); savedMode = parsed.mode; }
+          if (parsed.repoOwner) { setRepoOwner(parsed.repoOwner); savedOwner = parsed.repoOwner; }
+          if (parsed.repoName) { setRepoName(parsed.repoName); savedRepo = parsed.repoName; }
+          if (parsed.repoPath) { setRepoPath(parsed.repoPath); savedPath = parsed.repoPath; }
+          if (parsed.gistInfo) { setGistInfo(parsed.gistInfo); savedGist = parsed.gistInfo; }
+          if (typeof parsed.autoSync === 'boolean') { setAutoSyncGithub(parsed.autoSync); savedAutoSync = parsed.autoSync; }
         }
       }
 
       setGithubToken(tokenToVerify);
       if (tokenToVerify) {
         verifyGitHubToken(tokenToVerify)
-          .then(u => {
+          .then(async (u) => {
             setGithubUser(u);
-            if (!repoOwner) setRepoOwner(u.login);
+            const owner = savedOwner || u.login;
+            if (!repoOwner) setRepoOwner(owner);
             setGhSyncStatus('synced');
+
+            // Pull remote stock data from Gist/Repo immediately on load
+            try {
+              let pulledData: GitHubSyncPayload | null = null;
+
+              if (savedMode === 'gist') {
+                const res = await syncGistPull(tokenToVerify, savedGist?.id);
+                pulledData = res.data;
+                setGistInfo(res.gistInfo);
+              } else if (owner && savedRepo && savedPath) {
+                const res = await pullFromGitHubRepo(tokenToVerify, owner, savedRepo, savedPath);
+                pulledData = res.data;
+              }
+
+              if (pulledData) {
+                onRemoteUpdate(pulledData);
+                setGhLastSynced(new Date().toLocaleTimeString('zh-CN'));
+              }
+            } catch (err) {
+              console.log('GitHub initial pull skipped or file empty:', err);
+            } finally {
+              setGhHasPulledInitial(true);
+            }
           })
           .catch(() => {
             setGhSyncStatus('idle');
+            setGhHasPulledInitial(true);
           });
+      } else {
+        setGhHasPulledInitial(true);
       }
     } catch (e) {
       console.error('Failed to parse saved github config', e);
+      setGhHasPulledInitial(true);
     }
   }, []);
 
@@ -222,17 +323,33 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
-  // Firebase Auth Listener
+  // Clean default template for brand new accounts
+  const CLEAN_DEFAULT_DATA = {
+    watchlist: ["AAPL", "NVDA", "TSLA", "0700.HK"],
+    positions: [
+      { symbol: "AAPL", quantity: 10, buyPrice: 172.5, dividends: 12.5 },
+      { symbol: "NVDA", quantity: 15, buyPrice: 820.0, dividends: 0.0 }
+    ],
+    priceAlerts: [],
+    theme: 'dark',
+    isUpRed: true,
+    pnlLossAlertEnabled: true,
+    pnlLossAlertThreshold: 10
+  };
+
+  // Firebase Auth Listener - Strict Data Isolation & Pure Account Restore
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
         setSyncStatus('syncing');
+        isSyncingFromCloudRef.current = true;
         try {
           const docRef = doc(db, 'users', u.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const remoteData = docSnap.data();
+            // Load this account's exact stored cloud stocks directly to ensure strict data isolation
             onRemoteUpdate(remoteData);
             if (remoteData.updatedAt) {
               setLastSyncedTime(new Date(remoteData.updatedAt).toLocaleTimeString('zh-CN'));
@@ -240,19 +357,27 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
               setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
             }
           } else {
-            // New user registered: upload local data immediately
-            await setDoc(docRef, {
-              ...data,
+            // Brand new Google/Email user: initialize with clean default data (prevents cross-account stock leaking)
+            const newDocData = {
+              ...CLEAN_DEFAULT_DATA,
               updatedAt: new Date().toISOString()
-            });
+            };
+            await setDoc(docRef, newDocData);
+            onRemoteUpdate(newDocData);
             setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
           }
+          loadedUidRef.current = u.uid;
           setSyncStatus('synced');
         } catch (err) {
           console.error("Error syncing with Firestore:", err);
           setSyncStatus('error');
+        } finally {
+          setTimeout(() => {
+            isSyncingFromCloudRef.current = false;
+          }, 300);
         }
       } else {
+        loadedUidRef.current = null;
         setSyncStatus('idle');
       }
       setInitialLoadDone(true);
@@ -261,9 +386,48 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     return () => unsubscribe();
   }, []);
 
-  // Auto-Sync to Firebase when data changes
+  // Local User Account Restore & Sync (Isolated per local user UID)
+  useEffect(() => {
+    if (!localUser || user) return;
+    const userKey = 'zerotrack_user_stocks_' + localUser.uid;
+    const saved = localStorage.getItem(userKey);
+    isSyncingFromCloudRef.current = true;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        onRemoteUpdate(parsed);
+      } catch (e) {
+        console.error('Error parsing local user stocks:', e);
+      }
+    } else {
+      const newLocalData = {
+        ...CLEAN_DEFAULT_DATA,
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem(userKey, JSON.stringify(newLocalData));
+      onRemoteUpdate(newLocalData);
+    }
+    loadedUidRef.current = localUser.uid;
+    setTimeout(() => {
+      isSyncingFromCloudRef.current = false;
+    }, 300);
+    setSyncStatus('synced');
+    setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
+  }, [localUser?.uid, user]);
+
+  useEffect(() => {
+    if (!localUser || user) return;
+    if (isSyncingFromCloudRef.current || loadedUidRef.current !== localUser.uid) return;
+    const userKey = 'zerotrack_user_stocks_' + localUser.uid;
+    localStorage.setItem(userKey, JSON.stringify(data));
+    setSyncStatus('synced');
+    setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
+  }, [data, localUser?.uid, user]);
+
+  // Auto-Sync to Firebase when data changes (guarded against cross-account overwrites)
   useEffect(() => {
     if (!initialLoadDone || !user) return;
+    if (isSyncingFromCloudRef.current || loadedUidRef.current !== user.uid) return;
 
     const timer = setTimeout(async () => {
       setSyncStatus('syncing');
@@ -279,14 +443,14 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
         console.error("Auto-sync error:", err);
         setSyncStatus('error');
       }
-    }, 2000);
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, [data, user, initialLoadDone]);
 
   // Auto-Sync to GitHub when data changes (debounced)
   useEffect(() => {
-    if (!githubToken || !githubUser || !autoSyncGithub) return;
+    if (!githubToken || !githubUser || !autoSyncGithub || !ghHasPulledInitial) return;
 
     const timer = setTimeout(async () => {
       setGhSyncStatus('syncing');
@@ -321,7 +485,7 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [data, githubToken, githubUser, autoSyncGithub, githubMode, repoOwner, repoName, repoPath]);
+  }, [data, githubToken, githubUser, autoSyncGithub, githubMode, repoOwner, repoName, repoPath, ghHasPulledInitial]);
 
   // Handlers for Firebase & Local Auth
   const handleAuth = async (e: React.FormEvent) => {
@@ -350,26 +514,31 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
             firebaseErr.code === 'auth/operation-not-allowed' ||
             firebaseErr.code === 'auth/unauthorized-domain' ||
             firebaseErr.code === 'auth/network-request-failed' ||
+            firebaseErr.code === 'auth/invalid-credential' ||
             !auth
           ) {
             const localUsers = JSON.parse(localStorage.getItem('stock_app_local_users_v1') || '{}');
-            if (localUsers[cleanEmail] && localUsers[cleanEmail].password === cleanPassword) {
-              const u = { email: cleanEmail, uid: 'local_' + btoa(cleanEmail), displayName: cleanEmail.split('@')[0] };
-              setLocalUser(u);
-              localStorage.setItem('stock_app_local_user_v1', JSON.stringify(u));
-              setSyncStatus('synced');
-              setSuccessMsg('登录成功！（离线云存储账号）已接入极速同步');
-            } else if (!localUsers[cleanEmail]) {
-              // Auto-register local account
+            if (localUsers[cleanEmail]) {
+              if (localUsers[cleanEmail].password === cleanPassword) {
+                const u = { email: cleanEmail, uid: 'local_' + btoa(cleanEmail), displayName: cleanEmail.split('@')[0] };
+                setLocalUser(u);
+                localStorage.setItem('stock_app_local_user_v1', JSON.stringify(u));
+                setSyncStatus('synced');
+                setSuccessMsg('登录成功！（专属安全账号）已接入极速同步');
+              } else {
+                setError('密码不正确！请检查密码输入，或使用【找回密码】功能快捷重置');
+                setLoading(false);
+                return;
+              }
+            } else {
+              // Account doesn't exist locally yet, create local user account with entered credentials
               localUsers[cleanEmail] = { email: cleanEmail, password: cleanPassword };
               localStorage.setItem('stock_app_local_users_v1', JSON.stringify(localUsers));
               const u = { email: cleanEmail, uid: 'local_' + btoa(cleanEmail), displayName: cleanEmail.split('@')[0] };
               setLocalUser(u);
               localStorage.setItem('stock_app_local_user_v1', JSON.stringify(u));
               setSyncStatus('synced');
-              setSuccessMsg('注册并登录成功！（离线专属账号）已接入数据同步');
-            } else {
-              throw firebaseErr;
+              setSuccessMsg('注册并登录成功！（专属安全账号）已接入极速同步');
             }
           } else {
             throw firebaseErr;
@@ -399,7 +568,7 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
             setLocalUser(u);
             localStorage.setItem('stock_app_local_user_v1', JSON.stringify(u));
             setSyncStatus('synced');
-            setSuccessMsg('注册成功！（离线专属账号）已打通极速同步');
+            setSuccessMsg('注册成功！（专属安全账号）已打通极速同步');
           } else {
             throw firebaseErr;
           }
@@ -417,12 +586,83 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+    setLoading(true);
+
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setError('请输入要找回密码的邮箱地址');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      let emailResetSent = false;
+      try {
+        if (auth) {
+          await sendPasswordResetEmail(auth, cleanEmail);
+          emailResetSent = true;
+          setSuccessMsg(`重置密码邮件已发送至 ${cleanEmail}，请打开邮箱查收重置链接！`);
+        }
+      } catch (firebaseErr: any) {
+        console.warn('Firebase reset email notice:', firebaseErr);
+        
+        // Handle reset for local user account
+        const localUsers = JSON.parse(localStorage.getItem('stock_app_local_users_v1') || '{}');
+        const newPwd = newPassword.trim();
+
+        if (newPwd.length >= 6) {
+          localUsers[cleanEmail] = { email: cleanEmail, password: newPwd };
+          localStorage.setItem('stock_app_local_users_v1', JSON.stringify(localUsers));
+          
+          const u = { email: cleanEmail, uid: 'local_' + btoa(cleanEmail), displayName: cleanEmail.split('@')[0] };
+          setLocalUser(u);
+          localStorage.setItem('stock_app_local_user_v1', JSON.stringify(u));
+          setSyncStatus('synced');
+          setSuccessMsg('密码重置成功！已自动为您登录并恢复股票同步数据');
+          
+          setTimeout(() => {
+            setPassword(newPwd);
+            setNewPassword('');
+            setIsOpen(false);
+            setSuccessMsg('');
+          }, 1500);
+          return;
+        } else if (newPwd.length > 0) {
+          setError('新密码长度至少需要 6 个字符');
+          setLoading(false);
+          return;
+        } else {
+          setError('请在下方【设置新密码】框中填入至少 6 位的新密码，点击后即可一键重置并登录！');
+          setLoading(false);
+          return;
+        }
+      }
+
+      if (emailResetSent) {
+        setTimeout(() => {
+          setActiveTab('login');
+        }, 3500);
+      }
+    } catch (err: any) {
+      console.error('Password reset error:', err);
+      setError(getAuthErrorMessage(err.code || '', err.message || ''));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGoogleAuth = async () => {
     setError('');
     setSuccessMsg('');
     setGoogleLoading(true);
     try {
       const provider = new GoogleAuthProvider();
+      // Force Google account chooser so users can switch between multiple Google accounts
+      provider.setCustomParameters({ prompt: 'select_account' });
       await signInWithPopup(auth, provider);
       setSuccessMsg('Google 账号已成功关联同步');
       setTimeout(() => {
@@ -432,14 +672,20 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     } catch (err: any) {
       if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
         console.log('Google sign-in popup was closed by user.');
-      } else if (err?.code === 'auth/operation-not-allowed' || err?.code === 'auth/unauthorized-domain') {
-        // Fallback to local guest account
-        const guestEmail = 'guest_google@zerotrack.app';
-        const u = { email: guestEmail, uid: 'local_guest_google', displayName: 'Google Guest User' };
+      } else if (
+        err?.code === 'auth/operation-not-allowed' || 
+        err?.code === 'auth/unauthorized-domain' ||
+        err?.code === 'auth/network-request-failed' ||
+        !auth
+      ) {
+        // Fallback to local user account with isolated UID per email
+        const cleanEmail = email.trim() || 'google_user@zerotrack.app';
+        const uniqueUid = 'local_google_' + btoa(cleanEmail.toLowerCase());
+        const u = { email: cleanEmail, uid: uniqueUid, displayName: cleanEmail.split('@')[0] || 'Google User' };
         setLocalUser(u);
         localStorage.setItem('stock_app_local_user_v1', JSON.stringify(u));
         setSyncStatus('synced');
-        setSuccessMsg('已为您启动本地专属防护账号，数据将全自动同步！');
+        setSuccessMsg(`已为您启用专属安全账号（${cleanEmail}），已打通独立极速同步！`);
         setTimeout(() => setIsOpen(false), 1200);
       } else {
         console.error('Google Auth error:', err);
@@ -458,10 +704,26 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     }
     setUser(null);
     setLocalUser(null);
+    loadedUidRef.current = null;
     localStorage.removeItem('stock_app_local_user_v1');
     setSyncStatus('idle');
     setLastSyncedTime(null);
-    setSuccessMsg('已退出登录');
+
+    // Reset state to clean default so previous user's stocks do not remain on screen after logout
+    const defaultData = {
+      watchlist: ["AAPL", "NVDA", "TSLA", "0700.HK"],
+      positions: [
+        { symbol: "AAPL", quantity: 10, buyPrice: 172.5, dividends: 12.5 },
+        { symbol: "NVDA", quantity: 15, buyPrice: 820.0, dividends: 0.0 }
+      ],
+      priceAlerts: [],
+      theme: 'dark',
+      isUpRed: true,
+      pnlLossAlertEnabled: true,
+      pnlLossAlertThreshold: 10
+    };
+    onRemoteUpdate(defaultData);
+    setSuccessMsg('已安全退出登录，已重置为初始默认视角');
     setTimeout(() => setSuccessMsg(''), 1500);
   };
 
@@ -499,7 +761,7 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
         if (remoteData.updatedAt) {
           setLastSyncedTime(new Date(remoteData.updatedAt).toLocaleTimeString('zh-CN'));
         }
-        setSuccessMsg('已从云端恢复最新数据');
+        setSuccessMsg('已从云端成功恢复并调取此账号的数据');
         setTimeout(() => setSuccessMsg(''), 2000);
       } else {
         setSuccessMsg('云端尚无备份数据');
@@ -525,13 +787,49 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
       const u = await verifyGitHubToken(githubToken);
       setGithubUser(u);
       
-      // Auto fill owner if empty
+      const owner = repoOwner || u.login;
       if (!repoOwner) setRepoOwner(u.login);
 
-      saveGitHubConfig(githubToken, githubMode, repoOwner || u.login, repoName, repoPath, gistInfo, autoSyncGithub);
+      // Auto pull & merge cloud data
+      let pulledData: GitHubSyncPayload | null = null;
+      let currentGist = gistInfo;
+
+      if (githubMode === 'gist') {
+        try {
+          const res = await syncGistPull(githubToken, gistInfo?.id);
+          pulledData = res.data;
+          currentGist = res.gistInfo;
+          setGistInfo(res.gistInfo);
+        } catch (e) {
+          console.log('No existing Gist found yet, will create on sync');
+        }
+      } else if (owner && repoName && repoPath) {
+        try {
+          const res = await pullFromGitHubRepo(githubToken, owner, repoName, repoPath);
+          pulledData = res.data;
+        } catch (e) {
+          console.log('No existing Repo file found yet, will create on sync');
+        }
+      }
+
+      if (pulledData) {
+        onRemoteUpdate(pulledData);
+        setSuccessMsg(`验证成功！已调取加载 GitHub @${u.login} 的 ${pulledData.watchlist?.length || 0} 只自选股数据`);
+
+        if (githubMode === 'gist') {
+          saveGitHubConfig(githubToken, githubMode, owner, repoName, repoPath, currentGist, autoSyncGithub);
+        } else if (owner && repoName && repoPath) {
+          saveGitHubConfig(githubToken, githubMode, owner, repoName, repoPath, gistInfo, autoSyncGithub);
+        }
+      } else {
+        saveGitHubConfig(githubToken, githubMode, owner, repoName, repoPath, gistInfo, autoSyncGithub);
+        setSuccessMsg(`验证成功！已关联 GitHub 账号: @${u.login}`);
+      }
+
       setGhSyncStatus('synced');
-      setSuccessMsg(`验证成功！已连接 GitHub 账号: @${u.login}`);
-      setTimeout(() => setSuccessMsg(''), 2500);
+      setGhLastSynced(new Date().toLocaleTimeString('zh-CN'));
+      setGhHasPulledInitial(true);
+      setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err: any) {
       setError(err.message || 'GitHub Token 验证失败');
       setGithubUser(null);
@@ -618,7 +916,7 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
       onRemoteUpdate(pulledData);
       setGhSyncStatus('synced');
       setGhLastSynced(new Date().toLocaleTimeString('zh-CN'));
-      setSuccessMsg(`从 GitHub 恢复成功！包含了 ${pulledData.watchlist?.length || 0} 只自选股、${pulledData.positions?.length || 0} 个持仓仓位`);
+      setSuccessMsg(`从 GitHub 调取恢复成功！包含了 ${pulledData.watchlist?.length || 0} 只自选股、${pulledData.positions?.length || 0} 个持仓仓位`);
       setTimeout(() => setSuccessMsg(''), 3500);
     } catch (err: any) {
       console.error("GitHub pull error:", err);
@@ -649,12 +947,12 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
       {/* Header Sync Status Trigger Button */}
       <div 
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium cursor-pointer border transition-all duration-200 select-none shadow-sm ${
+        className={`flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-xs font-medium cursor-pointer border transition-all duration-200 select-none shadow-2xs ${
           isGithubActive
             ? 'bg-slate-900 dark:bg-slate-800 text-white border-slate-700 hover:border-slate-500'
             : isFirebaseActive
             ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border-emerald-500/20'
-            : 'bg-theme-bg-hover hover:bg-theme-border text-theme-text-muted hover:text-theme-text-primary border-theme-border'
+            : 'bg-theme-bg-hover hover:bg-theme-border text-theme-text-muted hover:text-theme-text-primary border-theme-border/80'
         }`}
         title={
           isGithubActive
@@ -679,15 +977,15 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
         </span>
       </div>
 
-      {/* Non-Blocking Popover */}
+      {/* Non-Blocking Popover / Modal */}
       {isOpen && (
         <>
           <div 
-            className="fixed inset-0 z-[90] bg-black/20 backdrop-blur-[1px] transition-opacity"
+            className="fixed inset-0 z-[90] bg-black/30 backdrop-blur-[2px] transition-opacity"
             onClick={() => setIsOpen(false)}
           />
 
-          <div className="absolute right-0 top-full mt-2 w-[350px] sm:w-[420px] max-w-[calc(100vw-1.5rem)] bg-theme-card border border-theme-border rounded-2xl md:rounded-3xl shadow-2xl z-[100] p-5 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="fixed inset-x-3 top-14 sm:inset-auto sm:right-4 sm:top-14 sm:mt-1.5 w-auto sm:w-[420px] max-w-[calc(100vw-1.5rem)] bg-theme-card border border-theme-border rounded-2xl md:rounded-3xl shadow-2xl z-[100] p-4 sm:p-5 max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-theme-border">
               <div className="flex items-center gap-2">
@@ -1078,93 +1376,175 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
                     >
                       新用户注册
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => { setActiveTab('forgot'); setError(''); setSuccessMsg(''); }}
+                      className={`flex-1 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        activeTab === 'forgot' ? 'bg-indigo-600 text-white shadow-md' : 'text-theme-text-muted hover:text-theme-text-primary'
+                      }`}
+                    >
+                      找回密码
+                    </button>
                   </div>
 
-                  {/* Google Quick Login */}
-                  <button
-                    type="button"
-                    onClick={handleGoogleAuth}
-                    disabled={googleLoading}
-                    className="w-full py-2 px-3 mb-2 bg-theme-bg-hover hover:bg-theme-border border border-theme-border rounded-xl text-theme-text-primary text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60"
-                  >
-                    {googleLoading ? <Loader2 size={14} className="animate-spin" /> : (
-                      <>
-                        <svg className="w-4 h-4" viewBox="0 0 24 24">
-                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                        </svg>
-                        <span>Google 账号一键{activeTab === 'login' ? '登录' : '注册'}</span>
-                      </>
-                    )}
-                  </button>
+                  {activeTab !== 'forgot' ? (
+                    <>
+                      {/* Google Quick Login */}
+                      <button
+                        type="button"
+                        onClick={handleGoogleAuth}
+                        disabled={googleLoading}
+                        className="w-full py-2 px-3 mb-2 bg-theme-bg-hover hover:bg-theme-border border border-theme-border rounded-xl text-theme-text-primary text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60"
+                      >
+                        {googleLoading ? <Loader2 size={14} className="animate-spin" /> : (
+                          <>
+                            <svg className="w-4 h-4" viewBox="0 0 24 24">
+                              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                            </svg>
+                            <span>Google 账号一键{activeTab === 'login' ? '登录' : '注册'}</span>
+                          </>
+                        )}
+                      </button>
 
-                  <div className="relative my-2 text-center">
-                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-theme-border"></div></div>
-                    <span className="relative px-2 bg-theme-card text-[10px] text-theme-text-muted uppercase tracking-wider">或使用电子邮箱</span>
-                  </div>
+                      <div className="relative my-2 text-center">
+                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-theme-border"></div></div>
+                        <span className="relative px-2 bg-theme-card text-[10px] text-theme-text-muted uppercase tracking-wider">或使用电子邮箱</span>
+                      </div>
 
-                  <form onSubmit={handleAuth} className="space-y-2.5">
-                    <div>
-                      <label className="block text-[10px] font-bold text-theme-text-secondary uppercase mb-1 flex items-center gap-1">
-                        <Mail size={11} className="text-indigo-400" />
-                        <span>邮箱账号</span>
-                      </label>
-                      <input 
-                        type="email" 
-                        required
-                        value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        className="w-full bg-theme-bg border border-theme-border rounded-xl px-3 py-1.5 text-xs text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                        placeholder="your-name@example.com"
-                      />
-                    </div>
+                      <form onSubmit={handleAuth} className="space-y-2.5">
+                        <div>
+                          <label className="block text-[10px] font-bold text-theme-text-secondary uppercase mb-1 flex items-center gap-1">
+                            <Mail size={11} className="text-indigo-400" />
+                            <span>邮箱账号</span>
+                          </label>
+                          <input 
+                            type="email" 
+                            required
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
+                            className="w-full bg-theme-bg border border-theme-border rounded-xl px-3 py-1.5 text-xs text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                            placeholder="your-name@example.com"
+                          />
+                        </div>
 
-                    <div>
-                      <label className="block text-[10px] font-bold text-theme-text-secondary uppercase mb-1 flex items-center gap-1">
-                        <KeyRound size={11} className="text-indigo-400" />
-                        <span>登录密码</span>
-                      </label>
-                      <input 
-                        type="password" 
-                        required
-                        value={password}
-                        onChange={e => setPassword(e.target.value)}
-                        className="w-full bg-theme-bg border border-theme-border rounded-xl px-3 py-1.5 text-xs text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                        placeholder="••••••••"
-                        minLength={6}
-                      />
-                    </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-[10px] font-bold text-theme-text-secondary uppercase flex items-center gap-1">
+                              <KeyRound size={11} className="text-indigo-400" />
+                              <span>登录密码</span>
+                            </label>
+                            {activeTab === 'login' && (
+                              <button
+                                type="button"
+                                onClick={() => { setActiveTab('forgot'); setError(''); setSuccessMsg(''); }}
+                                className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer"
+                              >
+                                忘记密码？
+                              </button>
+                            )}
+                          </div>
+                          <input 
+                            type="password" 
+                            required
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                            className="w-full bg-theme-bg border border-theme-border rounded-xl px-3 py-1.5 text-xs text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                            placeholder="••••••••"
+                            minLength={6}
+                          />
+                        </div>
 
-                    {activeTab === 'register' && (
+                        {activeTab === 'register' && (
+                          <div>
+                            <label className="block text-[10px] font-bold text-theme-text-secondary uppercase mb-1 flex items-center gap-1">
+                              <ShieldCheck size={11} className="text-indigo-400" />
+                              <span>确认密码</span>
+                            </label>
+                            <input 
+                              type="password" 
+                              required
+                              value={confirmPassword}
+                              onChange={e => setConfirmPassword(e.target.value)}
+                              className="w-full bg-theme-bg border border-theme-border rounded-xl px-3 py-1.5 text-xs text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                              placeholder="再次输入相同密码"
+                              minLength={6}
+                            />
+                          </div>
+                        )}
+
+                        <button 
+                          type="submit" 
+                          disabled={loading}
+                          className="w-full py-2 mt-1 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-70"
+                        >
+                          {loading ? <Loader2 size={15} className="animate-spin" /> : (
+                            <span>{activeTab === 'login' ? '安全登录并同步数据' : '创建账号并开启同步'}</span>
+                          )}
+                        </button>
+                      </form>
+                    </>
+                  ) : (
+                    /* Forgot Password Form */
+                    <form onSubmit={handleResetPassword} className="space-y-3 animate-in fade-in duration-200">
+                      <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-[11px] text-theme-text-muted space-y-1">
+                        <div className="font-bold text-indigo-400">密码重置说明:</div>
+                        <p>输入注册时的邮箱，系统将自动向您发送官方重置密码邮件（或允许快速更新离线账号密码）。</p>
+                      </div>
+
                       <div>
                         <label className="block text-[10px] font-bold text-theme-text-secondary uppercase mb-1 flex items-center gap-1">
-                          <ShieldCheck size={11} className="text-indigo-400" />
-                          <span>确认密码</span>
+                          <Mail size={11} className="text-indigo-400" />
+                          <span>注册邮箱账号</span>
+                        </label>
+                        <input 
+                          type="email" 
+                          required
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                          className="w-full bg-theme-bg border border-theme-border rounded-xl px-3 py-1.5 text-xs text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                          placeholder="your-name@example.com"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-theme-text-secondary uppercase mb-1 flex items-center gap-1">
+                          <KeyRound size={11} className="text-indigo-400" />
+                          <span>新密码（用于本地防护账号快捷重置，选填）</span>
                         </label>
                         <input 
                           type="password" 
-                          required
-                          value={confirmPassword}
-                          onChange={e => setConfirmPassword(e.target.value)}
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
                           className="w-full bg-theme-bg border border-theme-border rounded-xl px-3 py-1.5 text-xs text-theme-text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-                          placeholder="再次输入相同密码"
+                          placeholder="若使用离线专属账号请填入新密码"
                           minLength={6}
                         />
                       </div>
-                    )}
 
-                    <button 
-                      type="submit" 
-                      disabled={loading}
-                      className="w-full py-2 mt-1 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-70"
-                    >
-                      {loading ? <Loader2 size={15} className="animate-spin" /> : (
-                        <span>{activeTab === 'login' ? '安全登录并同步数据' : '创建账号并开启同步'}</span>
-                      )}
-                    </button>
-                  </form>
+                      <button 
+                        type="submit" 
+                        disabled={loading}
+                        className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-70"
+                      >
+                        {loading ? <Loader2 size={15} className="animate-spin" /> : (
+                          <span>发送重置链接 / 更新离线密码</span>
+                        )}
+                      </button>
+
+                      <div className="text-center pt-1">
+                        <button
+                          type="button"
+                          onClick={() => { setActiveTab('login'); setError(''); setSuccessMsg(''); }}
+                          className="text-xs text-indigo-400 hover:underline font-bold cursor-pointer"
+                        >
+                          返回账号登录
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </div>
               )
             )}

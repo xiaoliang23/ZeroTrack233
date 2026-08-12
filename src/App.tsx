@@ -975,29 +975,29 @@ export default function App() {
         initial={{ y: -30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 400, damping: 30 }}
-        className="border-b border-theme-border/60 bg-theme-card/60 backdrop-blur-xl sticky top-0 z-40 px-3 py-2.5 flex flex-wrap lg:flex-nowrap items-center justify-between gap-3 shadow-sm"
+        className="border-b border-theme-border/60 bg-theme-card/75 backdrop-blur-xl sticky top-0 z-40 px-3 md:px-5 py-2.5 flex items-center justify-between gap-3 shadow-sm"
       >
-        <div className="flex items-center gap-3 md:gap-5">
-          <div className="flex items-center gap-2 group cursor-pointer">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center font-bold text-[11px] shadow-sm group-hover:shadow-indigo-500/30 transition-all group-hover:scale-105">
+        <div className="flex items-center gap-2.5 sm:gap-4 md:gap-5 min-w-0 shrink">
+          <div className="flex items-center gap-2 group cursor-pointer shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center font-bold text-xs shadow-sm group-hover:shadow-indigo-500/30 transition-all group-hover:scale-105">
               ZT
             </div>
-            <span className="font-bold text-sm text-theme-text-heading tracking-tight hidden sm:block group-hover:text-indigo-400 transition-colors">ZeroTrack</span>
+            <span className="font-bold text-base text-theme-text-heading tracking-tight hidden sm:block group-hover:text-indigo-400 transition-colors">ZeroTrack</span>
           </div>
 
-          <div className="h-6 w-[1px] bg-theme-border hidden sm:block"></div>
+          <div className="h-5 w-[1px] bg-theme-border/80 hidden sm:block"></div>
 
           {/* Compact Asset Value */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 min-w-0">
             <span className="text-[10px] text-theme-text-muted uppercase tracking-widest font-extrabold hidden md:block">
               NET VALUE
             </span>
-            <div className="flex items-baseline gap-2">
-              <h1 className="text-xl md:text-2xl font-mono font-bold text-theme-text-heading tracking-tight drop-shadow-sm">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <h1 className="text-base sm:text-xl md:text-2xl font-mono font-bold text-theme-text-heading tracking-tight drop-shadow-xs truncate">
                 ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h1>
               <span
-                className={`font-mono text-[10px] md:text-xs font-bold flex items-center gap-1 bg-theme-bg-hover px-1.5 py-0.5 rounded-md ${
+                className={`font-mono text-[10px] md:text-xs font-bold flex items-center gap-1 bg-theme-bg-hover px-2 py-0.5 rounded-lg shrink-0 border border-theme-border/50 ${
                   totalPnL >= 0
                     ? isUpRed ? "text-red-500" : "text-emerald-500"
                     : isUpRed ? "text-emerald-500" : "text-red-500"
@@ -1005,7 +1005,7 @@ export default function App() {
               >
                 {totalPnL >= 0 ? <TrendingUp size={12} className="animate-pulse hidden sm:block" /> : <TrendingDown size={12} className="animate-pulse hidden sm:block" />}
                 {totalPnL >= 0 ? "+" : ""}$<AnimatedNumber value={totalPnL} isUpRed={isUpRed} flashThreshold={0.5} formatter={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
-                <span className="opacity-80">
+                <span className="opacity-80 hidden xs:inline ml-0.5">
                   (<AnimatedNumber value={totalPnLPercent} isUpRed={isUpRed} isPercent={true} flashThreshold={0.01} formatter={(v) => (v > 0 ? "+" : "") + v.toFixed(2) + "%"} />)
                 </span>
               </span>
@@ -1014,15 +1014,14 @@ export default function App() {
         </div>
 
         {/* Global Controls & Preferences */}
-        <div className="flex items-center gap-1.5 md:gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           
           {/* Market Status (Micro) */}
-          <div className="bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-lg flex items-center gap-1.5 hidden lg:flex" title="Live Agent Active">
+          <div className="bg-emerald-500/10 border border-emerald-500/20 px-2.5 h-8 rounded-xl flex items-center gap-1.5 hidden lg:flex shrink-0" title="Live Agent Active">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-[9px] text-emerald-500 font-bold tracking-wider font-mono">LIVE</span>
+            <span className="text-[10px] text-emerald-500 font-bold tracking-wider font-mono">LIVE</span>
           </div>
 
-          
           {/* Cloud Sync */}
           <CloudSync 
             data={{ watchlist, positions: rawPositions, priceAlerts: alerts, theme, isUpRed, pnlLossAlertEnabled, pnlLossAlertThreshold }} 
@@ -1030,81 +1029,93 @@ export default function App() {
           />
           
           {/* Theme Switcher */}
-
-          <div className="flex shrink-0 items-center gap-1 bg-theme-bg-hover px-1.5 py-1 rounded-lg border border-theme-border shadow-sm">
-            {theme === "dark" ? <Moon size={12} className="text-indigo-400 mx-1" /> : theme === "sakura" ? <div className="text-pink-500 mx-1 text-[11px]">🌸</div> : <Sun size={12} className="text-amber-500 mx-1" />}
-            <button
-              onClick={() => setTheme("dark")}
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${theme === "dark" ? "bg-indigo-500/20 text-indigo-400" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+          <div className="flex shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs">
+            <button 
+              onClick={() => setTheme(theme === "dark" ? "light" : theme === "light" ? "sakura" : "dark")}
+              className="p-1 rounded-lg text-theme-text-muted hover:text-theme-text-primary transition sm:hidden"
+              title="切换主题"
             >
-              暗
+              {theme === "dark" ? <Moon size={14} className="text-indigo-400" /> : theme === "sakura" ? <div className="text-pink-500 text-xs">🌸</div> : <Sun size={14} className="text-amber-500" />}
             </button>
-            <button
-              onClick={() => setTheme("light")}
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${theme === "light" ? "bg-amber-500/10 text-amber-600" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-            >
-              明
-            </button>
-            <button
-              onClick={() => setTheme("sakura")}
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${theme === "sakura" ? "bg-pink-500/10 text-pink-600" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-            >
-              樱
-            </button>
+            <div className="hidden sm:flex items-center gap-0.5">
+              {theme === "dark" ? <Moon size={13} className="text-indigo-400 mx-1.5" /> : theme === "sakura" ? <div className="text-pink-500 mx-1.5 text-xs">🌸</div> : <Sun size={13} className="text-amber-500 mx-1.5" />}
+              <button
+                onClick={() => setTheme("dark")}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "dark" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+              >
+                暗
+              </button>
+              <button
+                onClick={() => setTheme("light")}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "light" ? "bg-amber-500/20 text-amber-600 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+              >
+                明
+              </button>
+              <button
+                onClick={() => setTheme("sakura")}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "sakura" ? "bg-pink-500/20 text-pink-600 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+              >
+                樱
+              </button>
+            </div>
           </div>
 
           {/* Color Scheme Switcher */}
-          <div className="flex shrink-0 items-center gap-1 bg-theme-bg-hover px-1.5 py-1 rounded-lg border border-theme-border shadow-sm hidden md:flex">
-            <Settings size={12} className="text-theme-text-muted mx-1" />
-            <button
-              onClick={() => setIsUpRed(true)}
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${isUpRed ? "bg-red-500/20 text-red-500" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-            >
-              红涨
-            </button>
-            <button
-              onClick={() => setIsUpRed(false)}
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${!isUpRed ? "bg-emerald-500/20 text-emerald-500" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-            >
-              绿涨
-            </button>
+          <div className="flex shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs hidden md:flex">
+            <Settings size={13} className="text-theme-text-muted mx-1.5" />
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setIsUpRed(true)}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${isUpRed ? "bg-red-500/20 text-red-500 font-extrabold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+              >
+                红涨
+              </button>
+              <button
+                onClick={() => setIsUpRed(false)}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${!isUpRed ? "bg-emerald-500/20 text-emerald-500 font-extrabold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+              >
+                绿涨
+              </button>
+            </div>
           </div>
 
           {/* Chart Toggle */}
-          <div className="flex shrink-0 items-center gap-1 bg-theme-bg-hover px-1.5 py-1 rounded-lg border border-theme-border shadow-sm hidden lg:flex">
-            <LineChart size={12} className="text-theme-text-muted mx-1" />
-            <button
-              onClick={() => setChartType("candlestick")}
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${chartType === "candlestick" ? "bg-indigo-500/20 text-indigo-400" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-            >
-              实体
-            </button>
-            <button
-              onClick={() => setChartType("hollow")}
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${chartType === "hollow" ? "bg-indigo-500/20 text-indigo-400" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-            >
-              空心
-            </button>
-            <button
-              onClick={() => setChartType("ohlc")}
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${chartType === "ohlc" ? "bg-indigo-500/20 text-indigo-400" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-            >
-              竹节
-            </button>
-            <button
-              onClick={() => setChartType("area")}
-              className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${chartType === "area" ? "bg-indigo-500/20 text-indigo-400" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-            >
-              走势
-            </button>
+          <div className="flex shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs hidden lg:flex">
+            <LineChart size={13} className="text-theme-text-muted mx-1.5" />
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setChartType("candlestick")}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${chartType === "candlestick" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+              >
+                实体
+              </button>
+              <button
+                onClick={() => setChartType("hollow")}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${chartType === "hollow" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+              >
+                空心
+              </button>
+              <button
+                onClick={() => setChartType("ohlc")}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${chartType === "ohlc" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+              >
+                竹节
+              </button>
+              <button
+                onClick={() => setChartType("area")}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${chartType === "area" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+              >
+                走势
+              </button>
+            </div>
           </div>
 
           <button
             onClick={() => fetchStocks(false, rawPositions.map(p => p.symbol))}
-            className="p-1.5 md:p-2 shrink-0 bg-theme-bg-hover hover:bg-theme-border border border-theme-border rounded-lg text-theme-text-secondary hover:text-theme-text-primary transition"
-            title="Refresh Quotes"
+            className="h-8 w-8 flex items-center justify-center shrink-0 bg-theme-bg-hover hover:bg-theme-border border border-theme-border/80 rounded-xl text-theme-text-secondary hover:text-theme-text-primary transition-all cursor-pointer"
+            title="刷新行情数据"
           >
-            <RefreshCw size={13} className="animate-hover w-3.5 h-3.5" />
+            <RefreshCw size={13} className="animate-hover" />
           </button>
 
           <button
@@ -1118,9 +1129,10 @@ export default function App() {
               setIsEditMode(false);
               setShowAddModal(true);
             }}
-            className="shrink-0 bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1.5 md:px-4 md:py-2 rounded-lg font-bold text-[11px] md:text-xs shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-1"
+            className="h-8 shrink-0 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white px-3 md:px-4 rounded-xl font-bold text-xs shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
           >
-            <span className="text-base leading-none">+</span> <span>记一笔</span>
+            <Plus size={14} className="stroke-[2.5]" />
+            <span>记一笔</span>
           </button>
         </div>
       </motion.header>
