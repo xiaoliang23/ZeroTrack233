@@ -367,14 +367,33 @@ export default function App() {
   };
 
   // Watchlist (symbols list)
-  const [watchlist, setWatchlist] = useState<string[]>(["AAPL", "NVDA", "TSLA", "VZ", "0700.HK"]);
+  const [watchlist, setWatchlist] = useState<string[]>(() => {
+    const saved = localStorage.getItem("watchlist");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return ["AAPL", "NVDA", "TSLA", "VZ", "0700.HK"];
+  });
 
   // User Custom Positions
   // Stored as an array of objects: { symbol: string, quantity: number, buyPrice: number, dividends?: number }
-  const [rawPositions, setRawPositions] = useState<{ symbol: string; quantity: number; buyPrice: number; dividends?: number }[]>([
-    { symbol: "AAPL", quantity: 10, buyPrice: 172.5, dividends: 12.5 },
-    { symbol: "NVDA", quantity: 15, buyPrice: 820.0, dividends: 0.0 }
-  ]);
+  const [rawPositions, setRawPositions] = useState<{ symbol: string; quantity: number; buyPrice: number; dividends?: number }[]>(() => {
+    const saved = localStorage.getItem("positions");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return [
+      { symbol: "AAPL", quantity: 10, buyPrice: 172.5, dividends: 12.5 },
+      { symbol: "NVDA", quantity: 15, buyPrice: 820.0, dividends: 0.0 },
+      { symbol: "VZ", quantity: 100, buyPrice: 40.0, dividends: 18.0 }
+    ];
+  });
 
   // Calculated Positions (fully populated with current prices and P&Ls)
   const [positions, setPositions] = useState<Position[]>([]);

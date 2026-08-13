@@ -699,23 +699,33 @@ app.get("/api/stocks/quote/:symbol", async (req, res) => {
         }
       }
     } catch (e) {}
+    const existing = STOCKS.find(s => s.symbol === symbol) || GLOBAL_STOCK_DIRECTORY[symbol];
+    const resolvedName = (existing && existing.name && existing.name !== symbol)
+      ? existing.name
+      : (GLOBAL_STOCK_DIRECTORY[symbol]?.name || quote.longName || quote.shortName || symbol);
+
     const stockData = {
       symbol: quote.symbol,
-      name: quote.longName || quote.shortName || quote.symbol,
-      basePrice: quote.regularMarketPreviousClose || 0,
-      currentPrice: quote.regularMarketPrice || quote.postMarketPrice || 0,
-      prevClose: quote.regularMarketPreviousClose || 0,
-      high: quote.regularMarketDayHigh || 0,
-      low: quote.regularMarketDayLow || 0,
-      volume: quote.regularMarketVolume || 0
+      name: resolvedName,
+      basePrice: quote.regularMarketPreviousClose || (existing as any)?.basePrice || 0,
+      currentPrice: quote.regularMarketPrice || quote.postMarketPrice || (existing as any)?.currentPrice || 0,
+      prevClose: quote.regularMarketPreviousClose || (existing as any)?.prevClose || 0,
+      high: quote.regularMarketDayHigh || (existing as any)?.high || 0,
+      low: quote.regularMarketDayLow || (existing as any)?.low || 0,
+      volume: quote.regularMarketVolume || (existing as any)?.volume || 0
     };
     
     // Update local cache
-    const existing = STOCKS.find(s => s.symbol === symbol);
-    if (existing) {
-      Object.assign(existing, stockData);
+    const stockInCache = STOCKS.find(s => s.symbol === symbol);
+    if (stockInCache) {
+      if (stockData.currentPrice > 0) stockInCache.currentPrice = stockData.currentPrice;
+      if (stockData.prevClose > 0) stockInCache.prevClose = stockData.prevClose;
+      if (stockData.high > 0) stockInCache.high = stockData.high;
+      if (stockData.low > 0) stockInCache.low = stockData.low;
+      if (stockData.volume > 0) stockInCache.volume = stockData.volume;
+      if (resolvedName && resolvedName !== symbol) stockInCache.name = resolvedName;
     } else {
-      (stockData as any).history = Array(15).fill(stockData.currentPrice || (stockData as any).regularMarketPrice || 0);
+      (stockData as any).history = Array(15).fill(stockData.currentPrice || 0);
       STOCKS.push(stockData);
     }
     

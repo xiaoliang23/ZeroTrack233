@@ -30,6 +30,7 @@ export interface NewsItem {
 
 // Default initial stocks directory with rich global & US stocks coverage
 export const DEFAULT_STOCKS: Stock[] = [
+  { symbol: "VZ", name: "Verizon Communications Inc. (威瑞森电信)", basePrice: 40.5, currentPrice: 40.85, prevClose: 40.2, high: 41.2, low: 39.9, volume: 18500000, history: [40.2, 40.5, 40.7, 40.85] },
   { symbol: "NVDA", name: "NVIDIA Corp. (英伟达 AI芯片)", basePrice: 220.0, currentPrice: 224.09, prevClose: 220.0, high: 225.1, low: 216.2, volume: 105000000, history: [220.0, 221.5, 222.8, 224.09] },
   { symbol: "AAPL", name: "Apple Inc. (苹果公司)", basePrice: 300.0, currentPrice: 302.25, prevClose: 300.0, high: 304.5, low: 299.0, volume: 48000000, history: [300.0, 301.0, 301.8, 302.25] },
   { symbol: "TSLA", name: "Tesla Inc. (特斯拉电动车)", basePrice: 325.0, currentPrice: 327.51, prevClose: 325.0, high: 331.0, low: 322.0, volume: 68000000, history: [325.0, 326.0, 326.8, 327.51] },
@@ -186,9 +187,11 @@ export async function fetchStockQuote(symbol: string): Promise<Stock | null> {
     const data = await fetchWithProxy(url, 3500);
     const meta = data?.chart?.result?.[0]?.meta;
     if (meta && meta.regularMarketPrice) {
+      const knownStock = DEFAULT_STOCKS.find(s => s.symbol === cleanSym);
+      const companyName = knownStock?.name || meta.longName || meta.shortName || cleanSym;
       return {
         symbol: cleanSym,
-        name: meta.longName || meta.shortName || cleanSym,
+        name: companyName,
         basePrice: meta.previousClose || meta.regularMarketPrice,
         currentPrice: meta.regularMarketPrice,
         prevClose: meta.previousClose || meta.regularMarketPrice,
