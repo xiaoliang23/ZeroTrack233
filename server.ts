@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+// @ts-ignore
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import dotenv from "dotenv";
@@ -59,9 +60,9 @@ function isExpectedFetchFallback(err: any): boolean {
 
 app.use(express.json({ limit: "10mb" }));
 
-// Initialize Gemini Client
+// Initialize Gemini Client safely
 const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
+  apiKey: process.env.GEMINI_API_KEY || "placeholder-key-for-init",
   httpOptions: {
     headers: {
       'User-Agent': 'aistudio-build',
@@ -915,7 +916,24 @@ app.get("/api/news", async (req, res) => {
 // 6. API: AI Analysis (uses Gemini)
 app.post("/api/stocks/analysis", async (req, res) => {
   try {
-    const { symbol, positions, thinkingMode, image } = req.body;
+    const { symbol, positions, thinkingMode, image, customApiKey } = req.body;
+    const apiKey = (customApiKey && String(customApiKey).trim()) || process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return res.status(400).json({
+        error: "未配置 Gemini API Key。请在 AI 分析界面右上角点击“设置 API Key”，输入您的 Gemini Key 即可开启智能分析！"
+      });
+    }
+
+    const serverAi = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+
     const stock = ensureStockExists(symbol);
 
     // Compose prompt based on whether they have a position in this stock or not
@@ -991,7 +1009,7 @@ ${positionContext}
           };
         }
 
-        const response = await ai.models.generateContent({
+        const response = await serverAi.models.generateContent({
           model: modelName,
           contents,
           config: currentConfig

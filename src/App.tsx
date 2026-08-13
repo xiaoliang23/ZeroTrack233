@@ -40,6 +40,7 @@ import PortfolioTrendChart from "./components/PortfolioTrendChart";
 import CloudSync from "./components/CloudSync";
 import CalendarHeatmap, { DailyPnL } from "./components/CalendarHeatmap";
 import AnimatedNumber from "./components/AnimatedNumber";
+import { EasterEggLogo } from "./components/EasterEggLogo";
 import appLogoImg from "/src/assets/images/app_logo_1786623180494.jpg";
 
 
@@ -154,14 +155,9 @@ const LandingPage = ({ onStart }: { onStart: () => void }) => {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="max-w-4xl w-full text-center z-10 space-y-8"
       >
-        <motion.div 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-          className="mx-auto w-24 h-24 rounded-3xl overflow-hidden shadow-2xl shadow-indigo-500/30 mb-8 border border-indigo-500/20"
-        >
-          <img src={appLogoImg} alt="ZeroTrack Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-        </motion.div>
+        <div className="mx-auto mb-8 flex justify-center">
+          <EasterEggLogo size="lg" />
+        </div>
         
         <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-theme-text-heading">
           个人智能持仓资产管家
@@ -977,12 +973,7 @@ export default function App() {
         className="border-b border-theme-border/60 bg-theme-card/75 backdrop-blur-xl sticky top-0 z-40 px-3 md:px-5 py-2.5 flex items-center justify-between gap-2 sm:gap-3 shadow-sm"
       >
         <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0 flex-1 sm:flex-initial">
-          <div className="flex items-center gap-2 group cursor-pointer shrink-0">
-            <div className="w-8 h-8 rounded-xl overflow-hidden shadow-sm group-hover:shadow-indigo-500/30 transition-all group-hover:scale-105 border border-indigo-500/20 shrink-0">
-              <img src={appLogoImg} alt="ZeroTrack Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-            </div>
-            <span className="font-bold text-base text-theme-text-heading tracking-tight hidden md:block group-hover:text-indigo-400 transition-colors">ZeroTrack</span>
-          </div>
+          <EasterEggLogo size="sm" showTitle={true} />
 
           <div className="h-5 w-[1px] bg-theme-border/80 hidden md:block"></div>
 
