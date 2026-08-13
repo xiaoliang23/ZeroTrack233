@@ -1099,10 +1099,6 @@ app.post('/api/auth/login', async (req, res) => {
 
 // Setup Vite Dev server middleware in development mode, static serve in production
 async function startServer() {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true, hmr: false },
@@ -1116,6 +1112,10 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 }
 
 startServer();
