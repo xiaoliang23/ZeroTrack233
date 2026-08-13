@@ -127,6 +127,9 @@ const STOCKS: Stock[] = [
   { symbol: "LLY", name: "Eli Lilly & Co. (礼来制药)", basePrice: 760.0, currentPrice: 764.5, prevClose: 755.0, high: 775.0, low: 752.0, volume: 4000000 },
   { symbol: "JNJ", name: "Johnson & Johnson (强生制药)", basePrice: 155.0, currentPrice: 155.4, prevClose: 154.8, high: 156.8, low: 154.0, volume: 8500000 },
   { symbol: "UNH", name: "UnitedHealth Group (联合健康)", basePrice: 490.0, currentPrice: 488.5, prevClose: 492.1, high: 495.0, low: 485.5, volume: 3500000 },
+  { symbol: "VZ", name: "Verizon Communications Inc. (威瑞森电信)", basePrice: 40.5, currentPrice: 40.85, prevClose: 40.2, high: 41.2, low: 39.9, volume: 18500000 },
+  { symbol: "T", name: "AT&T Inc. (美国电话电报)", basePrice: 18.8, currentPrice: 18.95, prevClose: 18.7, high: 19.2, low: 18.5, volume: 32000000 },
+  { symbol: "TMUS", name: "T-Mobile US, Inc. (T-移动)", basePrice: 178.0, currentPrice: 179.2, prevClose: 177.5, high: 181.0, low: 176.8, volume: 4500000 },
 
   // === GLOBAL CHIPS & CARS ===
   { symbol: "TSM", name: "TSMC (台积电 ADR)", basePrice: 140.0, currentPrice: 140.8, prevClose: 139.2, high: 142.0, low: 138.5, volume: 15000000 },
@@ -154,6 +157,9 @@ const STOCKS: Stock[] = [
 const GLOBAL_STOCK_DIRECTORY: Record<string, { name: string; basePrice: number }> = {
   // === POPULAR US STOCKS ===
   "NEE": { name: "NextEra Energy (新纪元能源)", basePrice: 72.80 },
+  "VZ": { name: "Verizon Communications Inc. (威瑞森电信)", basePrice: 40.50 },
+  "T": { name: "AT&T Inc. (美国电话电报)", basePrice: 18.80 },
+  "TMUS": { name: "T-Mobile US, Inc. (T-移动)", basePrice: 178.00 },
   "MCD": { name: "McDonald's Corp. (麦当劳)", basePrice: 285.50 },
   "BILI": { name: "Bilibili Inc. (哔哩哔哩 ADR)", basePrice: 15.20 },
   "SBUX": { name: "Starbucks Corp. (星巴克)", basePrice: 79.20 },

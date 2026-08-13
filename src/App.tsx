@@ -367,7 +367,7 @@ export default function App() {
   };
 
   // Watchlist (symbols list)
-  const [watchlist, setWatchlist] = useState<string[]>(["AAPL", "NVDA", "TSLA", "0700.HK"]);
+  const [watchlist, setWatchlist] = useState<string[]>(["AAPL", "NVDA", "TSLA", "VZ", "0700.HK"]);
 
   // User Custom Positions
   // Stored as an array of objects: { symbol: string, quantity: number, buyPrice: number, dividends?: number }
