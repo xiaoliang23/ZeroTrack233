@@ -191,33 +191,36 @@ export default React.memo(function PortfolioTrendChart({
   const gradientId = isPeriodPositive ? "portfolioTrendGradUp" : "portfolioTrendGradDown";
 
   return (
-    <div className="bg-theme-card border border-theme-border rounded-xl md:rounded-2xl p-3.5 sm:p-5 shadow-md mb-4 transition-all">
+    <section className="bg-theme-card border border-theme-border rounded-2xl md:rounded-3xl p-5 sm:p-7 md:p-8 shadow-xl transition-all">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-theme-border">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
-            <Activity size={18} />
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-5 border-b border-theme-border">
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+            <Activity size={24} />
           </div>
           <div>
-            <h3 className="font-bold text-sm sm:text-base text-theme-text-heading flex items-center gap-2">
-              组合总市值历史增长曲线
+            <h3 className="font-extrabold text-base sm:text-xl text-theme-text-heading flex items-center gap-2">
+              <span>组合总市值历史增长曲线</span>
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                {timeframe} 趋势
+              </span>
             </h3>
-            <p className="text-[10px] sm:text-[11px] text-theme-text-muted">
-              回顾持仓资产的长期成长轨迹与盈亏波动趋势
+            <p className="text-xs sm:text-sm text-theme-text-muted mt-0.5">
+              全景回顾组合资产在各时间维度的成长轨迹、本金基线与收益波动
             </p>
           </div>
         </div>
 
         {/* Timeframe & Mode Controls */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Mode Switch */}
-          <div className="bg-theme-panel border border-theme-border p-0.5 rounded-xl flex items-center text-xs">
+          <div className="bg-theme-panel border border-theme-border/80 p-1 rounded-2xl flex items-center text-xs">
             <button
               type="button"
               onClick={() => setViewMode("value")}
-              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl font-bold text-xs transition cursor-pointer ${
                 viewMode === "value"
-                  ? "bg-indigo-600 text-white shadow-xs"
+                  ? "bg-indigo-600 text-white shadow-md"
                   : "text-theme-text-muted hover:text-theme-text-primary"
               }`}
             >
@@ -226,9 +229,9 @@ export default React.memo(function PortfolioTrendChart({
             <button
               type="button"
               onClick={() => setViewMode("return")}
-              className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl font-bold text-xs transition cursor-pointer ${
                 viewMode === "return"
-                  ? "bg-indigo-600 text-white shadow-xs"
+                  ? "bg-indigo-600 text-white shadow-md"
                   : "text-theme-text-muted hover:text-theme-text-primary"
               }`}
             >
@@ -237,13 +240,13 @@ export default React.memo(function PortfolioTrendChart({
           </div>
 
           {/* Timeframe Tabs */}
-          <div className="bg-theme-panel border border-theme-border p-0.5 rounded-xl flex items-center text-xs">
+          <div className="bg-theme-panel border border-theme-border/80 p-1 rounded-2xl flex items-center text-xs">
             {(["1M", "3M", "6M", "1Y", "ALL"] as Timeframe[]).map((tf) => (
               <button
                 key={tf}
                 type="button"
                 onClick={() => setTimeframe(tf)}
-                className={`px-2 py-1 rounded-lg font-mono font-bold text-[11px] transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl font-mono font-bold text-xs transition cursor-pointer ${
                   timeframe === tf
                     ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 shadow-xs"
                     : "text-theme-text-muted hover:text-theme-text-primary"
@@ -257,33 +260,36 @@ export default React.memo(function PortfolioTrendChart({
       </div>
 
       {/* Stats Summary Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
         {/* Card 1: Current Portfolio Value */}
-        <div className="p-3 rounded-xl bg-theme-panel/50 border border-theme-border">
-          <span className="text-[10px] text-theme-text-muted uppercase font-bold tracking-wider block mb-1">
+        <div className="p-4 sm:p-5 rounded-2xl bg-theme-panel/50 border border-theme-border/80 shadow-xs">
+          <span className="text-xs text-theme-text-muted font-bold tracking-wider uppercase block mb-1.5">
             当前总市值
           </span>
-          <span className="text-sm sm:text-lg font-bold font-mono text-theme-text-heading block">
+          <span className="text-base sm:text-2xl font-black font-mono text-theme-text-heading block">
             ${stats.currentValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+          <span className="text-[11px] text-theme-text-muted font-mono mt-1 block">
+            本金投入: ${stats.totalCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </span>
         </div>
 
         {/* Card 2: Period Net Change */}
-        <div className="p-3 rounded-xl bg-theme-panel/50 border border-theme-border">
-          <span className="text-[10px] text-theme-text-muted uppercase font-bold tracking-wider block mb-1">
+        <div className="p-4 sm:p-5 rounded-2xl bg-theme-panel/50 border border-theme-border/80 shadow-xs">
+          <span className="text-xs text-theme-text-muted font-bold tracking-wider uppercase block mb-1.5">
             区间净变动 ({timeframe})
           </span>
-          <div className={`text-sm sm:text-lg font-bold font-mono flex items-center gap-1 ${
+          <div className={`text-base sm:text-2xl font-black font-mono flex items-center gap-1 ${
             isPeriodPositive
               ? isUpRed ? "text-red-500" : "text-emerald-500"
               : isUpRed ? "text-emerald-500" : "text-red-500"
           }`}>
-            {isPeriodPositive ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+            {isPeriodPositive ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
             <span>
               {isPeriodPositive ? "+" : ""}${stats.periodChange.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
-          <span className={`text-[10px] font-mono ${
+          <span className={`text-xs font-mono font-bold mt-1 block ${
             isPeriodPositive
               ? isUpRed ? "text-red-400" : "text-emerald-400"
               : isUpRed ? "text-emerald-400" : "text-red-400"
@@ -293,33 +299,39 @@ export default React.memo(function PortfolioTrendChart({
         </div>
 
         {/* Card 3: Peak Value */}
-        <div className="p-3 rounded-xl bg-theme-panel/50 border border-theme-border">
-          <span className="text-[10px] text-theme-text-muted uppercase font-bold tracking-wider block mb-1">
+        <div className="p-4 sm:p-5 rounded-2xl bg-theme-panel/50 border border-theme-border/80 shadow-xs">
+          <span className="text-xs text-theme-text-muted font-bold tracking-wider uppercase block mb-1.5">
             区间峰值市值
           </span>
-          <span className="text-sm sm:text-lg font-bold font-mono text-theme-text-primary block">
+          <span className="text-base sm:text-2xl font-black font-mono text-theme-text-primary block">
             ${stats.maxVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+          <span className="text-[11px] text-emerald-400 font-mono mt-1 block font-semibold">
+            最高高点纪录
           </span>
         </div>
 
         {/* Card 4: Lowest Value */}
-        <div className="p-3 rounded-xl bg-theme-panel/50 border border-theme-border">
-          <span className="text-[10px] text-theme-text-muted uppercase font-bold tracking-wider block mb-1">
+        <div className="p-4 sm:p-5 rounded-2xl bg-theme-panel/50 border border-theme-border/80 shadow-xs">
+          <span className="text-xs text-theme-text-muted font-bold tracking-wider uppercase block mb-1.5">
             区间低谷市值
           </span>
-          <span className="text-sm sm:text-lg font-bold font-mono text-theme-text-primary block">
+          <span className="text-base sm:text-2xl font-black font-mono text-theme-text-primary block">
             ${stats.minVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+          <span className="text-[11px] text-theme-text-muted font-mono mt-1 block">
+            支撑位底线
           </span>
         </div>
       </div>
 
       {/* Main Area Chart */}
-      <div className="h-64 sm:h-72 w-full pt-2">
+      <div className="h-80 sm:h-96 md:h-[420px] w-full pt-2">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 15, right: 15, left: 0, bottom: 5 }}>
             <defs>
               <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={strokeColor} stopOpacity={0.35} />
+                <stop offset="5%" stopColor={strokeColor} stopOpacity={0.4} />
                 <stop offset="95%" stopColor={strokeColor} stopOpacity={0.0} />
               </linearGradient>
             </defs>
@@ -328,16 +340,16 @@ export default React.memo(function PortfolioTrendChart({
               dataKey="date"
               tickLine={false}
               axisLine={false}
-              tick={{ fill: "#94a3b8", fontSize: 10 }}
+              tick={{ fill: "#94a3b8", fontSize: 11 }}
               interval="preserveStartEnd"
-              minTickGap={25}
+              minTickGap={30}
             />
             <YAxis
               domain={["auto", "auto"]}
               orientation="right"
               tickLine={false}
               axisLine={false}
-              tick={{ fill: "#94a3b8", fontSize: 10 }}
+              tick={{ fill: "#94a3b8", fontSize: 11 }}
               tickFormatter={(val) =>
                 viewMode === "value"
                   ? `$${(val / 1000).toFixed(1)}k`
@@ -351,24 +363,24 @@ export default React.memo(function PortfolioTrendChart({
                   const isPnLPos = item.netPnL >= 0;
 
                   return (
-                    <div className="bg-slate-900/95 border border-slate-700/80 rounded-xl p-3 shadow-2xl backdrop-blur-md text-white text-xs space-y-1.5 font-sans z-50 min-w-44">
-                      <div className="flex items-center justify-between border-b border-slate-800 pb-1 text-slate-400 font-mono text-[11px]">
-                        <span>{item.fullDate}</span>
-                        <span className="text-[10px] uppercase">{timeframe} 节点</span>
+                    <div className="bg-slate-900/95 border border-slate-700/80 rounded-2xl p-4 shadow-2xl backdrop-blur-md text-white text-xs space-y-2 font-sans z-50 min-w-56">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-slate-400 font-mono text-xs">
+                        <span className="font-bold text-white">{item.fullDate}</span>
+                        <span className="text-[11px] uppercase bg-slate-800 px-2 py-0.5 rounded-md text-indigo-300 font-bold">{timeframe} 节点</span>
                       </div>
-                      <div className="flex justify-between text-[11px] gap-4">
-                        <span className="text-slate-400">总市值:</span>
-                        <span className="font-mono font-bold text-white">
+                      <div className="flex justify-between text-xs gap-4">
+                        <span className="text-slate-400">组合总市值:</span>
+                        <span className="font-mono font-extrabold text-white text-sm">
                           ${item.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
-                      <div className="flex justify-between text-[11px] gap-4">
+                      <div className="flex justify-between text-xs gap-4">
                         <span className="text-slate-400">本金成本:</span>
                         <span className="font-mono text-slate-300">
                           ${item.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
-                      <div className="flex justify-between text-[11px] gap-4">
+                      <div className="flex justify-between text-xs gap-4">
                         <span className="text-slate-400">累计浮动盈亏:</span>
                         <span className={`font-mono font-bold ${
                           isPnLPos
@@ -378,7 +390,7 @@ export default React.memo(function PortfolioTrendChart({
                           {isPnLPos ? "+" : ""}${item.netPnL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
-                      <div className="flex justify-between text-[11px] gap-4">
+                      <div className="flex justify-between text-xs gap-4">
                         <span className="text-slate-400">组合收益率:</span>
                         <span className={`font-mono font-bold ${
                           isPnLPos
@@ -400,9 +412,9 @@ export default React.memo(function PortfolioTrendChart({
                 stroke="#64748b"
                 strokeDasharray="4 4"
                 label={{
-                  value: "成本基线",
+                  value: "本金成本线",
                   fill: "#94a3b8",
-                  fontSize: 10,
+                  fontSize: 11,
                   position: "insideTopLeft"
                 }}
               />
@@ -411,13 +423,13 @@ export default React.memo(function PortfolioTrendChart({
               type="monotone"
               dataKey={viewMode === "value" ? "totalValue" : "returnPct"}
               stroke={strokeColor}
-              strokeWidth={2}
+              strokeWidth={3}
               fillOpacity={1}
               fill={`url(#${gradientId})`}
             />
           </AreaChart>
         </ResponsiveContainer>
       </div>
-    </div>
+    </section>
   );
 });

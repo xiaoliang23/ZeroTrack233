@@ -84,34 +84,40 @@ export default React.memo(function PortfolioAllocationChart({
   const activeItem = activeIndex !== null ? chartData[activeIndex] : null;
 
   return (
-    <div className="bg-theme-card border border-theme-border rounded-xl md:rounded-2xl p-3.5 sm:p-5 shadow-md mb-4 transition-all">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-3 border-b border-theme-border">
-        <div className="flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
-            <PieChartIcon size={18} />
+    <section className="bg-theme-card border border-theme-border rounded-2xl md:rounded-3xl p-5 sm:p-7 md:p-8 shadow-xl transition-all">
+      {/* Header Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-5 border-b border-theme-border">
+        <div className="flex items-center gap-3">
+          <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+            <PieChartIcon size={24} />
           </div>
           <div>
-            <h3 className="font-bold text-sm sm:text-base text-theme-text-heading flex items-center gap-2">
-              持仓市值占比与盈亏分布
+            <h3 className="font-extrabold text-base sm:text-xl text-theme-text-heading flex items-center gap-2">
+              <span>持仓市值占比与盈亏分布</span>
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                {positions.length} 标的资产
+              </span>
             </h3>
-            <p className="text-[10px] sm:text-[11px] text-theme-text-muted">
-              按实时持仓市值权重计算投资组合资产分配
+            <p className="text-xs sm:text-sm text-theme-text-muted mt-0.5">
+              透视投资组合的资产权重、仓位集中度及各标的浮动盈亏贡献
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-xs font-mono">
-          <div className="text-right">
-            <span className="text-[10px] text-theme-text-muted block font-sans">总持仓市值</span>
-            <span className="font-bold text-theme-text-primary text-sm sm:text-base">
+
+        {/* Top Summary Stats */}
+        <div className="flex items-center gap-4 sm:gap-6 font-mono">
+          <div className="text-right bg-theme-panel/60 px-4 py-2 rounded-2xl border border-theme-border/80">
+            <span className="text-[11px] text-theme-text-muted block font-sans">总持仓市值</span>
+            <span className="font-extrabold text-theme-text-primary text-base sm:text-xl">
               ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
-        {/* Left: Donut Chart */}
-        <div className="lg:col-span-5 h-52 sm:h-60 relative flex items-center justify-center">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-center">
+        {/* Left: Donut Chart Section */}
+        <div className="lg:col-span-5 h-72 sm:h-88 md:h-96 relative flex items-center justify-center bg-theme-panel/30 rounded-2xl border border-theme-border/40 p-4">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -120,9 +126,9 @@ export default React.memo(function PortfolioAllocationChart({
                 nameKey="symbol"
                 cx="50%"
                 cy="50%"
-                innerRadius="58%"
-                outerRadius="86%"
-                paddingAngle={2}
+                innerRadius="60%"
+                outerRadius="88%"
+                paddingAngle={3}
                 onMouseEnter={(_, index) => setActiveIndex(index)}
                 onMouseLeave={() => setActiveIndex(null)}
                 onClick={(_, index) => {
@@ -138,9 +144,9 @@ export default React.memo(function PortfolioAllocationChart({
                       key={`cell-${entry.symbol}`}
                       fill={entry.color}
                       stroke={isSelected ? "#ffffff" : "transparent"}
-                      strokeWidth={isSelected ? 2 : 0}
-                      opacity={activeIndex === null || isHovered ? 1 : 0.4}
-                      style={{ transition: "all 0.2s" }}
+                      strokeWidth={isSelected ? 3 : 0}
+                      opacity={activeIndex === null || isHovered ? 1 : 0.35}
+                      style={{ transition: "all 0.25s ease-out" }}
                     />
                   );
                 })}
@@ -151,20 +157,24 @@ export default React.memo(function PortfolioAllocationChart({
                     const data = payload[0].payload;
                     const isPositive = data.pnl >= 0;
                     return (
-                      <div className="bg-slate-900/95 border border-slate-700/80 rounded-xl p-3 shadow-xl backdrop-blur-md text-white text-xs space-y-1.5 font-sans z-50">
-                        <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-1">
-                          <span className="font-bold text-indigo-300 font-mono">{data.symbol}</span>
-                          <span className="text-[10px] text-slate-400 truncate max-w-[120px]">{data.name}</span>
+                      <div className="bg-slate-900/95 border border-slate-700/80 rounded-2xl p-4 shadow-2xl backdrop-blur-md text-white text-xs space-y-2 font-sans z-50 min-w-52">
+                        <div className="flex items-center justify-between gap-3 border-b border-slate-800 pb-2">
+                          <span className="font-extrabold text-indigo-300 font-mono text-sm">{data.symbol}</span>
+                          <span className="text-xs text-slate-400 truncate max-w-[130px]">{data.name}</span>
                         </div>
-                        <div className="flex justify-between text-[11px] gap-4">
+                        <div className="flex justify-between text-xs gap-4">
+                          <span className="text-slate-400">持仓数量:</span>
+                          <span className="font-mono font-bold">{data.quantity.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-xs gap-4">
                           <span className="text-slate-400">市值占比:</span>
-                          <span className="font-mono font-bold">{data.weight.toFixed(2)}%</span>
+                          <span className="font-mono font-bold text-indigo-400">{data.weight.toFixed(2)}%</span>
                         </div>
-                        <div className="flex justify-between text-[11px] gap-4">
-                          <span className="text-slate-400">最新市值:</span>
+                        <div className="flex justify-between text-xs gap-4">
+                          <span className="text-slate-400">持仓总市值:</span>
                           <span className="font-mono font-bold">${data.marketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
-                        <div className="flex justify-between text-[11px] gap-4">
+                        <div className="flex justify-between text-xs gap-4">
                           <span className="text-slate-400">浮动盈亏:</span>
                           <span className={`font-mono font-bold ${
                             isPositive
@@ -184,41 +194,47 @@ export default React.memo(function PortfolioAllocationChart({
           </ResponsiveContainer>
 
           {/* Donut Center Display */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-4">
             {activeItem ? (
-              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-                <span className="text-[10px] text-theme-text-muted font-mono uppercase tracking-wider block">{activeItem.symbol} 占比</span>
-                <span className="text-lg font-bold font-mono text-theme-text-heading block">
+              <motion.div initial={{ scale: 0.85, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.15 }}>
+                <span className="text-xs font-bold text-indigo-400 font-mono uppercase tracking-widest block mb-0.5">
+                  {activeItem.symbol}
+                </span>
+                <span className="text-2xl sm:text-3xl font-black font-mono text-theme-text-heading block">
                   {activeItem.weight.toFixed(1)}%
                 </span>
-                <span className={`text-[10px] font-mono font-bold ${
+                <span className={`text-xs font-mono font-bold mt-1 inline-block px-2 py-0.5 rounded-md ${
                   activeItem.pnl >= 0
-                    ? isUpRed ? "text-red-500" : "text-emerald-500"
-                    : isUpRed ? "text-emerald-500" : "text-red-500"
+                    ? isUpRed ? "bg-red-500/10 text-red-500" : "bg-emerald-500/10 text-emerald-500"
+                    : isUpRed ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
                 }`}>
                   {activeItem.pnl >= 0 ? "+" : ""}${activeItem.pnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </span>
               </motion.div>
             ) : (
               <div>
-                <span className="text-[10px] text-theme-text-muted uppercase tracking-wider block font-medium">持仓标的数</span>
-                <span className="text-xl font-bold font-mono text-theme-text-heading block">
+                <span className="text-xs text-theme-text-muted uppercase tracking-widest block font-bold mb-1">
+                  组合标的
+                </span>
+                <span className="text-3xl sm:text-4xl font-black font-mono text-theme-text-heading block">
                   {positions.length}
                 </span>
-                <span className="text-[9px] text-theme-text-muted block">悬浮或点击看各占比</span>
+                <span className="text-[11px] text-theme-text-muted mt-1 block">
+                  悬浮图表查看各资产细节
+                </span>
               </div>
             )}
           </div>
         </div>
 
         {/* Right: Allocation Breakdown List */}
-        <div className="lg:col-span-7 space-y-2">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-theme-text-muted mb-1 flex items-center justify-between">
-            <span>资产分布与浮动盈亏列表</span>
-            <span>市值 (占比) / 盈亏</span>
+        <div className="lg:col-span-7 space-y-3">
+          <div className="text-xs font-bold uppercase tracking-wider text-theme-text-muted mb-2 flex items-center justify-between px-1">
+            <span>持仓资产权重明细</span>
+            <span>市值 (权重) / 浮动盈亏</span>
           </div>
 
-          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+          <div className="space-y-2.5 max-h-80 sm:max-h-96 overflow-y-auto pr-1 custom-scrollbar">
             {chartData.map((item, idx) => {
               const isSelected = activeSymbol === item.symbol;
               const isHovered = activeIndex === idx;
@@ -230,31 +246,31 @@ export default React.memo(function PortfolioAllocationChart({
                   onMouseEnter={() => setActiveIndex(idx)}
                   onMouseLeave={() => setActiveIndex(null)}
                   onClick={() => onSelect(item.symbol)}
-                  className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 text-xs ${
+                  className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 text-xs sm:text-sm ${
                     isSelected
-                      ? "bg-indigo-500/10 border-indigo-500/50 shadow-xs"
+                      ? "bg-indigo-500/15 border-indigo-500/60 shadow-md ring-1 ring-indigo-500/30"
                       : isHovered
-                      ? "bg-theme-panel/80 border-theme-border"
-                      : "bg-theme-panel/30 border-transparent hover:border-theme-border/60"
+                      ? "bg-theme-panel/90 border-theme-border"
+                      : "bg-theme-panel/40 border-theme-border/50 hover:border-theme-border"
                   }`}
                 >
                   {/* Left info */}
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div
-                      className="w-3 h-3 rounded-full shrink-0 shadow-xs"
+                      className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs ring-2 ring-white/10"
                       style={{ backgroundColor: item.color }}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold font-mono text-theme-text-heading text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold font-mono text-theme-text-heading text-sm sm:text-base">
                           {item.symbol}
                         </span>
-                        <span className="text-[10px] text-theme-text-muted truncate hidden sm:inline">
+                        <span className="text-xs text-theme-text-muted truncate max-w-[140px]">
                           {item.name}
                         </span>
                       </div>
                       {/* Weight progress bar */}
-                      <div className="w-full bg-slate-700/20 rounded-full h-1 mt-1 overflow-hidden">
+                      <div className="w-full bg-slate-700/20 rounded-full h-1.5 mt-1.5 overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-300"
                           style={{
@@ -268,13 +284,13 @@ export default React.memo(function PortfolioAllocationChart({
 
                   {/* Right values */}
                   <div className="text-right shrink-0 font-mono">
-                    <div className="font-bold text-theme-text-primary text-xs">
+                    <div className="font-bold text-theme-text-primary text-xs sm:text-sm">
                       ${item.marketValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      <span className="text-[10px] text-theme-text-muted ml-1 font-normal">
+                      <span className="text-xs font-semibold text-indigo-400 ml-1.5">
                         ({item.weight.toFixed(1)}%)
                       </span>
                     </div>
-                    <div className={`text-[10px] font-bold ${
+                    <div className={`text-xs font-extrabold mt-0.5 ${
                       isPositive
                         ? isUpRed ? "text-red-500" : "text-emerald-500"
                         : isUpRed ? "text-emerald-500" : "text-red-500"
@@ -288,6 +304,6 @@ export default React.memo(function PortfolioAllocationChart({
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 });

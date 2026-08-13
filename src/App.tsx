@@ -1288,30 +1288,6 @@ export default function App() {
       
       <main className="flex-grow p-2 sm:p-4 md:p-6 grid grid-cols-12 gap-2 sm:gap-3 md:gap-5 min-h-0">
         
-        {/* Portfolio Value History Trend Chart */}
-        {positions.length > 0 && (
-          <div className="col-span-12">
-            <PortfolioTrendChart
-              positions={positions}
-              stocks={stocks}
-              isUpRed={isUpRed}
-            />
-          </div>
-        )}
-
-        {/* Portfolio Allocation Weight & PnL Donut Chart */}
-        {positions.length > 0 && (
-          <div className="col-span-12">
-            <PortfolioAllocationChart
-              positions={positions}
-              stocks={stocks}
-              onSelect={handleSelectStock}
-              activeSymbol={activeSymbol}
-              isUpRed={isUpRed}
-            />
-          </div>
-        )}
-
         {/* Bento Cell 1: Custom Positions Table (col-span-12 lg:col-span-12) */}
         <div className="col-span-12 bg-theme-card border border-theme-border rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 flex flex-col shadow-md md:shadow-xl">
           <div className="flex items-center justify-between mb-5">
@@ -1659,12 +1635,34 @@ export default function App() {
               />
             </div>
           )}
-        
+        </div>
 
-          {/* Divider */}
-          <div className="border-t border-theme-border-muted my-8 w-full -mx-4 md:-mx-6 px-4 md:px-6 box-content"></div>
+        {/* Portfolio Allocation Weight & PnL Donut Chart (Standalone Section) */}
+        {positions.length > 0 && (
+          <div className="col-span-12">
+            <PortfolioAllocationChart
+              positions={positions}
+              stocks={stocks}
+              onSelect={handleSelectStock}
+              activeSymbol={activeSymbol}
+              isUpRed={isUpRed}
+            />
+          </div>
+        )}
 
-          {/* Merged Chart Section */}
+        {/* Portfolio Value History Trend Chart (Standalone Section) */}
+        {positions.length > 0 && (
+          <div className="col-span-12">
+            <PortfolioTrendChart
+              positions={positions}
+              stocks={stocks}
+              isUpRed={isUpRed}
+            />
+          </div>
+        )}
+
+        {/* Standalone Section: K-Line Chart, Technical Analysis & Watchlist */}
+        <div className="col-span-12 bg-theme-card border border-theme-border rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 flex flex-col shadow-md md:shadow-xl">
           <div ref={stockChartRef} id="kline-chart-section" className="scroll-mt-6">
             {/* Toolbar row inside Bento chart cell */}
             <div className="flex flex-wrap items-center justify-between pb-4 border-b border-theme-border-muted mb-5 gap-3">
@@ -1840,24 +1838,6 @@ export default function App() {
         </div>
 
         
-        {/* Bento Cell: Calendar Heatmap for PnL (col-span-12) */}
-        <div className="col-span-12 bg-theme-card border border-theme-border rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 flex flex-col shadow-md md:shadow-xl">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-3 border-b border-theme-border-muted">
-            <h2 className="text-base font-bold text-theme-text-heading flex items-center gap-2">
-              <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <span>历史盈亏热力全景 • PnL Heatmap & Performance</span>
-            </h2>
-            <span className="text-xs text-theme-text-muted font-mono bg-theme-panel px-2.5 py-1 rounded-lg border border-theme-border-muted">
-              📅 近 365 天历史持仓变化
-            </span>
-          </div>
-          <div className="w-full">
-            <CalendarHeatmap data={dailyPnLData} isUpRed={isUpRed} />
-          </div>
-        </div>
-
         {/* Bento Cell 2: Quick Watchlist & Search Monitor (col-span-12 lg:col-span-6) */}
         <div className="col-span-12 lg:col-span-6 bg-theme-card border border-theme-border rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col shadow-xl">
           <div className="flex items-center justify-between mb-4">
@@ -1967,9 +1947,7 @@ export default function App() {
           </div>
         </div>
 
-        
-
-{/* Bento Cell 6: Recent Buzz News Stream (col-span-12 lg:col-span-6) */}
+        {/* Bento Cell 6: Recent Buzz News Stream (col-span-12 lg:col-span-6) */}
         <div className="col-span-12 lg:col-span-6 bg-theme-card border border-theme-border rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col justify-between shadow-xl">
           <div>
             <div className="flex items-center justify-between mb-4">
@@ -2034,6 +2012,24 @@ export default function App() {
               请在上方选择一只股票，即可在这里启用 Gemini 大模型进行仓位诊断。
             </div>
           )}
+        </div>
+
+        {/* Bento Cell: Calendar Heatmap for PnL (col-span-12) */}
+        <div className="col-span-12 bg-theme-card border border-theme-border rounded-2xl md:rounded-3xl p-4 sm:p-5 md:p-6 flex flex-col shadow-md md:shadow-xl">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-3 border-b border-theme-border-muted">
+            <h2 className="text-base font-bold text-theme-text-heading flex items-center gap-2">
+              <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>历史盈亏热力全景 • PnL Heatmap & Performance</span>
+            </h2>
+            <span className="text-xs text-theme-text-muted font-mono bg-theme-panel px-2.5 py-1 rounded-lg border border-theme-border-muted">
+              📅 近 365 天历史持仓变化
+            </span>
+          </div>
+          <div className="w-full">
+            <CalendarHeatmap data={dailyPnLData} isUpRed={isUpRed} />
+          </div>
         </div>
 
         
@@ -2298,23 +2294,60 @@ export default function App() {
                     <div className="max-h-52 overflow-y-auto border border-theme-border rounded-2xl divide-y divide-theme-border-muted bg-theme-panel scrollbar-thin">
                     {(() => {
                       const query = modalSearchQuery.trim().toLowerCase();
+                      const upperQuery = modalSearchQuery.trim().toUpperCase();
                       const filtered = query
                         ? stocks.filter(
                             s =>
                               s.symbol.toLowerCase().includes(query) ||
                               s.name.toLowerCase().includes(query)
                           )
-                        : stocks.slice(0, 6); // Show top 6 as suggestions when search is empty
+                        : stocks.slice(0, 8); // Show top 8 as suggestions when search is empty
 
-                      if (filtered.length === 0) {
-                        return (
-                          <div className="text-center py-6 text-xs text-theme-text-muted font-medium">
-                            未找到匹配的股票标的
-                          </div>
-                        );
-                      }
+                      const hasExactMatch = stocks.some(s => s.symbol === upperQuery);
 
-                      return filtered.map((s) => {
+                      return (
+                        <>
+                          {/* Quick Add Custom Ticker Option if user searched something that's not an exact preset match */}
+                          {upperQuery && !hasExactMatch && (
+                            <div
+                              onClick={async () => {
+                                const sym = upperQuery;
+                                setModalSymbol(sym);
+                                // Try fetching quote
+                                try {
+                                  const res = await fetch(`/api/stocks/quote/${sym}`);
+                                  if (res.ok) {
+                                    const st = await res.json();
+                                    if (st && st.currentPrice > 0) {
+                                      setStocks(prev => [...prev.filter(p => p.symbol !== sym), st]);
+                                      setModalBuyPrice(String(st.currentPrice));
+                                      return;
+                                    }
+                                  }
+                                } catch {}
+                                setModalBuyPrice("100.00");
+                              }}
+                              className="p-3 bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-400 font-medium text-xs flex items-center justify-between cursor-pointer border-b border-indigo-500/20 transition-all"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="bg-indigo-500 text-white font-bold w-5 h-5 rounded-full flex items-center justify-center text-[11px]">+</span>
+                                <span>按代码检索并使用 <strong>{upperQuery}</strong></span>
+                              </div>
+                              <span className="text-[10px] bg-indigo-500/20 px-2 py-0.5 rounded-full text-indigo-300 font-mono">全球标的检索</span>
+                            </div>
+                          )}
+
+                          {filtered.length === 0 && !upperQuery ? (
+                            <div className="text-center py-6 text-xs text-theme-text-muted font-medium">
+                              未找到匹配的股票标的
+                            </div>
+                          ) : filtered.length === 0 && upperQuery ? (
+                            <div className="p-4 text-center space-y-2">
+                              <p className="text-xs text-theme-text-muted">列表中未包含此标的预设，请点击上方『按代码检索』或使用『➕ 手动录入新标的』。</p>
+                            </div>
+                          ) : null}
+
+                          {filtered.map((s) => {
                         const isSelected = modalSymbol === s.symbol;
                         const changeVal = s.currentPrice - s.prevClose;
                         const changePercent = (changeVal / s.prevClose) * 100;
@@ -2393,7 +2426,9 @@ export default function App() {
                             </div>
                           </div>
                         );
-                      });
+                      })}
+                      </>
+                      );
                     })()}
                   </div>
                   )}

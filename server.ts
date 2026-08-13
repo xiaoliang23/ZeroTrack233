@@ -92,15 +92,15 @@ const STOCKS: Stock[] = [
   { symbol: "USO", name: "United States Oil Fund (美国原油 ETF)", basePrice: 78.5, currentPrice: 78.2, prevClose: 79.0, high: 79.8, low: 77.5, volume: 12000000 },
 
   // === S&P 500 TECH & AI GIANTS ===
-  { symbol: "AAPL", name: "Apple Inc. (苹果公司)", basePrice: 225.0, currentPrice: 226.4, prevClose: 224.5, high: 227.2, low: 223.0, volume: 52000000 },
-  { symbol: "NVDA", name: "NVIDIA Corp. (英伟达)", basePrice: 128.0, currentPrice: 130.5, prevClose: 125.0, high: 132.0, low: 124.0, volume: 268000000 },
-  { symbol: "MSFT", name: "Microsoft Corp. (微软)", basePrice: 450.0, currentPrice: 451.1, prevClose: 448.0, high: 453.5, low: 447.2, volume: 22000000 },
-  { symbol: "TSLA", name: "Tesla, Inc. (特斯拉)", basePrice: 250.0, currentPrice: 248.8, prevClose: 255.2, high: 260.5, low: 245.0, volume: 85000000 },
-  { symbol: "AMZN", name: "Amazon.com, Inc. (亚马逊)", basePrice: 200.0, currentPrice: 201.5, prevClose: 199.0, high: 203.8, low: 198.5, volume: 33000000 },
-  { symbol: "GOOGL", name: "Alphabet Inc. (谷歌)", basePrice: 185.0, currentPrice: 186.9, prevClose: 184.5, high: 188.0, low: 183.0, volume: 28000000 },
-  { symbol: "META", name: "Meta Platforms (脸书/元宇宙)", basePrice: 530.0, currentPrice: 533.5, prevClose: 525.1, high: 538.0, low: 520.0, volume: 18000000 },
-  { symbol: "AMD", name: "Advanced Micro Devices (超威半导体)", basePrice: 165.0, currentPrice: 167.2, prevClose: 160.0, high: 168.5, low: 158.0, volume: 45000000 },
-  { symbol: "AVGO", name: "Broadcom Inc. (博通)", basePrice: 1650.0, currentPrice: 1654.2, prevClose: 1645.0, high: 1668.0, low: 1640.0, volume: 3500000 },
+  { symbol: "AAPL", name: "Apple Inc. (苹果公司)", basePrice: 300.0, currentPrice: 302.25, prevClose: 300.0, high: 304.5, low: 299.0, volume: 48000000 },
+  { symbol: "NVDA", name: "NVIDIA Corp. (英伟达)", basePrice: 220.0, currentPrice: 224.09, prevClose: 220.0, high: 225.1, low: 216.2, volume: 105000000 },
+  { symbol: "MSFT", name: "Microsoft Corp. (微软)", basePrice: 490.0, currentPrice: 492.43, prevClose: 490.0, high: 495.8, low: 488.0, volume: 25000000 },
+  { symbol: "TSLA", name: "Tesla, Inc. (特斯拉)", basePrice: 325.0, currentPrice: 327.51, prevClose: 325.0, high: 331.0, low: 322.0, volume: 68000000 },
+  { symbol: "AMZN", name: "Amazon.com, Inc. (亚马逊)", basePrice: 265.0, currentPrice: 267.28, prevClose: 265.0, high: 269.5, low: 264.0, volume: 32000000 },
+  { symbol: "GOOGL", name: "Alphabet Inc. (谷歌/Google)", basePrice: 343.8, currentPrice: 343.54, prevClose: 343.8, high: 346.48, low: 340.88, volume: 23850000 },
+  { symbol: "META", name: "Meta Platforms (脸书/元宇宙)", basePrice: 575.0, currentPrice: 578.85, prevClose: 575.0, high: 582.0, low: 572.0, volume: 19000000 },
+  { symbol: "AMD", name: "Advanced Micro Devices (超威半导体)", basePrice: 480.0, currentPrice: 482.93, prevClose: 480.0, high: 488.0, low: 476.0, volume: 38000000 },
+  { symbol: "AVGO", name: "Broadcom Inc. (博通)", basePrice: 410.0, currentPrice: 416.05, prevClose: 410.0, high: 420.0, low: 408.0, volume: 15000000 },
   { symbol: "NFLX", name: "Netflix Inc. (网飞/奈飞)", basePrice: 680.0, currentPrice: 682.8, prevClose: 675.0, high: 685.5, low: 670.0, volume: 4500000 },
   { symbol: "ADBE", name: "Adobe Inc. (奥多比)", basePrice: 535.0, currentPrice: 536.4, prevClose: 532.0, high: 542.0, low: 531.0, volume: 3800000 },
   { symbol: "CRM", name: "Salesforce Inc. (赛富时)", basePrice: 290.0, currentPrice: 291.5, prevClose: 288.5, high: 294.0, low: 287.0, volume: 5500000 },
@@ -117,7 +117,7 @@ const STOCKS: Stock[] = [
   { symbol: "MA", name: "Mastercard Inc. (万事达卡)", basePrice: 475.0, currentPrice: 476.9, prevClose: 473.5, high: 480.0, low: 472.0, volume: 3200000 },
   { symbol: "XOM", name: "Exxon Mobil Corp. (埃克森美孚)", basePrice: 115.0, currentPrice: 115.8, prevClose: 114.2, high: 116.9, low: 113.8, volume: 18000000 },
   { symbol: "CVX", name: "Chevron Corp. (雪佛龙)", basePrice: 158.0, currentPrice: 157.6, prevClose: 159.0, high: 161.0, low: 156.5, volume: 9500000 },
-  { symbol: "KO", name: "Coca-Cola Co. (可口可乐)", basePrice: 60.5, currentPrice: 60.8, prevClose: 60.2, high: 61.2, low: 60.0, volume: 14000000 },
+  { symbol: "KO", name: "Coca-Cola Co. (可口可乐)", basePrice: 87.0, currentPrice: 87.02, prevClose: 86.48, high: 87.29, low: 85.68, volume: 14000000 },
   { symbol: "PEP", name: "PepsiCo Inc. (百事公司)", basePrice: 168.0, currentPrice: 168.5, prevClose: 167.2, high: 170.0, low: 166.8, volume: 5500000 },
   { symbol: "PG", name: "Procter & Gamble (宝洁公司)", basePrice: 162.0, currentPrice: 162.9, prevClose: 161.5, high: 164.0, low: 161.0, volume: 7000000 },
   { symbol: "WMT", name: "Walmart Inc. (沃尔玛)", basePrice: 60.0, currentPrice: 60.3, prevClose: 59.8, high: 60.8, low: 59.5, volume: 18000000 },
@@ -170,7 +170,7 @@ const GLOBAL_STOCK_DIRECTORY: Record<string, { name: string; basePrice: number }
   "HD": { name: "Home Depot, Inc. (家得宝)", basePrice: 345.00 },
   "DIS": { name: "The Walt Disney Co. (迪士尼)", basePrice: 104.20 },
   "NKE": { name: "NIKE, Inc. (耐克)", basePrice: 95.40 },
-  "KO": { name: "Coca-Cola Co. (可口可乐)", basePrice: 62.10 },
+  "KO": { name: "Coca-Cola Co. (可口可乐)", basePrice: 87.02 },
   "PEP": { name: "PepsiCo, Inc. (百事公司)", basePrice: 168.50 },
   "PG": { name: "Procter & Gamble (宝洁)", basePrice: 164.20 },
   "CAT": { name: "Caterpillar Inc. (卡特彼勒)", basePrice: 325.00 },
@@ -346,7 +346,7 @@ function generateCandles(symbol: string, range: string, currentPrice: number) {
   else if (range === "1Y") days = 250;
 
   const data = [];
-  let price = stock.basePrice || currentPrice || 100;
+  let price = (stock.prevClose && stock.prevClose > 0) ? stock.prevClose : (currentPrice || 100);
   const now = Date.now();
   
   const totalSteps = (range === "1D" || range === "5M") ? 48 
@@ -410,23 +410,42 @@ STOCKS.forEach(s => {
   }
 });
 
-// Simulate real-time market updates
-setInterval(() => {
-  STOCKS.forEach(s => {
-    if (Math.random() > 0.4) {
-      const volatility = s.currentPrice * 0.001;
-      s.currentPrice = Number((s.currentPrice + (Math.random() - 0.5) * volatility).toFixed(2));
-      
-      if (s.currentPrice > s.high) s.high = s.currentPrice;
-      if (s.currentPrice < s.low) s.low = s.currentPrice;
-      s.volume += Math.floor(Math.random() * 5000);
-      
-      if (!s.history) s.history = Array(15).fill(s.currentPrice);
-      s.history.push(s.currentPrice);
-      if (s.history.length > 15) s.history.shift();
-    }
-  });
-}, 3000);
+// Background task: Periodically refresh real Yahoo Finance quotes every 20s in rotating batches
+let backgroundSyncOffset = 0;
+setInterval(async () => {
+  try {
+    const batchSize = 15;
+    const batch = STOCKS.slice(backgroundSyncOffset, backgroundSyncOffset + batchSize);
+    backgroundSyncOffset = (backgroundSyncOffset + batchSize) % STOCKS.length;
+    const symbols = batch.map(s => s.symbol);
+
+    await Promise.all(symbols.map(async (sym) => {
+      try {
+        const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
+          signal: AbortSignal.timeout(3000)
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const meta = data?.chart?.result?.[0]?.meta;
+          if (meta && meta.regularMarketPrice > 0) {
+            const stock = STOCKS.find(s => s.symbol === sym);
+            if (stock) {
+              stock.currentPrice = meta.regularMarketPrice;
+              stock.prevClose = meta.previousClose || meta.chartPreviousClose || stock.prevClose;
+              stock.high = meta.regularMarketDayHigh || stock.high;
+              stock.low = meta.regularMarketDayLow || stock.low;
+              stock.volume = meta.regularMarketVolume || stock.volume;
+              if (!stock.history) stock.history = [];
+              stock.history.push(stock.currentPrice);
+              if (stock.history.length > 15) stock.history.shift();
+            }
+          }
+        }
+      } catch {}
+    }));
+  } catch {}
+}, 20000);
 
 // 1. API: List Stocks
 app.get("/api/stocks", async (req, res) => {
@@ -447,7 +466,10 @@ app.get("/api/stocks", async (req, res) => {
       // Fetch directly to bypass some 429 errors from the module
       const quotes: any[] = await Promise.all(symbolsToFetch.map(async (sym) => {
         try {
-          const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, { headers: { 'User-Agent': 'Mozilla/5.0' }});
+          const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, { 
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
+            signal: AbortSignal.timeout(4000)
+          });
           if (res.ok) {
             const data = await res.json();
             const meta = data?.chart?.result?.[0]?.meta;
@@ -543,66 +565,92 @@ app.get("/api/stocks/search", async (req, res) => {
       s => s.symbol.toLowerCase().includes(query) || s.name.toLowerCase().includes(query)
     );
     
-    // Fetch from Yahoo Finance
+    // Fetch from Yahoo Finance Search API
     let validQuotes: any[] = [];
     try {
-      const resYahoo = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10`, { headers: { 'User-Agent': 'Mozilla/5.0' }});
+      const resYahoo = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=12`, { 
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
+        signal: AbortSignal.timeout(3500)
+      });
       if (resYahoo.ok) {
         const data = await resYahoo.json();
-        if (data.quotes) {
-          validQuotes = data.quotes.filter((q: any) => q.isYahooFinance).slice(0, 10);
+        if (data.quotes && Array.isArray(data.quotes)) {
+          validQuotes = data.quotes.filter((q: any) => q.symbol).slice(0, 12);
         }
       }
     } catch (e) {}
     
-    // Fetch live quotes for the search results to get current prices
-    const symbolsToFetch = validQuotes.map(q => q.symbol);
+    // Build quote name map
+    const infoMap = new Map<string, { name: string; exch?: string }>();
+    validQuotes.forEach(q => {
+      const sym = q.symbol.toUpperCase();
+      const companyName = q.longname || q.shortname || q.dispName || q.name || sym;
+      infoMap.set(sym, { name: companyName, exch: q.exchDisp || q.exchange });
+    });
+
+    // If query looks like a ticker symbol, make sure it is in infoMap
+    if (/^[A-Z0-9\.\-]{1,10}$/.test(normalized) && !infoMap.has(normalized)) {
+      infoMap.set(normalized, { name: `${normalized} (证券标的)` });
+    }
+
+    const symbolsToFetch = Array.from(infoMap.keys());
     let fetchedStocks: any[] = [];
     
     if (symbolsToFetch.length > 0) {
-      const liveQuotes: any[] = await Promise.all(symbolsToFetch.map(async (sym) => {
+      const liveQuotes = await Promise.all(symbolsToFetch.map(async (sym) => {
+        const info = infoMap.get(sym);
+        let curPrice = 0;
+        let prevClose = 0;
+        let high = 0;
+        let low = 0;
+        let volume = 0;
+
         try {
-          const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, { headers: { 'User-Agent': 'Mozilla/5.0' }});
+          const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, { 
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
+            signal: AbortSignal.timeout(3500)
+          });
           if (res.ok) {
             const data = await res.json();
             const meta = data?.chart?.result?.[0]?.meta;
             if (meta) {
-              return {
-                symbol: sym,
-                longName: sym,
-                shortName: sym,
-                regularMarketPrice: meta.regularMarketPrice,
-                regularMarketPreviousClose: meta.previousClose,
-                regularMarketDayHigh: meta.regularMarketDayHigh || meta.regularMarketPrice,
-                regularMarketDayLow: meta.regularMarketDayLow || meta.regularMarketPrice,
-                regularMarketVolume: meta.regularMarketVolume || 0
-              };
+              curPrice = meta.regularMarketPrice || 0;
+              prevClose = meta.previousClose || meta.chartPreviousClose || curPrice;
+              high = meta.regularMarketDayHigh || curPrice;
+              low = meta.regularMarketDayLow || curPrice;
+              volume = meta.regularMarketVolume || 0;
             }
           }
         } catch (e) {}
-        return null;
-      })).then(res => res.filter(Boolean));
-      fetchedStocks = liveQuotes.map(quote => ({
-        symbol: quote.symbol,
-        name: quote.longName || quote.shortName || quote.symbol,
-        basePrice: quote.regularMarketPreviousClose || 0,
-        currentPrice: quote.regularMarketPrice || quote.postMarketPrice || 0,
-        prevClose: quote.regularMarketPreviousClose || 0,
-        high: quote.regularMarketDayHigh || 0,
-        low: quote.regularMarketDayLow || 0,
-        volume: quote.regularMarketVolume || 0
+
+        return {
+          symbol: sym,
+          name: info?.name || sym,
+          basePrice: prevClose || curPrice || 100,
+          currentPrice: curPrice || prevClose || 100,
+          prevClose: prevClose || curPrice || 100,
+          high: high || curPrice || 100,
+          low: low || curPrice || 100,
+          volume: volume || 1000000
+        };
       }));
+
+      fetchedStocks = liveQuotes;
     }
 
-    // Merge: favor Yahoo Finance results, fallback to local matches
+    // Merge: favor Yahoo Finance / Live results, fallback to local matches
     const map = new Map();
     localMatches.forEach(s => map.set(s.symbol, s));
     fetchedStocks.forEach(s => {
        map.set(s.symbol, s);
        // Add to local cache if missing
-       if (!STOCKS.find(exist => exist.symbol === s.symbol)) {
-         (s as any).history = Array(15).fill((s as any).currentPrice || (s as any).regularMarketPrice || 0);
+       const existingIndex = STOCKS.findIndex(exist => exist.symbol === s.symbol);
+       if (existingIndex === -1) {
+         (s as any).history = Array(15).fill((s as any).currentPrice || 100);
          STOCKS.push(s);
+       } else if (s.currentPrice > 0) {
+         STOCKS[existingIndex].currentPrice = s.currentPrice;
+         if (s.name && s.name !== s.symbol) STOCKS[existingIndex].name = s.name;
        }
     });
 
@@ -624,9 +672,9 @@ app.get("/api/stocks/quote/:symbol", async (req, res) => {
   try {
     let quote: any = { symbol };
     try {
-      const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1d`, { 
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        signal: AbortSignal.timeout(3000)
+      const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1d`, { 
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
+        signal: AbortSignal.timeout(4000)
       });
       if (res.ok) {
         const data = await res.json();
@@ -705,9 +753,9 @@ app.get("/api/stocks/candles/:symbol", async (req, res) => {
       interval = "1d";
     }
 
-    const resYahoo = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${Math.floor(period1.getTime()/1000)}&period2=${Math.floor(period2.getTime()/1000)}&interval=${interval}`, { 
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      signal: AbortSignal.timeout(3500)
+    const resYahoo = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${Math.floor(period1.getTime()/1000)}&period2=${Math.floor(period2.getTime()/1000)}&interval=${interval}`, { 
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
+      signal: AbortSignal.timeout(4000)
     });
     if (resYahoo.ok) {
       const data = await resYahoo.json();

@@ -30,25 +30,25 @@ export interface NewsItem {
 
 // Default initial stocks directory with rich global & US stocks coverage
 export const DEFAULT_STOCKS: Stock[] = [
-  { symbol: "NVDA", name: "NVIDIA Corp. (英伟达 AI芯片)", basePrice: 120.0, currentPrice: 121.5, prevClose: 118.8, high: 123.4, low: 118.2, volume: 45000000, history: [118.8, 119.2, 120.1, 121.5] },
-  { symbol: "AAPL", name: "Apple Inc. (苹果公司)", basePrice: 220.0, currentPrice: 222.3, prevClose: 219.5, high: 224.0, low: 219.0, volume: 38000000, history: [219.5, 220.5, 221.8, 222.3] },
-  { symbol: "TSLA", name: "Tesla Inc. (特斯拉电动车)", basePrice: 210.0, currentPrice: 208.5, prevClose: 212.0, high: 215.8, low: 206.2, volume: 52000000, history: [212.0, 210.2, 209.1, 208.5] },
-  { symbol: "MSFT", name: "Microsoft Corp. (微软)", basePrice: 440.0, currentPrice: 442.8, prevClose: 438.5, high: 445.0, low: 438.0, volume: 21000000, history: [438.5, 439.8, 441.2, 442.8] },
-  { symbol: "AMZN", name: "Amazon.com Inc. (亚马逊)", basePrice: 180.0, currentPrice: 181.2, prevClose: 179.0, high: 182.5, low: 178.5, volume: 28000000, history: [179.0, 180.0, 180.8, 181.2] },
-  { symbol: "GOOGL", name: "Alphabet Inc. (谷歌/Google)", basePrice: 175.0, currentPrice: 176.4, prevClose: 174.2, high: 177.8, low: 174.0, volume: 22000000, history: [174.2, 175.1, 175.8, 176.4] },
-  { symbol: "META", name: "Meta Platforms (元宇宙/社交)", basePrice: 500.0, currentPrice: 504.2, prevClose: 495.0, high: 508.0, low: 494.0, volume: 16000000, history: [495.0, 498.2, 501.5, 504.2] },
-  { symbol: "AMD", name: "Advanced Micro Devices (超威半导体)", basePrice: 150.0, currentPrice: 151.8, prevClose: 148.5, high: 153.2, low: 148.0, volume: 32000000, history: [148.5, 149.8, 150.5, 151.8] },
-  { symbol: "KO", name: "Coca-Cola Co. (可口可乐)", basePrice: 68.5, currentPrice: 69.2, prevClose: 68.2, high: 69.8, low: 68.1, volume: 14000000, history: [68.2, 68.5, 68.9, 69.2] },
+  { symbol: "NVDA", name: "NVIDIA Corp. (英伟达 AI芯片)", basePrice: 220.0, currentPrice: 224.09, prevClose: 220.0, high: 225.1, low: 216.2, volume: 105000000, history: [220.0, 221.5, 222.8, 224.09] },
+  { symbol: "AAPL", name: "Apple Inc. (苹果公司)", basePrice: 300.0, currentPrice: 302.25, prevClose: 300.0, high: 304.5, low: 299.0, volume: 48000000, history: [300.0, 301.0, 301.8, 302.25] },
+  { symbol: "TSLA", name: "Tesla Inc. (特斯拉电动车)", basePrice: 325.0, currentPrice: 327.51, prevClose: 325.0, high: 331.0, low: 322.0, volume: 68000000, history: [325.0, 326.0, 326.8, 327.51] },
+  { symbol: "MSFT", name: "Microsoft Corp. (微软)", basePrice: 490.0, currentPrice: 492.43, prevClose: 490.0, high: 495.8, low: 488.0, volume: 25000000, history: [490.0, 491.0, 491.8, 492.43] },
+  { symbol: "AMZN", name: "Amazon.com Inc. (亚马逊)", basePrice: 265.0, currentPrice: 267.28, prevClose: 265.0, high: 269.5, low: 264.0, volume: 32000000, history: [265.0, 266.0, 266.8, 267.28] },
+  { symbol: "GOOGL", name: "Alphabet Inc. (谷歌/Google)", basePrice: 343.8, currentPrice: 343.54, prevClose: 343.8, high: 346.48, low: 340.88, volume: 23850000, history: [343.8, 344.2, 343.9, 343.54] },
+  { symbol: "META", name: "Meta Platforms (元宇宙/社交)", basePrice: 575.0, currentPrice: 578.85, prevClose: 575.0, high: 582.0, low: 572.0, volume: 19000000, history: [575.0, 576.2, 577.5, 578.85] },
+  { symbol: "AMD", name: "Advanced Micro Devices (超威半导体)", basePrice: 480.0, currentPrice: 482.93, prevClose: 480.0, high: 488.0, low: 476.0, volume: 38000000, history: [480.0, 481.0, 482.1, 482.93] },
+  { symbol: "KO", name: "Coca-Cola Co. (可口可乐)", basePrice: 86.5, currentPrice: 87.02, prevClose: 86.48, high: 87.29, low: 85.68, volume: 14000000, history: [86.48, 86.8, 86.9, 87.02] },
   { symbol: "NEE", name: "NextEra Energy Inc. (新纪元能源)", basePrice: 78.0, currentPrice: 79.4, prevClose: 77.5, high: 80.1, low: 77.2, volume: 8500000, history: [77.5, 78.1, 78.8, 79.4] },
   { symbol: "PEP", name: "PepsiCo Inc. (百事可乐)", basePrice: 172.0, currentPrice: 173.5, prevClose: 171.2, high: 174.8, low: 171.0, volume: 6200000, history: [171.2, 172.0, 172.8, 173.5] },
   { symbol: "DIS", name: "Walt Disney Co. (华特迪士尼)", basePrice: 96.0, currentPrice: 97.5, prevClose: 95.8, high: 98.2, low: 95.2, volume: 9800000, history: [95.8, 96.2, 96.9, 97.5] },
-  { symbol: "SPY", name: "SPDR S&P 500 ETF Trust (标普500 ETF)", basePrice: 550.0, currentPrice: 552.8, prevClose: 548.5, high: 554.2, low: 548.0, volume: 55000000, history: [548.5, 550.0, 551.5, 552.8] },
-  { symbol: "QQQ", name: "Invesco QQQ Trust (纳斯达克100 ETF)", basePrice: 475.0, currentPrice: 478.2, prevClose: 472.0, high: 480.0, low: 471.5, volume: 38000000, history: [472.0, 474.5, 476.8, 478.2] },
+  { symbol: "SPY", name: "SPDR S&P 500 ETF Trust (标普500 ETF)", basePrice: 770.0, currentPrice: 772.49, prevClose: 770.0, high: 775.0, low: 768.0, volume: 65000000, history: [770.0, 771.2, 772.0, 772.49] },
+  { symbol: "QQQ", name: "Invesco QQQ Trust (纳斯达克100 ETF)", basePrice: 720.0, currentPrice: 723.7, prevClose: 720.0, high: 726.0, low: 718.0, volume: 45000000, history: [720.0, 721.5, 722.8, 723.7] },
   { symbol: "INTC", name: "Intel Corp. (英特尔晶圆)", basePrice: 30.0, currentPrice: 29.8, prevClose: 30.5, high: 31.0, low: 29.5, volume: 41000000, history: [30.5, 30.2, 30.0, 29.8] },
-  { symbol: "AVGO", name: "Broadcom Inc. (博通芯片)", basePrice: 160.0, currentPrice: 162.5, prevClose: 158.0, high: 164.0, low: 157.5, volume: 12000000, history: [158.0, 159.5, 161.0, 162.5] },
+  { symbol: "AVGO", name: "Broadcom Inc. (博通芯片)", basePrice: 410.0, currentPrice: 416.05, prevClose: 410.0, high: 420.0, low: 408.0, volume: 15000000, history: [410.0, 412.0, 414.5, 416.05] },
   { symbol: "QCOM", name: "Qualcomm Inc. (高通)", basePrice: 170.0, currentPrice: 171.2, prevClose: 169.0, high: 173.0, low: 168.5, volume: 11000000, history: [169.0, 170.1, 170.8, 171.2] },
   { symbol: "TSM", name: "TSMC (台积电 ADR)", basePrice: 140.0, currentPrice: 140.8, prevClose: 139.2, high: 142.0, low: 138.5, volume: 15000000, history: [139.2, 139.8, 140.2, 140.8] },
-  { symbol: "PLTR", name: "Palantir Technologies (帕兰提尔 AI)", basePrice: 32.0, currentPrice: 33.5, prevClose: 31.8, high: 34.0, low: 31.5, volume: 42000000, history: [31.8, 32.2, 32.9, 33.5] },
+  { symbol: "PLTR", name: "Palantir Technologies (帕兰提尔 AI)", basePrice: 170.0, currentPrice: 171.04, prevClose: 170.0, high: 175.0, low: 168.3, volume: 35000000, history: [170.0, 170.5, 171.0, 171.04] },
   { symbol: "JNJ", name: "Johnson & Johnson (强生)", basePrice: 160.0, currentPrice: 161.2, prevClose: 159.5, high: 162.0, low: 159.0, volume: 7500000, history: [159.5, 160.2, 160.8, 161.2] },
   { symbol: "WMT", name: "Walmart Inc. (沃尔玛)", basePrice: 73.0, currentPrice: 74.2, prevClose: 72.8, high: 74.8, low: 72.5, volume: 15000000, history: [72.8, 73.2, 73.8, 74.2] },
   { symbol: "COST", name: "Costco Wholesale (开市客)", basePrice: 880.0, currentPrice: 888.5, prevClose: 875.0, high: 892.0, low: 872.0, volume: 2800000, history: [875.0, 880.2, 884.5, 888.5] },
@@ -97,7 +97,37 @@ export function loadStoredStocks(): Stock[] {
       // Merge with default stocks to ensure base stocks exist
       const symbolMap = new Map<string, Stock>();
       DEFAULT_STOCKS.forEach(s => symbolMap.set(s.symbol, s));
-      parsed.forEach(s => symbolMap.set(s.symbol, s));
+      parsed.forEach(s => {
+        const defaultStock = symbolMap.get(s.symbol);
+        if (defaultStock) {
+          // If cached price for known default stock is outdated, reset to updated default
+          const isOutdated = 
+            (s.symbol === 'GOOGL' && s.currentPrice < 250) ||
+            (s.symbol === 'AAPL' && s.currentPrice < 250) ||
+            (s.symbol === 'NVDA' && s.currentPrice < 180) ||
+            (s.symbol === 'SPY' && s.currentPrice < 650) ||
+            (s.symbol === 'QQQ' && s.currentPrice < 600) ||
+            (s.symbol === 'MSFT' && s.currentPrice < 450) ||
+            (s.symbol === 'AMZN' && s.currentPrice < 220) ||
+            (s.symbol === 'META' && s.currentPrice < 500) ||
+            (s.symbol === 'AMD' && s.currentPrice < 300) ||
+            (s.symbol === 'AVGO' && s.currentPrice < 300) ||
+            (s.symbol === 'PLTR' && s.currentPrice < 100) ||
+            (s.symbol === 'KO' && s.currentPrice < 80);
+
+          if (isOutdated) {
+            symbolMap.set(s.symbol, { ...defaultStock });
+          } else {
+            symbolMap.set(s.symbol, {
+              ...defaultStock,
+              ...s,
+              name: defaultStock.name || s.name
+            });
+          }
+        } else {
+          symbolMap.set(s.symbol, s);
+        }
+      });
       return Array.from(symbolMap.values());
     }
   } catch {
@@ -150,7 +180,7 @@ async function fetchWithProxy(url: string, timeoutMs = 5000): Promise<any> {
  */
 export async function fetchStockQuote(symbol: string): Promise<Stock | null> {
   const cleanSym = symbol.trim().toUpperCase();
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${cleanSym}?range=1d&interval=1d`;
+  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${cleanSym}?range=1d&interval=1d`;
 
   try {
     const data = await fetchWithProxy(url, 3500);
@@ -183,9 +213,40 @@ export async function fetchStocksList(requestedSymbols: string[] = []): Promise<
   const localMap = new Map<string, Stock>();
   currentLocal.forEach(s => localMap.set(s.symbol, s));
 
-  // Symbols to update
+  // Try fetching from Server API first (direct server Node fetch to Yahoo)
+  try {
+    const querySymbols = Array.from(new Set([
+      ...currentLocal.map(s => s.symbol),
+      ...requestedSymbols
+    ])).join(",");
+    const res = await fetch(`/api/stocks?symbols=${encodeURIComponent(querySymbols)}`, { signal: AbortSignal.timeout(4500) });
+    if (res.ok) {
+      const serverStocks: Stock[] = await res.json();
+      if (Array.isArray(serverStocks) && serverStocks.length > 0) {
+        serverStocks.forEach(s => {
+          const existing = localMap.get(s.symbol);
+          if (existing) {
+            localMap.set(s.symbol, {
+              ...existing,
+              ...s,
+              name: existing.name || s.name
+            });
+          } else {
+            localMap.set(s.symbol, s);
+          }
+        });
+        const updatedList = Array.from(localMap.values());
+        saveStoredStocks(updatedList);
+        return updatedList;
+      }
+    }
+  } catch {
+    // Fallback to client-side CORS proxy
+  }
+
+  // Symbols to update via CORS proxy fallback
   const targetSymbols = Array.from(new Set([
-    ...currentLocal.slice(0, 8).map(s => s.symbol),
+    ...currentLocal.slice(0, 10).map(s => s.symbol),
     ...requestedSymbols
   ]));
 
@@ -229,33 +290,49 @@ export async function searchStocks(query: string): Promise<Stock[]> {
   const localStocks = loadStoredStocks();
   const map = new Map<string, Stock>();
 
-  // 1. Add all local matches
+  // 1. Add local matches first
   localStocks.forEach(s => {
     if (s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)) {
       map.set(s.symbol, s);
     }
   });
 
+  // 2. Try Server API search route first (Fastest, direct Node fetch without CORS proxy limits)
+  try {
+    const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(4000) });
+    if (res.ok) {
+      const serverResults: Stock[] = await res.json();
+      if (Array.isArray(serverResults) && serverResults.length > 0) {
+        serverResults.forEach(s => map.set(s.symbol, s));
+        const resultList = Array.from(map.values());
+        saveStoredStocks(resultList);
+        return resultList.slice(0, 30);
+      }
+    }
+  } catch {
+    // Fallback to client-side CORS proxy search
+  }
+
   const cleanSym = query.trim().toUpperCase();
 
-  // 2. If query looks like a valid ticker symbol (e.g. KO, NEE, PEP) and not in local matches yet
+  // 3. If query looks like a valid ticker symbol (e.g. KO, BABA, PLTR, 0700.HK) and not in local matches yet
   if (/^[A-Z0-9\.\-]{1,10}$/.test(cleanSym) && !map.has(cleanSym)) {
     try {
       const quote = await fetchStockQuote(cleanSym);
       if (quote) {
         map.set(cleanSym, quote);
       } else {
-        // Fallback stock item for static host
+        // Fallback stock item
         map.set(cleanSym, {
           symbol: cleanSym,
-          name: `${cleanSym} (美股/证券)`,
+          name: `${cleanSym} (证券/标的)`,
           basePrice: 100.0,
-          currentPrice: 100.5,
+          currentPrice: 100.0,
           prevClose: 100.0,
-          high: 102.0,
-          low: 99.5,
-          volume: 5000000,
-          history: [100.0, 100.2, 100.5]
+          high: 100.0,
+          low: 100.0,
+          volume: 1000000,
+          history: [100.0, 100.0, 100.0]
         });
       }
     } catch {
@@ -263,13 +340,13 @@ export async function searchStocks(query: string): Promise<Stock[]> {
     }
   }
 
-  // 3. Try Yahoo Finance remote search API via CORS Proxy
-  const searchUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=8`;
+  // 4. Try Yahoo Finance remote search API via CORS Proxy
+  const searchUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10`;
 
   try {
     const data = await fetchWithProxy(searchUrl, 3000);
     if (data?.quotes && Array.isArray(data.quotes)) {
-      const remoteQuotes = data.quotes.filter((item: any) => item.symbol && (item.isYahooFinance !== false));
+      const remoteQuotes = data.quotes.filter((item: any) => item.symbol);
 
       await Promise.allSettled(
         remoteQuotes.map(async (item: any) => {
@@ -281,7 +358,7 @@ export async function searchStocks(query: string): Promise<Stock[]> {
             } else {
               map.set(sym, {
                 symbol: sym,
-                name: item.longname || item.shortname || sym,
+                name: item.longname || item.shortname || item.dispName || sym,
                 basePrice: 100,
                 currentPrice: 100,
                 prevClose: 100,
@@ -308,6 +385,20 @@ export async function searchStocks(query: string): Promise<Stock[]> {
  */
 export async function fetchCandlesticks(symbol: string, range: string): Promise<Candle[]> {
   const cleanSym = symbol.trim().toUpperCase();
+
+  // 1. Try server API candles endpoint first (Fetches live Yahoo Finance data on backend)
+  try {
+    const res = await fetch(`/api/stocks/candles/${cleanSym}?range=${range}`, { signal: AbortSignal.timeout(4000) });
+    if (res.ok) {
+      const candles: Candle[] = await res.json();
+      if (Array.isArray(candles) && candles.length > 0) {
+        return candles;
+      }
+    }
+  } catch {
+    // Fallback to client-side CORS proxy
+  }
+
   const period1 = new Date();
   const period2 = new Date();
   let interval: string = "1d";
@@ -334,7 +425,7 @@ export async function fetchCandlesticks(symbol: string, range: string): Promise<
 
   const p1 = Math.floor(period1.getTime() / 1000);
   const p2 = Math.floor(period2.getTime() / 1000);
-  const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${cleanSym}?period1=${p1}&period2=${p2}&interval=${interval}`;
+  const chartUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${cleanSym}?period1=${p1}&period2=${p2}&interval=${interval}`;
 
   try {
     const data = await fetchWithProxy(chartUrl, 4000);
