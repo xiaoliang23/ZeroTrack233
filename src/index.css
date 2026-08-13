@@ -44,6 +44,25 @@
   --theme-border-muted: #fdf2f4;
 }
 
+.ocean {
+  /* Light Ocean Breeze Theme */
+  --theme-bg-app: #eef7ff;
+  --theme-bg-card: #ffffff;
+  --theme-bg-panel: #f0f8ff;
+  --theme-border: #bae6fd;
+  --theme-text-heading: #0369a1;
+  --theme-text-primary: #0f172a;
+  --theme-text-secondary: #0369a1;
+  --theme-text-muted: #0284c7;
+  --theme-bg-active: #e0f2fe;
+  --theme-bg-hover: rgba(224, 242, 254, 0.7);
+  --theme-border-muted: #e0f2fe;
+}
+
+html.ocean body {
+  background: linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 100%) fixed;
+}
+
 @keyframes sakura-fall {
   0% { transform: translateY(-10vh) translateX(0) rotate(0deg) scale(var(--s, 1)); opacity: 0; }
   10% { opacity: var(--o, 0.7); }
@@ -59,6 +78,34 @@
   background: linear-gradient(135deg, #fbcfe8 0%, #f472b6 100%);
   border-radius: 14px 0 14px 0;
   animation: sakura-fall linear infinite;
+  pointer-events: none;
+}
+
+@keyframes bubble-rise {
+  0% {
+    transform: translateY(105vh) translateX(0) scale(var(--s, 1));
+    opacity: 0;
+  }
+  20% {
+    opacity: var(--o, 0.6);
+  }
+  80% {
+    opacity: var(--o, 0.6);
+  }
+  100% {
+    transform: translateY(-10vh) translateX(var(--tx, 30px)) scale(var(--s, 1));
+    opacity: 0;
+  }
+}
+
+.ocean-bubble {
+  position: fixed;
+  bottom: -5vh;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 32%, rgba(255, 255, 255, 0.95), rgba(56, 189, 248, 0.35));
+  border: 1px solid rgba(186, 230, 253, 0.8);
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.25), inset 0 0 6px rgba(255, 255, 255, 0.9);
+  animation: bubble-rise linear infinite;
   pointer-events: none;
 }
 
@@ -106,5 +153,38 @@
 
 .animate-brain-pulse {
   animation: brain-pulse 2s infinite ease-in-out;
+}
+
+/* High visibility price & PnL styling with stroke & text shadow */
+.price-stroke {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  -webkit-font-smoothing: antialiased;
+}
+
+.price-badge-up {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.375rem;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.price-badge-down {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.375rem;
+  letter-spacing: -0.01em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 

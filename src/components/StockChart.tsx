@@ -1395,21 +1395,25 @@ export default function StockChart({
       </div>
 
       {/* 2. Live Candle Real-Time Metrics & Indicators Legend Banner */}
-      <div className="bg-slate-50 dark:bg-slate-900/90 p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 mb-2 font-mono text-[11px] leading-relaxed text-slate-700 dark:text-slate-300 select-none">
+      <div className="bg-slate-50 dark:bg-slate-900/90 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 mb-2 font-mono text-xs md:text-sm leading-relaxed text-slate-700 dark:text-slate-300 select-none shadow-2xs">
         {/* Row 1: OHLC Data */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span><strong className="text-slate-400">时间:</strong> {currentCandle.time || "--"}</span>
-          <span><strong className="text-slate-400">开:</strong> {currentCandle.open?.toFixed(2) || "--"}</span>
-          <span><strong className="text-slate-400">高:</strong> <span className="text-red-500 font-bold">{currentCandle.high?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-slate-400">低:</strong> <span className="text-emerald-500 font-bold">{currentCandle.low?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-slate-400">收:</strong> <span className={isUp ? "text-red-500 font-bold" : "text-emerald-500 font-bold"}>{currentCandle.close?.toFixed(2) || "--"}</span></span>
-          <span>
-            <strong className="text-slate-400">涨跌:</strong> 
-            <span className={currentChangePercent >= 0 ? "text-red-500 font-bold" : "text-emerald-500 font-bold"}>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 font-black">
+          <span><strong className="text-slate-400 font-normal">时间:</strong> {currentCandle.time || "--"}</span>
+          <span><strong className="text-slate-400 font-normal">开:</strong> <span className="font-mono font-black text-slate-800 dark:text-slate-100">${currentCandle.open?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-slate-400 font-normal">高:</strong> <span className="text-red-500 font-black font-mono [text-shadow:_0_1px_2px_rgba(0,0,0,0.3)]">${currentCandle.high?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-slate-400 font-normal">低:</strong> <span className="text-emerald-500 font-black font-mono [text-shadow:_0_1px_2px_rgba(0,0,0,0.3)]">${currentCandle.low?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-slate-400 font-normal">收:</strong> <span className={isUp ? "text-red-500 font-black font-mono text-sm [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)]" : "text-emerald-500 font-black font-mono text-sm [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)]"}>${currentCandle.close?.toFixed(2) || "--"}</span></span>
+          <span className="flex items-center gap-1">
+            <strong className="text-slate-400 font-normal">涨跌:</strong> 
+            <span className={`inline-flex items-center px-2 py-0.5 rounded border font-black font-mono text-xs md:text-sm shadow-2xs ${
+              currentChangePercent >= 0 
+                ? isUpRed ? "bg-red-500/20 text-red-500 border-red-500/40 dark:bg-red-500/30 dark:text-red-400" : "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 dark:bg-emerald-500/30 dark:text-emerald-400"
+                : isUpRed ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 dark:bg-emerald-500/30 dark:text-emerald-400" : "bg-red-500/20 text-red-500 border-red-500/40 dark:bg-red-500/30 dark:text-red-400"
+            }`}>
               {currentChangePercent >= 0 ? "+" : ""}{currentChangePercent.toFixed(2)}%
             </span>
           </span>
-          <span><strong className="text-slate-400">成交量:</strong> {((currentCandle.volume || 0) / 10000).toFixed(2)}万</span>
+          <span><strong className="text-slate-400 font-normal">成交量:</strong> <span className="font-mono font-black text-slate-800 dark:text-slate-200">{((currentCandle.volume || 0) / 10000).toFixed(2)}万</span></span>
         </div>
 
         {/* Row 2: Overlay Indicator Values */}

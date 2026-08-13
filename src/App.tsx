@@ -77,6 +77,46 @@ const SakuraPetals = () => {
   );
 };
 
+const OceanBubbles = () => {
+  const [bubbles, setBubbles] = useState<any[]>([]);
+  useEffect(() => {
+    const newBubbles = Array.from({ length: 25 }).map((_, i) => {
+      const size = Math.random() * 16 + 8;
+      return {
+        id: i,
+        left: `${Math.random() * 100}vw`,
+        size: `${size}px`,
+        animationDuration: `${Math.random() * 10 + 8}s`,
+        animationDelay: `-${Math.random() * 12}s`,
+        scale: Math.random() * 0.5 + 0.6,
+        opacity: Math.random() * 0.4 + 0.3,
+        translateX: `${(Math.random() - 0.5) * 60}px`
+      };
+    });
+    setBubbles(newBubbles);
+  }, []);
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+      {bubbles.map((b) => (
+        <div
+          key={b.id}
+          className="ocean-bubble"
+          style={{
+            left: b.left,
+            width: b.size,
+            height: b.size,
+            animationDuration: b.animationDuration,
+            animationDelay: b.animationDelay,
+            '--s': b.scale,
+            '--o': b.opacity,
+            '--tx': b.translateX
+          } as React.CSSProperties}
+        />
+      ))}
+    </div>
+  );
+};
+
 // Real-time flashing price component
 const AnimatedSparkline = ({ history, isPnLPositive, isUpRed }: { history: number[], isPnLPositive: boolean, isUpRed: boolean }) => {
   if (!history || history.length < 2) return <div className="w-16 h-4 opacity-30 border-b border-slate-500/20" />;
@@ -121,9 +161,9 @@ const PriceTicker = ({ price }: { price: number }) => {
 
   useEffect(() => {
     if (price > prevPrice) {
-      setFlashClass("text-emerald-500 bg-emerald-500/20 px-1 rounded transition-none");
+      setFlashClass("text-emerald-500 bg-emerald-500/25 px-1.5 rounded-md transition-none font-black ring-1 ring-emerald-500/40");
     } else if (price < prevPrice) {
-      setFlashClass("text-red-500 bg-red-500/20 px-1 rounded transition-none");
+      setFlashClass("text-red-500 bg-red-500/25 px-1.5 rounded-md transition-none font-black ring-1 ring-red-500/40");
     }
     
     setPrevPrice(price);
@@ -136,7 +176,7 @@ const PriceTicker = ({ price }: { price: number }) => {
   }, [price]);
 
   return (
-    <span className={`tabular-nums ${flashClass}`}>
+    <span className={`font-black font-mono text-sm sm:text-base tracking-tight text-theme-text-heading [text-shadow:_0_1px_2px_rgba(0,0,0,0.5)] ${flashClass}`}>
       ${price.toFixed(2)}
     </span>
   );
@@ -286,10 +326,10 @@ export default function App() {
   const [activeRange, setActiveRange] = useState<TimeRange>("1M");
   const [chartType, setChartType] = useState<ChartType>("candlestick");
 
-  // Load theme preference (default to 'dark' for "Deep Night", toggle to 'light' for "Day")
-  const [theme, setTheme] = useState<'dark' | 'light' | 'sakura'>(() => {
+  // Load theme preference (default to 'dark' for "Deep Night", toggle to 'light' for "Day", 'sakura', 'ocean')
+  const [theme, setTheme] = useState<'dark' | 'light' | 'sakura' | 'ocean'>(() => {
     const saved = localStorage.getItem("theme");
-    return (saved === "light" || saved === "sakura") ? saved : "dark";
+    return (saved === "light" || saved === "sakura" || saved === "ocean") ? saved : "dark";
   });
 
   // Load isUpRed preference (true = Red is UP / standard Chinese style, false = Green is UP / standard US style)
@@ -461,7 +501,7 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem("theme", theme);
-    document.documentElement.classList.remove("light", "sakura");
+    document.documentElement.classList.remove("light", "sakura", "ocean");
     if (theme !== "dark") {
       document.documentElement.classList.add(theme);
     }
@@ -965,6 +1005,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-theme-bg text-theme-text-primary flex flex-col font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
       {theme === "sakura" && <SakuraPetals />}
+      {theme === "ocean" && <OceanBubbles />}
       {/* HEADER: Compact Glassmorphic Navigation */}
       <motion.header 
         initial={{ y: -30, opacity: 0 }}
@@ -1021,14 +1062,14 @@ export default function App() {
           {/* Theme Switcher */}
           <div className="flex shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs">
             <button 
-              onClick={() => setTheme(theme === "dark" ? "light" : theme === "light" ? "sakura" : "dark")}
+              onClick={() => setTheme(theme === "dark" ? "light" : theme === "light" ? "sakura" : theme === "sakura" ? "ocean" : "dark")}
               className="p-1.5 rounded-lg text-theme-text-muted hover:text-theme-text-primary transition lg:hidden cursor-pointer"
               title="切换主题"
             >
-              {theme === "dark" ? <Moon size={14} className="text-indigo-400" /> : theme === "sakura" ? <div className="text-pink-500 text-xs">🌸</div> : <Sun size={14} className="text-amber-500" />}
+              {theme === "dark" ? <Moon size={14} className="text-indigo-400" /> : theme === "sakura" ? <div className="text-pink-500 text-xs">🌸</div> : theme === "ocean" ? <div className="text-sky-400 text-xs">🌊</div> : <Sun size={14} className="text-amber-500" />}
             </button>
             <div className="hidden lg:flex items-center gap-0.5">
-              {theme === "dark" ? <Moon size={13} className="text-indigo-400 mx-1.5" /> : theme === "sakura" ? <div className="text-pink-500 mx-1.5 text-xs">🌸</div> : <Sun size={13} className="text-amber-500 mx-1.5" />}
+              {theme === "dark" ? <Moon size={13} className="text-indigo-400 mx-1.5" /> : theme === "sakura" ? <div className="text-pink-500 mx-1.5 text-xs">🌸</div> : theme === "ocean" ? <div className="text-sky-400 mx-1.5 text-xs">🌊</div> : <Sun size={13} className="text-amber-500 mx-1.5" />}
               <button
                 onClick={() => setTheme("dark")}
                 className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "dark" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
@@ -1046,6 +1087,12 @@ export default function App() {
                 className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "sakura" ? "bg-pink-500/20 text-pink-600 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
               >
                 樱
+              </button>
+              <button
+                onClick={() => setTheme("ocean")}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "ocean" ? "bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-400/40 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+              >
+                海
               </button>
             </div>
           </div>
@@ -1207,10 +1254,10 @@ export default function App() {
             <DollarSign size={14} className="text-indigo-400 shrink-0" />
           </div>
           <div className="mt-1.5 md:mt-2.5 min-w-0">
-            <div className="text-xs sm:text-base md:text-xl font-bold font-mono tracking-tight text-theme-text-heading truncate">
+            <div className="text-sm sm:text-lg md:text-2xl font-black font-mono tracking-tight text-theme-text-heading [text-shadow:_0_1px_2px_rgba(0,0,0,0.5)] truncate">
               ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-[8px] md:text-[10px] text-theme-text-muted mt-0.5 md:mt-1 truncate">根据实时股价换算</p>
+            <p className="text-[9px] md:text-[11px] text-theme-text-muted mt-0.5 md:mt-1 truncate">根据实时股价换算</p>
           </div>
         </div>
 
@@ -1221,10 +1268,10 @@ export default function App() {
             <Briefcase size={14} className="text-theme-text-muted shrink-0" />
           </div>
           <div className="mt-1.5 md:mt-2.5 min-w-0">
-            <div className="text-xs sm:text-base md:text-xl font-bold font-mono tracking-tight text-theme-text-primary truncate">
+            <div className="text-sm sm:text-lg md:text-2xl font-black font-mono tracking-tight text-theme-text-primary [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)] truncate">
               ${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-[8px] md:text-[10px] text-theme-text-muted mt-0.5 md:mt-1 truncate">累计交易成本</p>
+            <p className="text-[9px] md:text-[11px] text-theme-text-muted mt-0.5 md:mt-1 truncate">累计交易成本</p>
           </div>
         </div>
 
@@ -1260,20 +1307,24 @@ export default function App() {
           </div>
           <div className="mt-1.5 md:mt-2.5 min-w-0">
             <div
-              className={`text-xs sm:text-base md:text-xl font-bold font-mono tracking-tight truncate ${
+              className={`text-sm sm:text-lg md:text-2xl font-black font-mono tracking-tight [text-shadow:_0_1px_3px_rgba(0,0,0,0.5)] truncate ${
                 totalPnL >= 0
-                  ? isUpRed ? "text-red-500" : "text-emerald-500"
-                  : isUpRed ? "text-emerald-500" : "text-red-500"
+                  ? isUpRed ? "text-red-500 dark:text-red-400" : "text-emerald-500 dark:text-emerald-400"
+                  : isUpRed ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
               }`}
             >
               {totalPnL >= 0 ? "+" : ""}$<AnimatedNumber value={totalPnL} isUpRed={isUpRed} flashThreshold={0.5} formatter={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
             </div>
-            <p className="text-[9px] md:text-[10px] text-theme-text-muted mt-0.5 md:mt-1 truncate flex items-center gap-1">
-              <span>回报率:</span>
-              <span className="font-bold font-mono">
+            <div className="mt-1 flex items-center gap-1.5">
+              <span className="text-[10px] md:text-xs text-theme-text-muted font-bold">回报率:</span>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-black font-mono text-xs md:text-sm border shadow-2xs ${
+                totalPnLPercent >= 0 
+                  ? isUpRed ? "bg-red-500/20 text-red-500 border-red-500/40 dark:bg-red-500/30 dark:text-red-400" : "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 dark:bg-emerald-500/30 dark:text-emerald-400"
+                  : isUpRed ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 dark:bg-emerald-500/30 dark:text-emerald-400" : "bg-red-500/20 text-red-500 border-red-500/40 dark:bg-red-500/30 dark:text-red-400"
+              }`}>
                 <AnimatedNumber value={totalPnLPercent} isUpRed={isUpRed} isPercent={true} flashThreshold={0.01} formatter={(v) => (v >= 0 ? "+" : "") + v.toFixed(2) + "%"} />
               </span>
-            </p>
+            </div>
           </div>
         </div>
 
@@ -1429,17 +1480,17 @@ export default function App() {
                         </td>
 
                         {/* Holding Size */}
-                        <td className="py-3.5 text-right font-mono font-bold text-theme-text-primary">
+                        <td className="py-3.5 text-right font-mono font-black text-sm text-theme-text-primary">
                           {p.quantity.toLocaleString(undefined, { maximumFractionDigits: 4 })}
                         </td>
 
                         {/* Cost */}
-                        <td className="py-3.5 text-right font-mono text-theme-text-secondary">
+                        <td className="py-3.5 text-right font-mono font-black text-sm text-theme-text-heading">
                           ${p.buyPrice.toFixed(2)}
                         </td>
 
                         {/* Current Price & Trend */}
-                        <td className="py-3.5 text-right font-mono font-semibold text-theme-text-heading">
+                        <td className="py-3.5 text-right font-mono text-theme-text-heading">
                           <div className="flex flex-col items-end gap-1">
                             <PriceTicker price={p.currentPrice} />
                             <AnimatedSparkline history={p.history || []} isPnLPositive={isPnLPositive} isUpRed={isUpRed} />
@@ -1447,29 +1498,29 @@ export default function App() {
                         </td>
 
                         {/* Dividends */}
-                        <td className="py-3.5 text-right font-mono text-indigo-400 font-semibold">
+                        <td className="py-3.5 text-right font-mono text-indigo-400 font-black text-sm">
                           ${(p.dividends || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
 
                         {/* PNL Change */}
                         <td className="py-3.5 text-right font-mono">
                           <div
-                            className={`font-bold ${
+                            className={`font-black text-sm md:text-base tracking-tight [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)] ${
                               isPnLPositive
-                                ? isUpRed ? "text-red-400" : "text-emerald-400"
-                                : isUpRed ? "text-emerald-400" : "text-red-400"
+                                ? isUpRed ? "text-red-500 dark:text-red-400" : "text-emerald-500 dark:text-emerald-400"
+                                : isUpRed ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
                             }`}
                           >
                             {isPnLPositive ? "+" : ""}$<AnimatedNumber value={p.pnl} isUpRed={isUpRed} flashThreshold={0.05} formatter={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
                           </div>
-                          <div
-                            className={`text-[10px] font-semibold ${
+                          <div className="mt-0.5">
+                            <span className={`inline-block px-2 py-0.5 rounded-md font-black font-mono text-xs border shadow-2xs ${
                               isPnLPositive
-                                ? isUpRed ? "text-red-500" : "text-emerald-500"
-                                : isUpRed ? "text-emerald-500" : "text-red-500"
-                            }`}
-                          >
-                            <AnimatedNumber value={p.pnlPercent} isUpRed={isUpRed} isPercent={true} flashThreshold={0.01} formatter={(v) => (v >= 0 ? "+" : "") + v.toFixed(2) + "%"} />
+                                ? isUpRed ? "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40" : "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40"
+                                : isUpRed ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40" : "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40"
+                            }`}>
+                              <AnimatedNumber value={p.pnlPercent} isUpRed={isUpRed} isPercent={true} flashThreshold={0.01} formatter={(v) => (v >= 0 ? "+" : "") + v.toFixed(2) + "%"} />
+                            </span>
                           </div>
                         </td>
 
@@ -1560,13 +1611,18 @@ export default function App() {
                         </div>
 
                         <div className="text-right shrink-0">
-                          <div className="font-mono font-bold text-sm text-theme-text-primary">
+                          <div className="font-mono font-black text-base text-theme-text-heading [text-shadow:_0_1px_2px_rgba(0,0,0,0.5)]">
                             ${p.currentPrice.toFixed(2)}
                           </div>
-                          <div className={`text-[10px] font-bold ${isPnLPositive ? (isUpRed ? "text-red-500" : "text-emerald-500") : (isUpRed ? "text-emerald-500" : "text-red-500")}`}>
-                            <AnimatedNumber value={p.pnl} isUpRed={isUpRed} flashThreshold={0.05} formatter={(v) => (v >= 0 ? "+" : "") + v.toFixed(2)} />
-                            <span className="ml-1 opacity-85">
-                              (<AnimatedNumber value={p.pnlPercent} isUpRed={isUpRed} isPercent={true} flashThreshold={0.01} formatter={(v) => (v >= 0 ? "+" : "") + v.toFixed(2) + "%"} />)
+                          <div className="mt-1">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-black font-mono text-xs border shadow-2xs ${
+                              isPnLPositive
+                                ? isUpRed ? "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40" : "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40"
+                                : isUpRed ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40" : "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40"
+                            }`}>
+                              <span>{isPnLPositive ? "+" : ""}$<AnimatedNumber value={p.pnl} isUpRed={isUpRed} flashThreshold={0.05} formatter={(v) => v.toFixed(2)} /></span>
+                              <span className="opacity-40">|</span>
+                              <span><AnimatedNumber value={p.pnlPercent} isUpRed={isUpRed} isPercent={true} flashThreshold={0.01} formatter={(v) => (v >= 0 ? "+" : "") + v.toFixed(2) + "%"} /></span>
                             </span>
                           </div>
                         </div>
@@ -1938,16 +1994,15 @@ export default function App() {
                       </div>
 
                       <div className="text-right font-mono">
-                        <div className="text-xs font-bold text-theme-text-heading">${s.currentPrice.toFixed(2)}</div>
-                        <div
-                          className={`text-[10px] font-bold ${
+                        <div className="text-sm font-black text-theme-text-heading [text-shadow:_0_1px_2px_rgba(0,0,0,0.5)]">${s.currentPrice.toFixed(2)}</div>
+                        <div className="mt-0.5">
+                          <span className={`inline-block px-2 py-0.5 rounded-md font-black font-mono text-xs border shadow-2xs ${
                             isPositive
-                              ? isUpRed ? "text-red-400" : "text-emerald-400"
-                              : isUpRed ? "text-emerald-400" : "text-red-400"
-                          }`}
-                        >
-                          {isPositive ? "+" : ""}
-                          {changePercent.toFixed(2)}%
+                              ? isUpRed ? "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40" : "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40"
+                              : isUpRed ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40" : "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40"
+                          }`}>
+                            {isPositive ? "+" : ""}{changePercent.toFixed(2)}%
+                          </span>
                         </div>
                       </div>
                     </div>
