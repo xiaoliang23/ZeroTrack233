@@ -101,8 +101,11 @@ export function loadStoredStocks(): Stock[] {
       parsed.forEach(s => {
         const defaultStock = symbolMap.get(s.symbol);
         if (defaultStock) {
-          // If cached price for known default stock is outdated, reset to updated default
+          // If cached price for known default stock is outdated or corrupted with mock 100, reset to updated default
           const isOutdated = 
+            s.currentPrice === 100 ||
+            Math.abs(s.currentPrice - defaultStock.currentPrice) / defaultStock.currentPrice > 0.35 ||
+            (s.symbol === 'VZ' && (s.currentPrice > 60 || s.currentPrice < 20)) ||
             (s.symbol === 'GOOGL' && s.currentPrice < 250) ||
             (s.symbol === 'AAPL' && s.currentPrice < 250) ||
             (s.symbol === 'NVDA' && s.currentPrice < 180) ||
@@ -112,7 +115,6 @@ export function loadStoredStocks(): Stock[] {
             (s.symbol === 'AMZN' && s.currentPrice < 220) ||
             (s.symbol === 'META' && s.currentPrice < 500) ||
             (s.symbol === 'AMD' && s.currentPrice < 300) ||
-            (s.symbol === 'AVGO' && s.currentPrice < 300) ||
             (s.symbol === 'PLTR' && s.currentPrice < 100) ||
             (s.symbol === 'KO' && s.currentPrice < 80);
 
@@ -325,18 +327,23 @@ export async function searchStocks(query: string): Promise<Stock[]> {
       if (quote) {
         map.set(cleanSym, quote);
       } else {
-        // Fallback stock item
-        map.set(cleanSym, {
-          symbol: cleanSym,
-          name: `${cleanSym} (证券/标的)`,
-          basePrice: 100.0,
-          currentPrice: 100.0,
-          prevClose: 100.0,
-          high: 100.0,
-          low: 100.0,
-          volume: 1000000,
-          history: [100.0, 100.0, 100.0]
-        });
+        const knownDefault = DEFAULT_STOCKS.find(ds => ds.symbol === cleanSym);
+        if (knownDefault) {
+          map.set(cleanSym, { ...knownDefault });
+        } else {
+          // Fallback stock item
+          map.set(cleanSym, {
+            symbol: cleanSym,
+            name: `${cleanSym} (证券/标的)`,
+            basePrice: 50.0,
+            currentPrice: 50.0,
+            prevClose: 50.0,
+            high: 51.0,
+            low: 49.0,
+            volume: 1000000,
+            history: [50.0, 50.0, 50.0]
+          });
+        }
       }
     } catch {
       // Ignore error
@@ -359,16 +366,21 @@ export async function searchStocks(query: string): Promise<Stock[]> {
             if (quote) {
               map.set(sym, quote);
             } else {
-              map.set(sym, {
-                symbol: sym,
-                name: item.longname || item.shortname || item.dispName || sym,
-                basePrice: 100,
-                currentPrice: 100,
-                prevClose: 100,
-                high: 100,
-                low: 100,
-                volume: 1000000
-              });
+              const knownDefault = DEFAULT_STOCKS.find(ds => ds.symbol === sym);
+              if (knownDefault) {
+                map.set(sym, { ...knownDefault });
+              } else {
+                map.set(sym, {
+                  symbol: sym,
+                  name: item.longname || item.shortname || item.dispName || sym,
+                  basePrice: 50.0,
+                  currentPrice: 50.0,
+                  prevClose: 50.0,
+                  high: 51.0,
+                  low: 49.0,
+                  volume: 1000000
+                });
+              }
             }
           }
         })

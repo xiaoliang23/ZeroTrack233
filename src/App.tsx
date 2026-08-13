@@ -40,6 +40,7 @@ import PortfolioTrendChart from "./components/PortfolioTrendChart";
 import CloudSync from "./components/CloudSync";
 import CalendarHeatmap, { DailyPnL } from "./components/CalendarHeatmap";
 import AnimatedNumber from "./components/AnimatedNumber";
+import appLogoImg from "/src/assets/images/app_logo_1786623180494.jpg";
 
 
 
@@ -157,9 +158,9 @@ const LandingPage = ({ onStart }: { onStart: () => void }) => {
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="mx-auto w-24 h-24 rounded-3xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center font-bold text-4xl shadow-2xl shadow-indigo-500/30 mb-8"
+          className="mx-auto w-24 h-24 rounded-3xl overflow-hidden shadow-2xl shadow-indigo-500/30 mb-8 border border-indigo-500/20"
         >
-          <Sparkles size={40} />
+          <img src={appLogoImg} alt="ZeroTrack Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
         </motion.div>
         
         <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-theme-text-heading">
@@ -977,8 +978,8 @@ export default function App() {
       >
         <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0 flex-1 sm:flex-initial">
           <div className="flex items-center gap-2 group cursor-pointer shrink-0">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white flex items-center justify-center font-bold text-xs shadow-sm group-hover:shadow-indigo-500/30 transition-all group-hover:scale-105">
-              ZT
+            <div className="w-8 h-8 rounded-xl overflow-hidden shadow-sm group-hover:shadow-indigo-500/30 transition-all group-hover:scale-105 border border-indigo-500/20 shrink-0">
+              <img src={appLogoImg} alt="ZeroTrack Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             </div>
             <span className="font-bold text-base text-theme-text-heading tracking-tight hidden md:block group-hover:text-indigo-400 transition-colors">ZeroTrack</span>
           </div>
