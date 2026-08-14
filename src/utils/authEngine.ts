@@ -105,6 +105,37 @@ function saveLocalAccount(email: string, passwordHash: string, uid: string) {
   }
 }
 
+// Save cloud account credentials in Firestore for cross-device, cross-platform login on Vercel
+export async function saveCloudAccount(email: string, passwordHash: string, uid: string) {
+  if (!db) return;
+  try {
+    const docRef = doc(db, 'user_accounts', email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_'));
+    await setDoc(docRef, {
+      email: email.toLowerCase(),
+      passwordHash,
+      uid,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch (e) {
+    console.warn('Cloud account save notice:', e);
+  }
+}
+
+// Retrieve cloud account credentials from Firestore for cross-device verification
+export async function getCloudAccount(email: string): Promise<{ email: string; passwordHash: string; uid: string } | null> {
+  if (!db) return null;
+  try {
+    const docRef = doc(db, 'user_accounts', email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_'));
+    const snapshot = await getDoc(docRef);
+    if (snapshot.exists()) {
+      return snapshot.data() as any;
+    }
+  } catch (e) {
+    console.warn('Cloud account get notice:', e);
+  }
+  return null;
+}
+
 // Get currently active user
 export function getStoredUser(): CloudUser | null {
   try {
@@ -291,7 +322,25 @@ export async function universalRegister(
     }
   }
 
-  // Step 2: Try Central API Register (if available)
+  // Step 2: Check Firestore Cloud Registry
+  if (!createdUser) {
+    try {
+      const cloudAcc = await getCloudAccount(cleanEmail);
+      if (cloudAcc) {
+        if (cloudAcc.passwordHash === pwdHash) {
+          createdUser = {
+            email: cleanEmail,
+            uid: cloudAcc.uid,
+            displayName: cleanEmail.split('@')[0]
+          };
+        } else {
+          return { success: false, error: '该邮箱已被注册，请直接切换至「登录」' };
+        }
+      }
+    } catch {}
+  }
+
+  // Step 3: Try Central API Register (if available)
   if (!createdUser) {
     try {
       const res = await fetch('/api/auth/register', {
@@ -313,7 +362,7 @@ export async function universalRegister(
     } catch {}
   }
 
-  // Step 3: Try Firebase Auth Register (if available)
+  // Step 4: Try Firebase Auth Register (if available)
   if (!createdUser && auth) {
     try {
       const cred = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
@@ -330,7 +379,7 @@ export async function universalRegister(
     }
   }
 
-  // Step 4: Universal Local Vault Fallback (Guaranteed to create account immediately)
+  // Step 5: Universal Local Vault Fallback (Guaranteed to create account immediately)
   if (!createdUser) {
     const uid = 'loc_' + Math.random().toString(36).substring(2, 10);
     createdUser = {
@@ -341,8 +390,9 @@ export async function universalRegister(
     };
   }
 
-  // Save to local registry and active auth
+  // Save to local registry, cloud registry, and active auth
   saveLocalAccount(cleanEmail, pwdHash, createdUser.uid);
+  await saveCloudAccount(cleanEmail, pwdHash, createdUser.uid);
   setStoredUser(createdUser);
 
   // Initialize portfolio
@@ -367,7 +417,6 @@ export async function universalLogin(
 
   const pwdHash = simpleHash(cleanPassword);
   let loggedInUser: CloudUser | null = null;
-  let hasServerAccount = false;
 
   // Step 1: Try Central Server API Login
   try {
@@ -384,15 +433,32 @@ export async function universalLogin(
         token: json.token,
         displayName: cleanEmail.split('@')[0]
       };
-      hasServerAccount = true;
     } else if (json && json.error) {
       if (json.error.includes('密码不正确')) {
-        return { success: false, error: '密码不正确，请重新输入或切换至「注册」' };
+        return { success: false, error: '密码不正确，请重新输入或重置密码' };
       }
     }
   } catch {}
 
-  // Step 2: Try Firebase Auth Login (if server API not available)
+  // Step 2: Try Firebase Cloud Registry Login (Supports all devices & Vercel)
+  if (!loggedInUser) {
+    try {
+      const cloudAcc = await getCloudAccount(cleanEmail);
+      if (cloudAcc) {
+        if (cloudAcc.passwordHash === pwdHash) {
+          loggedInUser = {
+            email: cleanEmail,
+            uid: cloudAcc.uid,
+            displayName: cleanEmail.split('@')[0]
+          };
+        } else {
+          return { success: false, error: '密码不正确，请检查输入或重置密码' };
+        }
+      }
+    } catch {}
+  }
+
+  // Step 3: Try Firebase Auth Login (if server API not available)
   if (!loggedInUser && auth) {
     try {
       const cred = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
@@ -409,7 +475,7 @@ export async function universalLogin(
     }
   }
 
-  // Step 3: Check Local Account Vault
+  // Step 4: Check Local Account Vault
   const localAccounts = getLocalAccounts();
   const localAcc = localAccounts[cleanEmail];
 
@@ -426,8 +492,8 @@ export async function universalLogin(
     }
   }
 
-  // Step 4: Frictionless Onboarding Provisioning
-  // If not found in server or local accounts, and credentials are valid format, seamlessly create and log in!
+  // Step 5: Frictionless Onboarding Provisioning
+  // If not found in server, cloud, or local accounts, and credentials are valid format, seamlessly create and log in!
   if (!loggedInUser) {
     if (cleanPassword.length >= 6) {
       const uid = 'usr_' + Math.random().toString(36).substring(2, 10);
@@ -438,13 +504,15 @@ export async function universalLogin(
         createdAt: new Date().toISOString()
       };
       saveLocalAccount(cleanEmail, pwdHash, uid);
+      await saveCloudAccount(cleanEmail, pwdHash, uid);
     } else {
       return { success: false, error: '密码长度至少需要 6 个字符' };
     }
   }
 
-  // Cache to local vault
+  // Cache to local vault and cloud
   saveLocalAccount(cleanEmail, pwdHash, loggedInUser.uid);
+  saveCloudAccount(cleanEmail, pwdHash, loggedInUser.uid);
   setStoredUser(loggedInUser);
 
   const portfolio = await loadUserPortfolio(loggedInUser);
@@ -518,6 +586,7 @@ export async function universalResetPassword(
   }
   
   saveLocalAccount(cleanEmail, pwdHash, updatedUser.uid);
+  await saveCloudAccount(cleanEmail, pwdHash, updatedUser.uid);
   setStoredUser(updatedUser);
 
   const portfolio = await loadUserPortfolio(updatedUser);
