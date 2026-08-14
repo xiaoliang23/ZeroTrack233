@@ -2604,11 +2604,14 @@ export default function App() {
                                 try {
                                   const res = await fetch(`/api/stocks/quote/${sym}`);
                                   if (res.ok) {
-                                    const st = await res.json();
-                                    if (st && st.currentPrice > 0) {
-                                      setStocks(prev => [...prev.filter(p => p.symbol !== sym), st]);
-                                      setModalBuyPrice(String(st.currentPrice));
-                                      return;
+                                    const text = await res.text();
+                                    if (text && text.trim().startsWith('{')) {
+                                      const st = JSON.parse(text);
+                                      if (st && st.currentPrice > 0) {
+                                        setStocks(prev => [...prev.filter(p => p.symbol !== sym), st]);
+                                        setModalBuyPrice(String(st.currentPrice));
+                                        return;
+                                      }
                                     }
                                   }
                                 } catch {}

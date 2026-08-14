@@ -47,6 +47,21 @@ export function fromBase64(base64Str: string): string {
 const GIST_FILENAME = 'stock_trading_dashboard_data.json';
 const GIST_DESCRIPTION = '股票交易数据备份与多端同步文件 (Stock Trading Dashboard Data)';
 
+// Safe parse JSON from response
+async function safeParseJson(res: Response): Promise<any> {
+  try {
+    const text = await res.text();
+    if (!text || !text.trim()) return null;
+    const trimmed = text.trim();
+    if (trimmed.startsWith('<') || trimmed.startsWith('The page') || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) {
+      return null;
+    }
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Validate GitHub Personal Access Token & return User info
  */
@@ -65,7 +80,10 @@ export async function verifyGitHubToken(token: string): Promise<GitHubUser> {
     throw new Error(`GitHub API 验证失败 (${res.status})`);
   }
 
-  const user = await res.json();
+  const user = await safeParseJson(res);
+  if (!user || !user.login) {
+    throw new Error('GitHub 响应格式无效，请检查网络或 Token 权限');
+  }
   return {
     login: user.login,
     name: user.name,
@@ -106,13 +124,15 @@ export async function syncGistSave(
       });
 
       if (res.ok) {
-        const gist = await res.json();
-        return {
-          id: gist.id,
-          html_url: gist.html_url,
-          updated_at: gist.updated_at,
-          filename: GIST_FILENAME,
-        };
+        const gist = await safeParseJson(res);
+        if (gist && gist.id) {
+          return {
+            id: gist.id,
+            html_url: gist.html_url,
+            updated_at: gist.updated_at,
+            filename: GIST_FILENAME,
+          };
+        }
       }
     } catch {
       // Fall through to auto search or create
@@ -128,8 +148,8 @@ export async function syncGistSave(
   });
 
   if (listRes.ok) {
-    const gists: any[] = await listRes.json();
-    const existingGist = gists.find((g) => g.files && g.files[GIST_FILENAME]);
+    const gists = await safeParseJson(listRes);
+    const existingGist = Array.isArray(gists) ? gists.find((g) => g.files && g.files[GIST_FILENAME]) : null;
 
     if (existingGist) {
       // Update existing gist found
@@ -151,13 +171,15 @@ export async function syncGistSave(
       });
 
       if (patchRes.ok) {
-        const updated = await patchRes.json();
-        return {
-          id: updated.id,
-          html_url: updated.html_url,
-          updated_at: updated.updated_at,
-          filename: GIST_FILENAME,
-        };
+        const updated = await safeParseJson(patchRes);
+        if (updated && updated.id) {
+          return {
+            id: updated.id,
+            html_url: updated.html_url,
+            updated_at: updated.updated_at,
+            filename: GIST_FILENAME,
+          };
+        }
       }
     }
   }
@@ -185,7 +207,10 @@ export async function syncGistSave(
     throw new Error(`创建 GitHub Gist 失败 (${createRes.status})，请确认 Token 具备 'gist' 权限`);
   }
 
-  const created = await createRes.json();
+  const created = await safeParseJson(createRes);
+  if (!created || !created.id) {
+    throw new Error('创建 Gist 失败，GitHub 返回数据异常');
+  }
   return {
     id: created.id,
     html_url: created.html_url,
@@ -217,8 +242,8 @@ export async function syncGistPull(
       throw new Error(`获取 GitHub Gist 列表失败 (${listRes.status})`);
     }
 
-    const gists: any[] = await listRes.json();
-    const existing = gists.find((g) => g.files && g.files[GIST_FILENAME]);
+    const gists = await safeParseJson(listRes);
+    const existing = Array.isArray(gists) ? gists.find((g: any) => g.files && g.files[GIST_FILENAME]) : null;
     if (!existing) {
       throw new Error('未在您的 GitHub 账号中找到包含股票数据的 Gist 备份文件');
     }
@@ -236,7 +261,10 @@ export async function syncGistPull(
     throw new Error(`拉取 Gist 失败 (${getRes.status})`);
   }
 
-  const gist = await getRes.json();
+  const gist = await safeParseJson(getRes);
+  if (!gist || !gist.files) {
+    throw new Error('Gist 数据格式异常');
+  }
   const fileObj = gist.files?.[GIST_FILENAME] || Object.values(gist.files || {})[0] as any;
 
   if (!fileObj || !fileObj.content) {
@@ -296,8 +324,8 @@ export async function pushToGitHubRepo(
       }
     );
     if (getRes.ok) {
-      const fileData = await getRes.json();
-      existingSha = fileData.sha;
+      const fileData = await safeParseJson(getRes);
+      if (fileData) existingSha = fileData.sha;
     }
   } catch {
     // File may not exist yet
@@ -327,7 +355,10 @@ export async function pushToGitHubRepo(
     throw new Error(`更新 GitHub 仓库文件失败 (${putRes.status})`);
   }
 
-  const resData = await putRes.json();
+  const resData = await safeParseJson(putRes);
+  if (!resData || !resData.content) {
+    throw new Error('更新 GitHub 仓库失败，响应格式异常');
+  }
   return {
     sha: resData.content.sha,
     html_url: resData.content.html_url,
@@ -366,9 +397,9 @@ export async function pullFromGitHubRepo(
     throw new Error(`读取 GitHub 仓库文件失败 (${getRes.status})`);
   }
 
-  const fileData = await getRes.json();
-  if (!fileData.content) {
-    throw new Error('仓库文件为空');
+  const fileData = await safeParseJson(getRes);
+  if (!fileData || !fileData.content) {
+    throw new Error('仓库文件为空或解析失败');
   }
 
   const decodedJson = fromBase64(fileData.content);

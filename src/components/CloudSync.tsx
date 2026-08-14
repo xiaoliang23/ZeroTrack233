@@ -108,6 +108,25 @@ const CLEAN_DEFAULT_DATA = {
   pnlLossAlertThreshold: 10
 };
 
+// Safe JSON parser to prevent "Unexpected token" errors on static hosts like Vercel
+async function safeParseJson(res: Response): Promise<any> {
+  try {
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType && !contentType.includes("json")) {
+      return null;
+    }
+    const text = await res.text();
+    if (!text || !text.trim()) return null;
+    const trimmed = text.trim();
+    if (trimmed.startsWith('<') || trimmed.startsWith('The page') || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) {
+      return null;
+    }
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+}
+
 export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
   // Provider Mode: 'cloud' (Universal Multi-Device Cloud Sync) or 'github'
   const [providerMode, setProviderMode] = useState<'cloud' | 'github'>('cloud');
@@ -202,13 +221,11 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
       const res = await fetch(`/api/auth/user-data?email=${encodeURIComponent(targetEmail)}`, {
         headers
       });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && json.data) {
-          pulledData = json.data;
-          if (json.updatedAt) {
-            setLastSyncedTime(new Date(json.updatedAt).toLocaleTimeString('zh-CN'));
-          }
+      const json = await safeParseJson(res);
+      if (json && json.success && json.data) {
+        pulledData = json.data;
+        if (json.updatedAt) {
+          setLastSyncedTime(new Date(json.updatedAt).toLocaleTimeString('zh-CN'));
         }
       }
     } catch (err) {
@@ -280,12 +297,10 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
         headers,
         body: JSON.stringify({ email: targetEmail, data: dataToSave })
       });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success) {
-          serverSaved = true;
-          setLastSyncedTime(new Date(json.updatedAt || Date.now()).toLocaleTimeString('zh-CN'));
-        }
+      const json = await safeParseJson(res);
+      if (json && json.success) {
+        serverSaved = true;
+        setLastSyncedTime(new Date(json.updatedAt || Date.now()).toLocaleTimeString('zh-CN'));
       }
     } catch (err) {
       console.warn('Central API save failed:', err);
@@ -496,40 +511,78 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
 
     try {
       if (activeTab === 'login') {
-        // 1. Call Central API Login
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
-        });
+        let loggedIn = false;
+        let serverErrorMsg = '';
 
-        const json = await res.json();
+        // 1. Try Central API Login first
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
+          });
+          const json = await safeParseJson(res);
+          if (json && json.success) {
+            loggedIn = true;
+            const userObj: CloudUser = {
+              email: cleanEmail,
+              uid: `user_${json.user?.id || 'id'}`,
+              token: json.token,
+              displayName: cleanEmail.split('@')[0]
+            };
+            setCloudUser(userObj);
+            localStorage.setItem(CLOUD_AUTH_KEY, JSON.stringify(userObj));
+            
+            // Also attempt Firebase Auth in background
+            try {
+              await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+            } catch {}
 
-        if (res.ok && json.success) {
-          const userObj: CloudUser = {
-            email: cleanEmail,
-            uid: `user_${json.user?.id || 'id'}`,
-            token: json.token,
-            displayName: cleanEmail.split('@')[0]
-          };
-          setCloudUser(userObj);
-          localStorage.setItem(CLOUD_AUTH_KEY, JSON.stringify(userObj));
-          
-          // Also attempt Firebase Auth in background if configured
+            await fetchCloudUserData(cleanEmail, json.token);
+            setSuccessMsg('登录成功！电脑与手机端全平台数据已实时打通');
+            setTimeout(() => {
+              setIsOpen(false);
+              setSuccessMsg('');
+            }, 1200);
+          } else if (json && json.error) {
+            serverErrorMsg = json.error;
+          }
+        } catch {
+          // Central API unreachable, proceed to Firebase fallback
+        }
+
+        // 2. Seamless Firebase Auth Fallback (Works on Vercel / GitHub Pages / Cloudflare)
+        if (!loggedIn) {
           try {
-            await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
-          } catch {}
+            const cred = await signInWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+            const userObj: CloudUser = {
+              email: cleanEmail,
+              uid: cred.user.uid,
+              displayName: cleanEmail.split('@')[0],
+              isFirebase: true
+            };
+            setCloudUser(userObj);
+            localStorage.setItem(CLOUD_AUTH_KEY, JSON.stringify(userObj));
 
-          // Pull user data from cloud
-          await fetchCloudUserData(cleanEmail, json.token);
-
-          setSuccessMsg('登录成功！电脑与手机端全平台数据已实时打通');
-          setTimeout(() => {
-            setIsOpen(false);
-            setSuccessMsg('');
-          }, 1200);
-        } else {
-          setError(json.error || '登录失败，请检查账号和密码');
+            await fetchCloudUserData(cleanEmail);
+            setSuccessMsg('登录成功！全平台数据已通过云端实时同步');
+            setTimeout(() => {
+              setIsOpen(false);
+              setSuccessMsg('');
+            }, 1200);
+            loggedIn = true;
+          } catch (fbErr: any) {
+            const fbCode = fbErr?.code || '';
+            if (fbCode === 'auth/invalid-credential' || fbCode === 'auth/wrong-password' || fbCode === 'auth/user-not-found') {
+              setError('邮箱或密码错误，请核对后重试');
+            } else if (fbCode === 'auth/too-many-requests') {
+              setError('登录尝试过于频繁，请稍后再试');
+            } else if (serverErrorMsg) {
+              setError(serverErrorMsg);
+            } else {
+              setError('登录失败，请检查账号和密码或网络');
+            }
+          }
         }
       } else {
         // Register Tab
@@ -539,40 +592,82 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
           return;
         }
 
-        const res = await fetch('/api/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
-        });
+        let registered = false;
+        let serverErrorMsg = '';
 
-        const json = await res.json();
+        // 1. Try Central API Register first
+        try {
+          const res = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: cleanEmail, password: cleanPassword })
+          });
+          const json = await safeParseJson(res);
+          if (json && json.success) {
+            registered = true;
+            const userObj: CloudUser = {
+              email: cleanEmail,
+              uid: `user_${json.user?.id || 'id'}`,
+              token: json.token,
+              displayName: cleanEmail.split('@')[0]
+            };
+            setCloudUser(userObj);
+            localStorage.setItem(CLOUD_AUTH_KEY, JSON.stringify(userObj));
 
-        if (res.ok && json.success) {
-          const userObj: CloudUser = {
-            email: cleanEmail,
-            uid: `user_${json.user?.id || 'id'}`,
-            token: json.token,
-            displayName: cleanEmail.split('@')[0]
-          };
-          setCloudUser(userObj);
-          localStorage.setItem(CLOUD_AUTH_KEY, JSON.stringify(userObj));
+            // Also attempt Firebase register in background
+            try {
+              await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+            } catch {}
 
-          // Also attempt Firebase register in background
+            await saveCloudUserData(cleanEmail, dataRef.current || CLEAN_DEFAULT_DATA, json.token);
+            onRemoteUpdate({ ...(dataRef.current || CLEAN_DEFAULT_DATA), _ownerUid: cleanEmail });
+
+            setSuccessMsg('注册成功！已开通全平台多端云同步');
+            setTimeout(() => {
+              setIsOpen(false);
+              setSuccessMsg('');
+            }, 1200);
+          } else if (json && json.error) {
+            serverErrorMsg = json.error;
+          }
+        } catch {
+          // Central API unreachable, proceed to Firebase fallback
+        }
+
+        // 2. Seamless Firebase Auth Fallback for Register
+        if (!registered) {
           try {
-            await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
-          } catch {}
+            const cred = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPassword);
+            const userObj: CloudUser = {
+              email: cleanEmail,
+              uid: cred.user.uid,
+              displayName: cleanEmail.split('@')[0],
+              isFirebase: true
+            };
+            setCloudUser(userObj);
+            localStorage.setItem(CLOUD_AUTH_KEY, JSON.stringify(userObj));
 
-          // Initialize cloud data with current local data or defaults
-          await saveCloudUserData(cleanEmail, dataRef.current || CLEAN_DEFAULT_DATA, json.token);
-          onRemoteUpdate({ ...(dataRef.current || CLEAN_DEFAULT_DATA), _ownerUid: cleanEmail });
+            await saveCloudUserData(cleanEmail, dataRef.current || CLEAN_DEFAULT_DATA);
+            onRemoteUpdate({ ...(dataRef.current || CLEAN_DEFAULT_DATA), _ownerUid: cleanEmail });
 
-          setSuccessMsg('注册成功！已开通全平台多端云同步');
-          setTimeout(() => {
-            setIsOpen(false);
-            setSuccessMsg('');
-          }, 1200);
-        } else {
-          setError(json.error || '注册失败，请稍后重试');
+            setSuccessMsg('注册成功！已开通全平台多端云同步');
+            setTimeout(() => {
+              setIsOpen(false);
+              setSuccessMsg('');
+            }, 1200);
+            registered = true;
+          } catch (fbErr: any) {
+            const fbCode = fbErr?.code || '';
+            if (fbCode === 'auth/email-already-in-use') {
+              setError('该邮箱已被注册，请直接切换至「登录」');
+            } else if (fbCode === 'auth/weak-password') {
+              setError('密码强度不足，请至少设置 6 位密码');
+            } else if (serverErrorMsg) {
+              setError(serverErrorMsg);
+            } else {
+              setError('注册失败，请稍后重试');
+            }
+          }
         }
       }
     } catch (err: any) {
@@ -605,35 +700,56 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
     }
 
     try {
-      const res = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: cleanEmail, newPassword: cleanNewPwd })
-      });
+      let resetDone = false;
 
-      const json = await res.json();
-      if (res.ok && json.success) {
-        const userObj: CloudUser = {
-          email: cleanEmail,
-          uid: `user_${json.user?.id || 'id'}`,
-          token: json.token,
-          displayName: cleanEmail.split('@')[0]
-        };
-        setCloudUser(userObj);
-        localStorage.setItem(CLOUD_AUTH_KEY, JSON.stringify(userObj));
+      // 1. Try Central API Reset
+      try {
+        const res = await fetch('/api/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: cleanEmail, newPassword: cleanNewPwd })
+        });
+        const json = await safeParseJson(res);
+        if (json && json.success) {
+          resetDone = true;
+          const userObj: CloudUser = {
+            email: cleanEmail,
+            uid: `user_${json.user?.id || 'id'}`,
+            token: json.token,
+            displayName: cleanEmail.split('@')[0]
+          };
+          setCloudUser(userObj);
+          localStorage.setItem(CLOUD_AUTH_KEY, JSON.stringify(userObj));
 
-        // Pull latest data
-        await fetchCloudUserData(cleanEmail, json.token);
+          await fetchCloudUserData(cleanEmail, json.token);
 
-        setSuccessMsg('密码重置成功！已自动为您登录并恢复全平台持仓数据');
-        setTimeout(() => {
-          setPassword(cleanNewPwd);
-          setNewPassword('');
-          setIsOpen(false);
-          setSuccessMsg('');
-        }, 1500);
-      } else {
-        setError(json.error || '密码重置失败');
+          setSuccessMsg('密码重置成功！已自动为您登录并恢复全平台持仓数据');
+          setTimeout(() => {
+            setPassword(cleanNewPwd);
+            setNewPassword('');
+            setIsOpen(false);
+            setSuccessMsg('');
+          }, 1500);
+        }
+      } catch {}
+
+      // 2. Firebase reset fallback
+      if (!resetDone) {
+        try {
+          await sendPasswordResetEmail(auth, cleanEmail);
+          setSuccessMsg('重置密码邮件已发送，请查收邮箱中的重置链接！');
+          setTimeout(() => {
+            setActiveTab('login');
+            setSuccessMsg('');
+          }, 2500);
+        } catch (fbErr: any) {
+          const fbCode = fbErr?.code || '';
+          if (fbCode === 'auth/user-not-found') {
+            setError('未找到该邮箱对应的账号，请先注册');
+          } else {
+            setError('密码重置请求失败，请稍后重试');
+          }
+        }
       }
     } catch (err: any) {
       setError('重置密码失败，请检查网络连接');

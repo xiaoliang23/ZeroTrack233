@@ -327,14 +327,12 @@ export async function searchStocks(query: string): Promise<Stock[]> {
   // 2. Try Server API search route first (Fastest, direct Node fetch without CORS proxy limits)
   try {
     const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(4000) });
-    if (res.ok) {
-      const serverResults: Stock[] = await res.json();
-      if (Array.isArray(serverResults) && serverResults.length > 0) {
-        serverResults.forEach(s => map.set(s.symbol, s));
-        const resultList = Array.from(map.values());
-        saveStoredStocks(resultList);
-        return resultList.slice(0, 30);
-      }
+    const serverResults = await safeParseResponse(res);
+    if (Array.isArray(serverResults) && serverResults.length > 0) {
+      serverResults.forEach((s: Stock) => map.set(s.symbol, s));
+      const resultList = Array.from(map.values());
+      saveStoredStocks(resultList);
+      return resultList.slice(0, 30);
     }
   } catch {
     // Fallback to client-side CORS proxy search
@@ -426,11 +424,9 @@ export async function fetchCandlesticks(symbol: string, range: string): Promise<
   // 1. Try server API candles endpoint first (Fetches live Yahoo Finance data on backend)
   try {
     const res = await fetch(`/api/stocks/candles/${cleanSym}?range=${range}`, { signal: AbortSignal.timeout(4000) });
-    if (res.ok) {
-      const candles: Candle[] = await res.json();
-      if (Array.isArray(candles) && candles.length > 0) {
-        return candles;
-      }
+    const candles = await safeParseResponse(res);
+    if (Array.isArray(candles) && candles.length > 0) {
+      return candles;
     }
   } catch {
     // Fallback to client-side CORS proxy
@@ -585,20 +581,18 @@ export async function fetchStockNews(query = "US Stocks"): Promise<NewsItem[]> {
     const res = await fetch(`/api/news?q=${encodeURIComponent(query)}`, {
       signal: AbortSignal.timeout(3500)
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return data.map((item: any) => ({
-          title: item.title,
-          publisher: item.publisher || item.source || "Yahoo Finance",
-          providerPublishTime: item.providerPublishTime || Math.floor(Date.now() / 1000),
-          link: (item.link && item.link.startsWith("http")) ? item.link : (item.url && item.url.startsWith("http") ? item.url : yahooFallback),
-          summary: item.summary || `【实时跟踪】关于 ${query} 的最新市场交易异动与基本面评级跟踪。`,
-          fullContent: item.fullContent || item.summary,
-          sentiment: item.sentiment || "neutral",
-          tags: item.tags || ["实时资讯", "盘中动态"]
-        }));
-      }
+    const data = await safeParseResponse(res);
+    if (Array.isArray(data) && data.length > 0) {
+      return data.map((item: any) => ({
+        title: item.title,
+        publisher: item.publisher || item.source || "Yahoo Finance",
+        providerPublishTime: item.providerPublishTime || Math.floor(Date.now() / 1000),
+        link: (item.link && item.link.startsWith("http")) ? item.link : (item.url && item.url.startsWith("http") ? item.url : yahooFallback),
+        summary: item.summary || `【实时跟踪】关于 ${query} 的最新市场交易异动与基本面评级跟踪。`,
+        fullContent: item.fullContent || item.summary,
+        sentiment: item.sentiment || "neutral",
+        tags: item.tags || ["实时资讯", "盘中动态"]
+      }));
     }
   } catch {
     // Continue to Yahoo Search API
