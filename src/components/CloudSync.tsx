@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { auth, db } from '../firebase';
 import { 
   signInWithEmailAndPassword, 
@@ -958,16 +959,15 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
       </button>
 
       {/* Responsive Modal / Popover */}
-      {isOpen && (
-        <>
-          <div 
-            className="fixed inset-0 z-[90] bg-black/50 backdrop-blur-[2px] transition-opacity"
-            onClick={() => setIsOpen(false)}
-          />
-
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          onClick={() => setIsOpen(false)}
+        >
           <div 
             id="modal-cloud-sync-dialog"
-            className="fixed inset-x-3 sm:inset-auto sm:right-0 top-14 sm:top-full sm:mt-2 w-auto sm:w-[450px] max-w-[450px] mx-auto sm:mx-0 max-h-[calc(100dvh-4.5rem)] sm:max-h-[85vh] overflow-y-auto bg-theme-card border border-theme-border rounded-2xl sm:rounded-3xl shadow-2xl z-[100] p-3.5 sm:p-5 animate-in fade-in zoom-in-95 duration-150 overscroll-contain"
+            className="w-full max-w-[95vw] sm:max-w-[480px] my-auto bg-theme-card border border-theme-border rounded-2xl sm:rounded-3xl shadow-2xl p-3.5 sm:p-5 animate-in fade-in zoom-in-95 duration-150 max-h-[calc(100dvh-3rem)] sm:max-h-[85vh] overflow-y-auto overscroll-contain"
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-theme-border">
@@ -1565,7 +1565,8 @@ export default function CloudSync({ data, onRemoteUpdate }: CloudSyncProps) {
               </div>
             )}
           </div>
-        </>
+        </div>,
+        document.body
       )}
     </div>
   );
