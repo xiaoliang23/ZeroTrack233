@@ -40,6 +40,8 @@ import PortfolioHeatmap from "./components/PortfolioHeatmap";
 import PortfolioAllocationChart from "./components/PortfolioAllocationChart";
 import PortfolioTrendChart from "./components/PortfolioTrendChart";
 import CloudSync from "./components/CloudSync";
+import AuthGuard from "./components/AuthGuard";
+import { getStoredUser, loadUserPortfolio, CloudUser, UserPortfolioData } from "./utils/authEngine";
 import CalendarHeatmap, { DailyPnL } from "./components/CalendarHeatmap";
 import AnimatedNumber from "./components/AnimatedNumber";
 import { EasterEggLogo } from "./components/EasterEggLogo";
@@ -454,6 +456,38 @@ export default function App() {
   const [deleteConfirmSymbol, setDeleteConfirmSymbol] = useState<string | null>(null);
 
   const [dataOwnerUid, setDataOwnerUid] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<CloudUser | null>(() => getStoredUser());
+  const [showAuthGuard, setShowAuthGuard] = useState<boolean>(() => !getStoredUser());
+
+  // Handle Authentication Success (from AuthGuard or CloudSync)
+  const handleAuthSuccess = useCallback((user: CloudUser, userPortfolio?: UserPortfolioData) => {
+    setCurrentUser(user);
+    setShowAuthGuard(false);
+    setDataOwnerUid(user.email);
+    if (userPortfolio) {
+      if (userPortfolio.watchlist && Array.isArray(userPortfolio.watchlist)) {
+        setWatchlist(userPortfolio.watchlist);
+      }
+      if (userPortfolio.positions && Array.isArray(userPortfolio.positions)) {
+        setRawPositions(userPortfolio.positions);
+      }
+      if (userPortfolio.priceAlerts && Array.isArray(userPortfolio.priceAlerts)) {
+        setAlerts(userPortfolio.priceAlerts);
+      }
+      if (userPortfolio.theme) {
+        setTheme(userPortfolio.theme as any);
+      }
+      if (userPortfolio.isUpRed !== undefined) {
+        setIsUpRed(userPortfolio.isUpRed);
+      }
+      if (userPortfolio.pnlLossAlertEnabled !== undefined) {
+        setPnlLossAlertEnabled(userPortfolio.pnlLossAlertEnabled);
+      }
+      if (userPortfolio.pnlLossAlertThreshold !== undefined) {
+        setPnlLossAlertThreshold(userPortfolio.pnlLossAlertThreshold);
+      }
+    }
+  }, []);
 
   const handleRemoteUpdate = (data: any) => {
     if (data._ownerUid !== undefined) setDataOwnerUid(data._ownerUid);
@@ -1098,7 +1132,8 @@ export default function App() {
             {/* Cloud Sync */}
             <CloudSync 
               data={{ watchlist, positions: rawPositions, priceAlerts: alerts, theme, isUpRed, pnlLossAlertEnabled, pnlLossAlertThreshold, _ownerUid: dataOwnerUid }} 
-              onRemoteUpdate={handleRemoteUpdate} 
+              onRemoteUpdate={handleRemoteUpdate}
+              onOpenAuthGuard={() => setShowAuthGuard(true)}
             />
             
             {/* Theme Switcher */}
@@ -3199,6 +3234,13 @@ export default function App() {
         positions={positions}
         stocks={stocks}
         isUpRed={isUpRed}
+      />
+
+      {/* Unified Authentication Guard & Cloud Sync Gatekeeper */}
+      <AuthGuard
+        isOpen={showAuthGuard}
+        onClose={() => setShowAuthGuard(false)}
+        onAuthenticated={handleAuthSuccess}
       />
 
       {/* FOOTER */}

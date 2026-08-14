@@ -1,0 +1,18 @@
+{
+  "name": "ZeroTrack 投资管理",
+  "short_name": "ZeroTrack",
+  "description": "专业级股票与美股投资交易复盘、持仓追踪及多端同步管理工具",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/src/assets/images/app_logo_1786623180494.jpg",
+      "sizes": "192x192 512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
