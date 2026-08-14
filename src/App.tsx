@@ -28,10 +28,11 @@ import {
   GripVertical,
   Loader2, PieChart, Bell, BellRing, BellOff,
   AlertTriangle, ShieldAlert, Sliders, Newspaper,
-  Compass, BarChart3
+  Compass, BarChart3, Bot, BrainCircuit, Copy
 } from "lucide-react";
+import Markdown from "react-markdown";
 import { Stock, Position, Candle, ChartType, TimeRange, AIAnalysisResult, PriceAlert } from "./types";
-import { fetchStocksList, searchStocks, fetchCandlesticks, fetchStockNews, saveStoredStocks } from "./utils/stockApi";
+import { fetchStocksList, searchStocks, fetchCandlesticks, fetchStockNews, saveStoredStocks, fetchSentimentAnalysis } from "./utils/stockApi";
 import { analyzeStockWithGemini } from "./utils/aiAnalysis";
 import StockChart from "./components/StockChart";
 import AIAnalyst from "./components/AIAnalyst";
@@ -43,6 +44,7 @@ import CalendarHeatmap, { DailyPnL } from "./components/CalendarHeatmap";
 import AnimatedNumber from "./components/AnimatedNumber";
 import { EasterEggLogo } from "./components/EasterEggLogo";
 import { MarketIntelligenceModal } from "./components/MarketIntelligenceModal";
+import { PortfolioAdvisorModal } from "./components/PortfolioAdvisorModal";
 import appLogoImg from "/src/assets/images/app_logo_1786623180494.jpg";
 
 
@@ -489,6 +491,36 @@ export default function App() {
   // Market Intelligence State (Financials, Superinvestors, Macro)
   const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
   const [intelligenceStock, setIntelligenceStock] = useState<Stock | null>(null);
+
+  // AI Portfolio & Sector Diagnostic Modal
+  const [showPortfolioAdvisorModal, setShowPortfolioAdvisorModal] = useState(false);
+
+  // In-modal News AI Sentiment State
+  const [appNewsSentiment, setAppNewsSentiment] = useState<string>("");
+  const [loadingAppNewsSentiment, setLoadingAppNewsSentiment] = useState(false);
+  const [copiedAppNewsSentiment, setCopiedAppNewsSentiment] = useState(false);
+
+  const handleAnalyzeAppNewsSentiment = async (article: any) => {
+    setLoadingAppNewsSentiment(true);
+    try {
+      const res = await fetchSentimentAnalysis({
+        newsItem: article,
+        symbol: activeStock?.symbol || "AAPL"
+      });
+      setAppNewsSentiment(res);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingAppNewsSentiment(false);
+    }
+  };
+
+  const handleCopyAppNewsSentiment = () => {
+    if (!appNewsSentiment) return;
+    navigator.clipboard.writeText(appNewsSentiment);
+    setCopiedAppNewsSentiment(true);
+    setTimeout(() => setCopiedAppNewsSentiment(false), 2000);
+  };
 
   // Sorting state for positions
   const [sortConfig, setSortConfig] = useState<{ key: keyof Position | null; direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
@@ -1013,300 +1045,358 @@ export default function App() {
     <div className="min-h-screen bg-theme-bg text-theme-text-primary flex flex-col font-sans selection:bg-indigo-500/30 selection:text-indigo-200">
       {theme === "sakura" && <SakuraPetals />}
       {theme === "ocean" && <OceanBubbles />}
-      {/* HEADER: Compact Glassmorphic Navigation */}
+      {/* HEADER: Responsive Glassmorphic Navigation with dedicated Mobile Asset Ribbon */}
       <motion.header 
         initial={{ y: -30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 400, damping: 30 }}
-        className="border-b border-theme-border/60 bg-theme-card/75 backdrop-blur-xl sticky top-0 z-40 px-3 md:px-5 py-2.5 flex items-center justify-between gap-2 sm:gap-3 shadow-sm"
+        className="border-b border-theme-border/70 bg-theme-card/90 backdrop-blur-xl sticky top-0 z-40 shadow-xs"
       >
-        <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0 flex-1 sm:flex-initial">
-          <EasterEggLogo size="sm" showTitle={true} />
+        {/* Main Header Bar */}
+        <div className="px-2.5 sm:px-4 md:px-5 py-1.5 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-3 md:gap-4">
+          {/* Left: Brand Logo & Desktop Net Asset Value */}
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0 min-w-max">
+            <EasterEggLogo size="sm" showTitle={true} />
 
-          <div className="h-5 w-[1px] bg-theme-border/80 hidden md:block"></div>
+            <div className="h-5 w-[1px] bg-theme-border/80 hidden md:block"></div>
 
-          {/* Compact Asset Value */}
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[10px] text-theme-text-muted uppercase tracking-widest font-extrabold hidden lg:block">
-              NET VALUE
-            </span>
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-              <h1 className="text-base sm:text-xl md:text-2xl font-mono font-bold text-theme-text-heading tracking-tight drop-shadow-xs truncate">
-                ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </h1>
-              <span
-                className={`font-mono text-[10px] md:text-xs font-bold flex items-center gap-1 bg-theme-bg-hover px-2 py-0.5 rounded-lg shrink-0 border border-theme-border/50 ${
-                  totalPnL >= 0
-                    ? isUpRed ? "text-red-500" : "text-emerald-500"
-                    : isUpRed ? "text-emerald-500" : "text-red-500"
-                }`}
-              >
-                {totalPnL >= 0 ? <TrendingUp size={12} className="animate-pulse hidden sm:block" /> : <TrendingDown size={12} className="animate-pulse hidden sm:block" />}
-                {totalPnL >= 0 ? "+" : ""}$<AnimatedNumber value={totalPnL} isUpRed={isUpRed} flashThreshold={0.5} formatter={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
-                <span className="opacity-80 hidden lg:inline ml-0.5">
-                  (<AnimatedNumber value={totalPnLPercent} isUpRed={isUpRed} isPercent={true} flashThreshold={0.01} formatter={(v) => (v > 0 ? "+" : "") + v.toFixed(2) + "%"} />)
-                </span>
+            {/* Desktop Asset Value (Hidden on Mobile, rendered cleanly in Mobile Ribbon below) */}
+            <div className="hidden md:flex items-center gap-2 min-w-0">
+              <span className="text-[10px] text-theme-text-muted uppercase tracking-widest font-extrabold hidden lg:block">
+                NET VALUE
               </span>
+              <div className="flex items-center gap-2 min-w-0">
+                <h1 className="text-xl lg:text-2xl font-mono font-black text-theme-text-heading tracking-tight truncate drop-shadow-2xs">
+                  ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </h1>
+                <span
+                  className={`font-mono text-xs font-bold flex items-center gap-1 bg-theme-bg-hover px-2 py-0.5 rounded-lg shrink-0 border border-theme-border/50 ${
+                    totalPnL >= 0
+                      ? isUpRed ? "text-red-500" : "text-emerald-500"
+                      : isUpRed ? "text-emerald-500" : "text-red-500"
+                  }`}
+                >
+                  {totalPnL >= 0 ? <TrendingUp size={12} className="animate-pulse" /> : <TrendingDown size={12} className="animate-pulse" />}
+                  <span>{totalPnL >= 0 ? "+" : ""}$<AnimatedNumber value={totalPnL} isUpRed={isUpRed} flashThreshold={0.5} formatter={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /></span>
+                  <span className="opacity-80 hidden lg:inline ml-0.5">
+                    (<AnimatedNumber value={totalPnLPercent} isUpRed={isUpRed} isPercent={true} flashThreshold={0.01} formatter={(v) => (v > 0 ? "+" : "") + v.toFixed(2) + "%"} />)
+                  </span>
+                </span>
+              </div>
             </div>
+          </div>
+
+          {/* Right: Controls & Action Buttons */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-auto">
+            
+            {/* Market Status (Micro) */}
+            <div className="bg-emerald-500/10 border border-emerald-500/20 px-2.5 h-8 rounded-xl items-center gap-1.5 hidden xl:flex shrink-0" title="Live Agent Active">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-[10px] text-emerald-500 font-bold tracking-wider font-mono">LIVE</span>
+            </div>
+
+            {/* Cloud Sync */}
+            <CloudSync 
+              data={{ watchlist, positions: rawPositions, priceAlerts: alerts, theme, isUpRed, pnlLossAlertEnabled, pnlLossAlertThreshold, _ownerUid: dataOwnerUid }} 
+              onRemoteUpdate={handleRemoteUpdate} 
+            />
+            
+            {/* Theme Switcher */}
+            <div className="flex shrink-0 items-center h-7.5 sm:h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs">
+              <button 
+                onClick={() => setTheme(theme === "dark" ? "light" : theme === "light" ? "sakura" : theme === "sakura" ? "ocean" : "dark")}
+                className="p-1 sm:p-1.5 rounded-lg text-theme-text-muted hover:text-theme-text-primary transition lg:hidden cursor-pointer active:scale-90"
+                title="切换主题"
+              >
+                {theme === "dark" ? <Moon size={13} className="text-indigo-400" /> : theme === "sakura" ? <div className="text-pink-500 text-xs">🌸</div> : theme === "ocean" ? <div className="text-sky-400 text-xs">🌊</div> : <Sun size={13} className="text-amber-500" />}
+              </button>
+              <div className="hidden lg:flex items-center gap-0.5">
+                {theme === "dark" ? <Moon size={13} className="text-indigo-400 mx-1.5" /> : theme === "sakura" ? <div className="text-pink-500 mx-1.5 text-xs">🌸</div> : theme === "ocean" ? <div className="text-sky-400 mx-1.5 text-xs">🌊</div> : <Sun size={13} className="text-amber-500 mx-1.5" />}
+                <button
+                  onClick={() => setTheme("dark")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "dark" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+                >
+                  暗
+                </button>
+                <button
+                  onClick={() => setTheme("light")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "light" ? "bg-amber-500/20 text-amber-600 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+                >
+                  明
+                </button>
+                <button
+                  onClick={() => setTheme("sakura")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "sakura" ? "bg-pink-500/20 text-pink-600 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+                >
+                  樱
+                </button>
+                <button
+                  onClick={() => setTheme("ocean")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "ocean" ? "bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-400/40 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+                >
+                  海
+                </button>
+              </div>
+            </div>
+
+            {/* Preferences Dropdown for Tablets / Smaller Screens */}
+            <div className="relative shrink-0 xl:hidden">
+              <button
+                onClick={() => setShowQuickSettings(!showQuickSettings)}
+                className={`h-7.5 sm:h-8 px-2 sm:px-2.5 rounded-xl border flex items-center gap-1 text-xs font-bold transition-all cursor-pointer active:scale-95 ${
+                  showQuickSettings 
+                    ? "bg-indigo-600 text-white border-indigo-500 shadow-sm" 
+                    : "bg-theme-bg-hover hover:bg-theme-border text-theme-text-muted hover:text-theme-text-primary border-theme-border/80"
+                }`}
+                title="偏好与图表设置"
+              >
+                <Sliders size={12} />
+                <span className="hidden sm:inline text-[11px]">偏好</span>
+              </button>
+
+              {showQuickSettings && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowQuickSettings(false)} />
+                  <div className="absolute right-0 top-full mt-2 z-50 w-[270px] sm:w-64 max-w-[calc(100vw-1.5rem)] bg-theme-card border border-theme-border rounded-2xl shadow-xl p-3.5 space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
+                    <div>
+                      <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider mb-1.5">
+                        涨跌颜色习惯
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 bg-theme-panel p-1 rounded-xl border border-theme-border">
+                        <button
+                          onClick={() => setIsUpRed(true)}
+                          className={`py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                            isUpRed ? "bg-red-500/20 text-red-500 border border-red-500/30 font-extrabold" : "text-theme-text-muted hover:text-theme-text-primary"
+                          }`}
+                        >
+                          红涨绿跌
+                        </button>
+                        <button
+                          onClick={() => setIsUpRed(false)}
+                          className={`py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                            !isUpRed ? "bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 font-extrabold" : "text-theme-text-muted hover:text-theme-text-primary"
+                          }`}
+                        >
+                          绿涨红跌
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider mb-1.5">
+                        K线形态展示
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 bg-theme-panel p-1 rounded-xl border border-theme-border">
+                        {[
+                          { id: 'candlestick', label: '实体K线' },
+                          { id: 'hollow', label: '空心K线' },
+                          { id: 'ohlc', label: '竹节线' },
+                          { id: 'area', label: '面积走势' },
+                        ].map((type) => (
+                          <button
+                            key={type.id}
+                            onClick={() => setChartType(type.id as any)}
+                            className={`py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                              chartType === type.id ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"
+                            }`}
+                          >
+                            {type.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Quick Hub Trigger in Dropdown for Compact Viewports */}
+                    <div className="pt-2 border-t border-theme-border/60 flex items-center justify-between gap-2 sm:hidden">
+                      <button
+                        onClick={() => {
+                          setShowQuickSettings(false);
+                          setIntelligenceStock(activeStock || stocks[0] || null);
+                          setShowIntelligenceModal(true);
+                        }}
+                        className="flex-1 py-1.5 px-2 bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-400 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
+                      >
+                        <Compass size={13} />
+                        <span>投研情报中心</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowQuickSettings(false);
+                          fetchStocks(false, rawPositions.map(p => p.symbol));
+                        }}
+                        className="p-1.5 bg-theme-bg-hover hover:bg-theme-border border border-theme-border rounded-xl text-theme-text-muted hover:text-theme-text-primary transition-all cursor-pointer active:scale-90"
+                        title="立即刷新行情"
+                      >
+                        <RefreshCw size={13} />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Color Scheme Switcher (XL Screens) */}
+            <div className="shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs hidden xl:flex">
+              <Settings size={13} className="text-theme-text-muted mx-1.5" />
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => setIsUpRed(true)}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${isUpRed ? "bg-red-500/20 text-red-500 font-extrabold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+                >
+                  红涨
+                </button>
+                <button
+                  onClick={() => setIsUpRed(false)}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${!isUpRed ? "bg-emerald-500/20 text-emerald-500 font-extrabold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+                >
+                  绿涨
+                </button>
+              </div>
+            </div>
+
+            {/* Chart Toggle (XL Screens) */}
+            <div className="shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs hidden xl:flex">
+              <LineChart size={13} className="text-theme-text-muted mx-1.5" />
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => setChartType("candlestick")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${chartType === "candlestick" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+                >
+                  实体
+                </button>
+                <button
+                  onClick={() => setChartType("hollow")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${chartType === "hollow" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+                >
+                  空心
+                </button>
+                <button
+                  onClick={() => setChartType("ohlc")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${chartType === "ohlc" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+                >
+                  竹节
+                </button>
+                <button
+                  onClick={() => setChartType("area")}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${chartType === "area" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
+                >
+                  走势
+                </button>
+              </div>
+            </div>
+
+            {/* Refresh Button (Visible on sm+) */}
+            <button
+              onClick={() => fetchStocks(false, rawPositions.map(p => p.symbol))}
+              className="h-8 w-8 hidden sm:flex items-center justify-center shrink-0 bg-theme-bg-hover hover:bg-theme-border border border-theme-border/80 rounded-xl text-theme-text-secondary hover:text-theme-text-primary transition-all cursor-pointer active:scale-90"
+              title="刷新行情数据"
+            >
+              <RefreshCw size={13} className="animate-hover" />
+            </button>
+
+            {/* Market Intelligence Hub Launcher (Visible on sm+) */}
+            <button
+              onClick={() => {
+                setIntelligenceStock(activeStock || stocks[0] || null);
+                setShowIntelligenceModal(true);
+              }}
+              className="h-8 shrink-0 bg-gradient-to-r from-indigo-500/15 to-violet-500/15 hover:from-indigo-500/25 hover:to-violet-500/25 text-indigo-400 border border-indigo-500/30 px-2.5 rounded-xl font-bold text-xs shadow-2xs transition-all hidden sm:flex items-center gap-1 cursor-pointer active:scale-95"
+              title="全维投研与市场情报中心"
+            >
+              <Compass size={14} className="text-indigo-400 stroke-[2.2]" />
+              <span className="text-[11px]">投研</span>
+            </button>
+
+            {/* Add Transaction Button */}
+            <button
+              onClick={() => {
+                setModalSymbol("");
+                setModalBuyPrice("");
+                setModalQuantity("");
+                setModalDividends("0");
+                setModalSearchQuery("");
+                setIsCustomStockMode(false);
+                setIsEditMode(false);
+                setShowAddModal(true);
+              }}
+              className="h-7.5 sm:h-8 shrink-0 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white px-2.5 sm:px-3 md:px-4 rounded-xl font-bold text-xs shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
+            >
+              <Plus size={13} className="stroke-[2.5]" />
+              <span className="text-xs whitespace-nowrap">记一笔</span>
+            </button>
           </div>
         </div>
 
-        {/* Global Controls & Preferences */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          
-          {/* Market Status (Micro) */}
-          <div className="bg-emerald-500/10 border border-emerald-500/20 px-2.5 h-8 rounded-xl flex items-center gap-1.5 hidden xl:flex shrink-0" title="Live Agent Active">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-[10px] text-emerald-500 font-bold tracking-wider font-mono">LIVE</span>
+        {/* Mobile Asset Ribbon (Apple iOS Stocks style compact status bar) */}
+        <div className="md:hidden border-t border-theme-border/30 bg-theme-panel/30 backdrop-blur-md px-3 py-1 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[9px] text-theme-text-muted uppercase font-bold tracking-wider shrink-0">
+              资产净值
+            </span>
+            <span className="text-sm font-mono font-black text-theme-text-heading tracking-tight truncate">
+              ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
           </div>
 
-          {/* Cloud Sync */}
-          <CloudSync 
-            data={{ watchlist, positions: rawPositions, priceAlerts: alerts, theme, isUpRed, pnlLossAlertEnabled, pnlLossAlertThreshold, _ownerUid: dataOwnerUid }} 
-            onRemoteUpdate={handleRemoteUpdate} 
-          />
-          
-          {/* Theme Switcher */}
-          <div className="flex shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs">
-            <button 
-              onClick={() => setTheme(theme === "dark" ? "light" : theme === "light" ? "sakura" : theme === "sakura" ? "ocean" : "dark")}
-              className="p-1.5 rounded-lg text-theme-text-muted hover:text-theme-text-primary transition lg:hidden cursor-pointer"
-              title="切换主题"
-            >
-              {theme === "dark" ? <Moon size={14} className="text-indigo-400" /> : theme === "sakura" ? <div className="text-pink-500 text-xs">🌸</div> : theme === "ocean" ? <div className="text-sky-400 text-xs">🌊</div> : <Sun size={14} className="text-amber-500" />}
-            </button>
-            <div className="hidden lg:flex items-center gap-0.5">
-              {theme === "dark" ? <Moon size={13} className="text-indigo-400 mx-1.5" /> : theme === "sakura" ? <div className="text-pink-500 mx-1.5 text-xs">🌸</div> : theme === "ocean" ? <div className="text-sky-400 mx-1.5 text-xs">🌊</div> : <Sun size={13} className="text-amber-500 mx-1.5" />}
-              <button
-                onClick={() => setTheme("dark")}
-                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "dark" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-              >
-                暗
-              </button>
-              <button
-                onClick={() => setTheme("light")}
-                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "light" ? "bg-amber-500/20 text-amber-600 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-              >
-                明
-              </button>
-              <button
-                onClick={() => setTheme("sakura")}
-                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "sakura" ? "bg-pink-500/20 text-pink-600 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-              >
-                樱
-              </button>
-              <button
-                onClick={() => setTheme("ocean")}
-                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === "ocean" ? "bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-400/40 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-              >
-                海
-              </button>
-            </div>
-          </div>
-
-          {/* Preferences Dropdown for Tablets / Smaller Screens */}
-          <div className="relative shrink-0 xl:hidden">
-            <button
-              onClick={() => setShowQuickSettings(!showQuickSettings)}
-              className={`h-8 px-2 sm:px-2.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition-all cursor-pointer ${
-                showQuickSettings 
-                  ? "bg-indigo-600 text-white border-indigo-500 shadow-sm" 
-                  : "bg-theme-bg-hover hover:bg-theme-border text-theme-text-muted hover:text-theme-text-primary border-theme-border/80"
-              }`}
-              title="偏好与图表设置"
-            >
-              <Sliders size={13} />
-              <span className="hidden lg:inline">偏好</span>
-            </button>
-
-            {showQuickSettings && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowQuickSettings(false)} />
-                <div className="absolute right-0 top-full mt-2 z-50 w-64 bg-theme-card border border-theme-border rounded-2xl shadow-xl p-3.5 space-y-3.5 animate-in fade-in zoom-in-95 duration-150">
-                  <div>
-                    <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider mb-1.5">
-                      涨跌颜色习惯
-                    </div>
-                    <div className="grid grid-cols-2 gap-1 bg-theme-panel p-1 rounded-xl border border-theme-border">
-                      <button
-                        onClick={() => setIsUpRed(true)}
-                        className={`py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                          isUpRed ? "bg-red-500/20 text-red-500 border border-red-500/30 font-extrabold" : "text-theme-text-muted hover:text-theme-text-primary"
-                        }`}
-                      >
-                        红涨绿跌
-                      </button>
-                      <button
-                        onClick={() => setIsUpRed(false)}
-                        className={`py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                          !isUpRed ? "bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 font-extrabold" : "text-theme-text-muted hover:text-theme-text-primary"
-                        }`}
-                      >
-                        绿涨红跌
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-[10px] font-bold text-theme-text-muted uppercase tracking-wider mb-1.5">
-                      K线形态展示
-                    </div>
-                    <div className="grid grid-cols-2 gap-1 bg-theme-panel p-1 rounded-xl border border-theme-border">
-                      {[
-                        { id: 'candlestick', label: '实体K线' },
-                        { id: 'hollow', label: '空心K线' },
-                        { id: 'ohlc', label: '竹节线' },
-                        { id: 'area', label: '面积走势' },
-                      ].map((type) => (
-                        <button
-                          key={type.id}
-                          onClick={() => setChartType(type.id as any)}
-                          className={`py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                            chartType === type.id ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"
-                          }`}
-                        >
-                          {type.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Color Scheme Switcher (XL Screens) */}
-          <div className="shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs hidden xl:flex">
-            <Settings size={13} className="text-theme-text-muted mx-1.5" />
-            <div className="flex items-center gap-0.5">
-              <button
-                onClick={() => setIsUpRed(true)}
-                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${isUpRed ? "bg-red-500/20 text-red-500 font-extrabold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-              >
-                红涨
-              </button>
-              <button
-                onClick={() => setIsUpRed(false)}
-                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${!isUpRed ? "bg-emerald-500/20 text-emerald-500 font-extrabold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-              >
-                绿涨
-              </button>
-            </div>
-          </div>
-
-          {/* Chart Toggle (XL Screens) */}
-          <div className="shrink-0 items-center h-8 bg-theme-bg-hover px-1 rounded-xl border border-theme-border/80 shadow-2xs hidden xl:flex">
-            <LineChart size={13} className="text-theme-text-muted mx-1.5" />
-            <div className="flex items-center gap-0.5">
-              <button
-                onClick={() => setChartType("candlestick")}
-                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${chartType === "candlestick" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-              >
-                实体
-              </button>
-              <button
-                onClick={() => setChartType("hollow")}
-                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${chartType === "hollow" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-              >
-                空心
-              </button>
-              <button
-                onClick={() => setChartType("ohlc")}
-                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${chartType === "ohlc" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-              >
-                竹节
-              </button>
-              <button
-                onClick={() => setChartType("area")}
-                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${chartType === "area" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"}`}
-              >
-                走势
-              </button>
-            </div>
-          </div>
-
-          <button
-            onClick={() => fetchStocks(false, rawPositions.map(p => p.symbol))}
-            className="h-8 w-8 flex items-center justify-center shrink-0 bg-theme-bg-hover hover:bg-theme-border border border-theme-border/80 rounded-xl text-theme-text-secondary hover:text-theme-text-primary transition-all cursor-pointer"
-            title="刷新行情数据"
+          {/* Floating Mobile PnL Pill (Apple iOS badge style) */}
+          <div
+            className={`font-mono text-[10px] font-bold flex items-center gap-1 bg-theme-bg-hover/80 px-2 py-0.5 rounded-full shrink-0 border border-theme-border/50 shadow-2xs ${
+              totalPnL >= 0
+                ? isUpRed ? "text-red-500" : "text-emerald-500"
+                : isUpRed ? "text-emerald-500" : "text-red-500"
+            }`}
           >
-            <RefreshCw size={13} className="animate-hover" />
-          </button>
-
-          {/* Market Intelligence Hub Launcher */}
-          <button
-            onClick={() => {
-              setIntelligenceStock(activeStock || stocks[0] || null);
-              setShowIntelligenceModal(true);
-            }}
-            className="h-8 shrink-0 bg-gradient-to-r from-indigo-500/15 to-violet-500/15 hover:from-indigo-500/25 hover:to-violet-500/25 text-indigo-400 border border-indigo-500/30 px-2.5 sm:px-3 rounded-xl font-bold text-xs shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-            title="全维投研与市场情报中心 (公司财报 / 13F机构持仓 / 宏观罗盘 / 实时资讯)"
-          >
-            <Compass size={14} className="text-indigo-400 stroke-[2.2]" />
-            <span className="hidden sm:inline">投研情报</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setModalSymbol("");
-              setModalBuyPrice("");
-              setModalQuantity("");
-              setModalDividends("0");
-              setModalSearchQuery("");
-              setIsCustomStockMode(false);
-              setIsEditMode(false);
-              setShowAddModal(true);
-            }}
-            className="h-8 shrink-0 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white px-3 md:px-4 rounded-xl font-bold text-xs shadow-md shadow-indigo-600/20 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus size={14} className="stroke-[2.5]" />
-            <span>记一笔</span>
-          </button>
+            {totalPnL >= 0 ? <TrendingUp size={10} className="animate-pulse" /> : <TrendingDown size={10} className="animate-pulse" />}
+            <span>{totalPnL >= 0 ? "+" : ""}$<AnimatedNumber value={totalPnL} isUpRed={isUpRed} flashThreshold={0.5} formatter={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /></span>
+            <span className="opacity-80 font-semibold text-[9px]">
+              (<AnimatedNumber value={totalPnLPercent} isUpRed={isUpRed} isPercent={true} flashThreshold={0.01} formatter={(v) => (v > 0 ? "+" : "") + v.toFixed(2) + "%"} />)
+            </span>
+          </div>
         </div>
       </motion.header>
 
-      {/* PORTFOLIO STATS BENTO ROW */}
-      <section className="px-3 md:px-5 pt-3 md:pt-4 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 md:gap-3.5" id="portfolio-bento-grid">
+      {/* PORTFOLIO STATS BENTO ROW (iOS Widget Compact Style on Mobile) */}
+      <section className="px-2.5 sm:px-4 md:px-5 pt-2 sm:pt-3 md:pt-4 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2.5 md:gap-3.5" id="portfolio-bento-grid">
         {/* Card 1: Asset Value details */}
-        <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2.5 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
+        <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
           <div className="flex items-center justify-between text-theme-text-secondary min-w-0 gap-1">
-            <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-theme-text-muted truncate">持仓现值</span>
-            <DollarSign size={14} className="text-indigo-400 shrink-0" />
+            <span className="text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-wider text-theme-text-muted truncate">持仓现值</span>
+            <DollarSign size={13} className="text-indigo-400 shrink-0" />
           </div>
-          <div className="mt-1.5 md:mt-2.5 min-w-0">
-            <div className="text-sm sm:text-lg md:text-2xl font-black font-mono tracking-tight text-theme-text-heading [text-shadow:_0_1px_2px_rgba(0,0,0,0.5)] truncate">
+          <div className="mt-1 sm:mt-2 md:mt-2.5 min-w-0">
+            <div className="text-xs sm:text-base md:text-2xl font-black font-mono tracking-tight text-theme-text-heading [text-shadow:_0_1px_2px_rgba(0,0,0,0.5)] truncate">
               ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-[9px] md:text-[11px] text-theme-text-muted mt-0.5 md:mt-1 truncate">根据实时股价换算</p>
+            <p className="text-[8px] sm:text-[9px] md:text-[11px] text-theme-text-muted mt-0.5 md:mt-1 truncate">根据实时股价换算</p>
           </div>
         </div>
 
         {/* Card 2: Cost basis */}
-        <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2.5 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
+        <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
           <div className="flex items-center justify-between text-theme-text-secondary min-w-0 gap-1">
-            <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-theme-text-muted truncate">本金成本</span>
-            <Briefcase size={14} className="text-theme-text-muted shrink-0" />
+            <span className="text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-wider text-theme-text-muted truncate">本金成本</span>
+            <Briefcase size={13} className="text-theme-text-muted shrink-0" />
           </div>
-          <div className="mt-1.5 md:mt-2.5 min-w-0">
-            <div className="text-sm sm:text-lg md:text-2xl font-black font-mono tracking-tight text-theme-text-primary [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)] truncate">
+          <div className="mt-1 sm:mt-2 md:mt-2.5 min-w-0">
+            <div className="text-xs sm:text-base md:text-2xl font-black font-mono tracking-tight text-theme-text-primary [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)] truncate">
               ${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-[9px] md:text-[11px] text-theme-text-muted mt-0.5 md:mt-1 truncate">累计交易成本</p>
+            <p className="text-[8px] sm:text-[9px] md:text-[11px] text-theme-text-muted mt-0.5 md:mt-1 truncate">累计交易成本</p>
           </div>
         </div>
 
         {/* Card 3: Floating PnL */}
-        <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2.5 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
+        <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
           <div className="flex items-center justify-between text-theme-text-secondary min-w-0 gap-1">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-theme-text-muted truncate">综合盈亏</span>
+            <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+              <span className="text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-wider text-theme-text-muted truncate">综合盈亏</span>
               <button
                 onClick={() => {
                   setModalThresholdInput(String(pnlLossAlertThreshold));
                   setShowPnlAlertModal(true);
                   if (pnlAlertDismissed) setPnlAlertDismissed(false);
                 }}
-                className={`text-[9px] md:text-[10px] px-1.5 py-0.5 rounded-full border transition-all flex items-center gap-1 cursor-pointer shrink-0 font-bold ${
+                className={`text-[8px] sm:text-[9px] md:text-[10px] px-1 sm:px-1.5 py-0.5 rounded-full border transition-all flex items-center gap-0.5 sm:gap-1 cursor-pointer shrink-0 font-bold ${
                   isPnlLossAlertTriggered
                     ? "bg-red-500/20 text-red-500 border-red-500/40 animate-pulse"
                     : pnlLossAlertEnabled
@@ -1315,19 +1405,19 @@ export default function App() {
                 }`}
                 title="点击设置或修改持仓组合亏损警戒线"
               >
-                <BellRing size={10} className={isPnlLossAlertTriggered ? "animate-bounce text-red-500" : ""} />
-                <span>{pnlLossAlertEnabled ? `预警 -${pnlLossAlertThreshold}%` : "预警关"}</span>
+                <BellRing size={9} className={isPnlLossAlertTriggered ? "animate-bounce text-red-500" : ""} />
+                <span>{pnlLossAlertEnabled ? `-${pnlLossAlertThreshold}%` : "预警关"}</span>
               </button>
             </div>
             {totalPnL >= 0 ? (
-              <TrendingUp size={14} className={`shrink-0 ${isUpRed ? "text-red-400" : "text-emerald-400"}`} />
+              <TrendingUp size={13} className={`shrink-0 ${isUpRed ? "text-red-400" : "text-emerald-400"}`} />
             ) : (
-              <TrendingDown size={14} className={`shrink-0 ${isUpRed ? "text-emerald-400" : "text-red-400"}`} />
+              <TrendingDown size={13} className={`shrink-0 ${isUpRed ? "text-emerald-400" : "text-red-400"}`} />
             )}
           </div>
-          <div className="mt-1.5 md:mt-2.5 min-w-0">
+          <div className="mt-1 sm:mt-2 md:mt-2.5 min-w-0">
             <div
-              className={`text-sm sm:text-lg md:text-2xl font-black font-mono tracking-tight [text-shadow:_0_1px_3px_rgba(0,0,0,0.5)] truncate ${
+              className={`text-xs sm:text-base md:text-2xl font-black font-mono tracking-tight [text-shadow:_0_1px_3px_rgba(0,0,0,0.5)] truncate ${
                 totalPnL >= 0
                   ? isUpRed ? "text-red-500 dark:text-red-400" : "text-emerald-500 dark:text-emerald-400"
                   : isUpRed ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
@@ -1335,9 +1425,9 @@ export default function App() {
             >
               {totalPnL >= 0 ? "+" : ""}$<AnimatedNumber value={totalPnL} isUpRed={isUpRed} flashThreshold={0.5} formatter={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
             </div>
-            <div className="mt-1 flex items-center gap-1.5">
-              <span className="text-[10px] md:text-xs text-theme-text-muted font-bold">回报率:</span>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-black font-mono text-xs md:text-sm border shadow-2xs ${
+            <div className="mt-0.5 sm:mt-1 flex items-center gap-1 sm:gap-1.5">
+              <span className="text-[8px] sm:text-[10px] md:text-xs text-theme-text-muted font-bold">回报:</span>
+              <span className={`inline-flex items-center px-1.5 py-0.2 sm:py-0.5 rounded-md font-black font-mono text-[10px] sm:text-xs md:text-sm border shadow-2xs ${
                 totalPnLPercent >= 0 
                   ? isUpRed ? "bg-red-500/20 text-red-500 border-red-500/40 dark:bg-red-500/30 dark:text-red-400" : "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 dark:bg-emerald-500/30 dark:text-emerald-400"
                   : isUpRed ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 dark:bg-emerald-500/30 dark:text-emerald-400" : "bg-red-500/20 text-red-500 border-red-500/40 dark:bg-red-500/30 dark:text-red-400"
@@ -1349,16 +1439,16 @@ export default function App() {
         </div>
 
         {/* Card 4: Positions overview */}
-        <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2.5 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
+        <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
           <div className="flex items-center justify-between text-theme-text-secondary min-w-0 gap-1">
-            <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-theme-text-muted truncate">配置分散度</span>
-            <Layers size={14} className="text-indigo-400 shrink-0" />
+            <span className="text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-wider text-theme-text-muted truncate">配置分散度</span>
+            <Layers size={13} className="text-indigo-400 shrink-0" />
           </div>
-          <div className="mt-1.5 md:mt-2.5 min-w-0">
+          <div className="mt-1 sm:mt-2 md:mt-2.5 min-w-0">
             <div className="text-xs sm:text-base md:text-xl font-bold font-mono tracking-tight text-theme-text-heading truncate">
               {positions.length} 个标的
             </div>
-            <p className="text-[8px] md:text-[10px] text-theme-text-muted mt-0.5 md:mt-1 truncate">
+            <p className="text-[8px] sm:text-[9px] md:text-[10px] text-theme-text-muted mt-0.5 md:mt-1 truncate">
               自选监视: {watchlist.length}
             </p>
           </div>
@@ -1371,25 +1461,39 @@ export default function App() {
       <main className="flex-grow p-2 sm:p-4 md:p-6 grid grid-cols-12 gap-2 sm:gap-3 md:gap-5 min-h-0">
         
         {/* Bento Cell 1: Custom Positions Table (col-span-12 lg:col-span-12) */}
-        <div className="col-span-12 bg-theme-card border border-theme-border rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 flex flex-col shadow-md md:shadow-xl">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-base font-bold text-theme-text-heading flex items-center gap-2">
-              <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              <span>实时资产持仓 • Live Portfolio</span>
-            </h2>
-            <span className="text-xs text-theme-text-muted font-mono">点击各行可在下方切换K线</span>
+        <div className="col-span-12 bg-theme-card border border-theme-border rounded-xl md:rounded-2xl p-2.5 sm:p-4 md:p-6 flex flex-col shadow-md md:shadow-xl">
+          <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3 mb-2.5 sm:mb-5">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <h2 className="text-sm sm:text-base font-bold text-theme-text-heading flex items-center gap-1.5 sm:gap-2">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <span>实时资产持仓 • Live Portfolio</span>
+              </h2>
+              <span className="hidden sm:inline-block text-xs text-theme-text-muted font-mono">点击各行可在下方切换K线</span>
+            </div>
+
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <button
+                onClick={() => setShowPortfolioAdvisorModal(true)}
+                className="px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 text-white text-[11px] sm:text-xs font-bold shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer active:scale-98"
+                title="开启 AI 宏观与持仓板块综合诊断顾问"
+              >
+                <Bot size={13} className="sm:w-[15px] sm:h-[15px]" />
+                <span>AI 持仓诊断</span>
+                <Sparkles size={11} className="text-pink-200 sm:w-[13px] sm:h-[13px]" />
+              </button>
+            </div>
           </div>
 
           {/* Table container */}
-          <div className="flex-1 pb-2">
+          <div className="flex-1 pb-1 sm:pb-2">
             {positions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-theme-text-secondary border border-dashed border-theme-border rounded-2xl">
-                <Briefcase size={28} className="text-theme-text-muted mb-2" />
+              <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-theme-text-secondary border border-dashed border-theme-border rounded-xl sm:rounded-2xl">
+                <Briefcase size={24} className="text-theme-text-muted mb-2 sm:w-7 sm:h-7" />
                 <p className="text-xs font-semibold">您当前未配置任何持仓仓位</p>
                 <p className="text-[10px] text-theme-text-muted mt-1 max-w-xs text-center leading-relaxed">
-                  点击顶部“记一笔交易”添加您自己的买入仓位与价格，实时监控行情涨跌。
+                  点击顶部“记一笔”添加买入仓位与价格，实时监控行情涨跌。
                 </p>
               </div>
             ) : (
@@ -1590,7 +1694,7 @@ export default function App() {
                 </tbody>
               </table>
               </div>
-              <div className="md:hidden flex flex-col gap-2.5">
+              <div className="md:hidden flex flex-col gap-1.5 sm:gap-2.5">
                 <AnimatePresence mode="popLayout">
                 {sortedPositions.map((p) => {
                   const isPnLPositive = p.pnl >= 0;
@@ -1614,28 +1718,28 @@ export default function App() {
                       onDragOver={handleDragOver}
                       onDrop={(e) => handleDrop(e, p.symbol)}
                       onDragEnd={handleDragEnd}
-                      className={`p-3.5 rounded-2xl border transition-all duration-300 ${isActive ? "bg-indigo-500/15 dark:bg-indigo-950/50 border-2 border-indigo-500 shadow-md ring-2 ring-indigo-500/20" : "bg-theme-card border-theme-border/80 hover:bg-theme-bg-hover"} ${draggedSymbol === p.symbol ? "opacity-50 scale-[0.98]" : ""}`}
+                      className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border transition-all duration-200 ${isActive ? "bg-indigo-500/15 dark:bg-indigo-950/50 border-2 border-indigo-500 shadow-sm ring-1 ring-indigo-500/20" : "bg-theme-card/90 border-theme-border/70 hover:bg-theme-bg-hover"} ${draggedSymbol === p.symbol ? "opacity-50 scale-[0.98]" : ""}`}
                     >
-                      <div className="flex justify-between items-start mb-2.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className={`w-8 h-8 rounded-xl shrink-0 flex items-center justify-center font-bold text-[10px] ${avatarBg}`}>
+                      <div className="flex justify-between items-start mb-1.5">
+                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl shrink-0 flex items-center justify-center font-bold text-[9px] sm:text-[10px] ${avatarBg}`}>
                             {p.symbol.replace(".HK", "").substring(0, 4)}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-bold text-sm text-theme-text-heading flex items-center gap-1.5 truncate">
+                            <div className="font-bold text-xs sm:text-sm text-theme-text-heading flex items-center gap-1 truncate">
                               <span>{p.symbol}</span>
-                              {isActive && <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>}
+                              {isActive && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>}
                             </div>
-                            <div className="text-[10px] text-theme-text-muted truncate max-w-[120px]">{p.name}</div>
+                            <div className="text-[9px] sm:text-[10px] text-theme-text-muted truncate max-w-[110px] sm:max-w-[120px]">{p.name}</div>
                           </div>
                         </div>
 
                         <div className="text-right shrink-0">
-                          <div className="font-mono font-black text-base text-theme-text-heading [text-shadow:_0_1px_2px_rgba(0,0,0,0.5)]">
+                          <div className="font-mono font-black text-sm sm:text-base text-theme-text-heading [text-shadow:_0_1px_2px_rgba(0,0,0,0.5)]">
                             ${p.currentPrice.toFixed(2)}
                           </div>
-                          <div className="mt-1">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-black font-mono text-xs border shadow-2xs ${
+                          <div className="mt-0.5">
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded-md font-bold font-mono text-[10px] sm:text-xs border shadow-2xs ${
                               isPnLPositive
                                 ? isUpRed ? "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40" : "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40"
                                 : isUpRed ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40" : "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40"
@@ -1648,49 +1752,49 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="flex justify-between items-center text-[11px] text-theme-text-muted bg-theme-panel/80 p-2 px-2.5 rounded-xl border border-theme-border-muted/50">
-                        <div className="flex items-center gap-3">
+                      <div className="flex justify-between items-center text-[10px] sm:text-[11px] text-theme-text-muted bg-theme-panel/60 p-1.5 px-2 rounded-lg border border-theme-border-muted/40">
+                        <div className="flex items-center gap-2 sm:gap-3">
                           <div>
-                            <span className="text-[10px]">持仓: </span><span className="font-mono font-bold text-theme-text-primary">{p.quantity}</span>
+                            <span className="text-[9px] sm:text-[10px]">持仓: </span><span className="font-mono font-bold text-theme-text-primary">{p.quantity}</span>
                           </div>
                           <div>
-                            <span className="text-[10px]">均价: </span><span className="font-mono font-bold text-theme-text-primary">${p.buyPrice.toFixed(2)}</span>
+                            <span className="text-[9px] sm:text-[10px]">均价: </span><span className="font-mono font-bold text-theme-text-primary">${p.buyPrice.toFixed(2)}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-0.5">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setShowAlertDialog(p.symbol);
                             }}
-                            className={`p-1.5 rounded-lg transition text-[10px] hover:bg-theme-bg-hover ${alerts.some(a => a.symbol === p.symbol && a.isActive) ? 'text-indigo-400' : 'text-theme-text-muted'} hover:text-indigo-400`}
+                            className={`p-1 rounded-md transition text-[10px] hover:bg-theme-bg-hover ${alerts.some(a => a.symbol === p.symbol && a.isActive) ? 'text-indigo-400' : 'text-theme-text-muted'} hover:text-indigo-400`}
                             title="设置提醒"
                           >
-                            <Bell size={14} />
+                            <Bell size={13} />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               openEditModalFor(p);
                             }}
-                            className="p-1.5 rounded-lg transition text-[10px] hover:bg-theme-bg-hover text-theme-text-muted hover:text-indigo-400"
+                            className="p-1 rounded-md transition text-[10px] hover:bg-theme-bg-hover text-theme-text-muted hover:text-indigo-400"
                             title="编辑此仓位"
                           >
-                            <Edit2 size={14} />
+                            <Edit2 size={13} />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleDeletePosition(p.symbol);
                             }}
-                            className={`p-1.5 rounded-lg transition text-[10px] font-bold ${
+                            className={`p-1 rounded-md transition text-[10px] font-bold ${
                               deleteConfirmSymbol === p.symbol
-                                 ? "bg-red-500/20 text-red-500 hover:bg-red-500/30 px-2"
+                                 ? "bg-red-500/20 text-red-500 hover:bg-red-500/30 px-1.5"
                                  : "hover:bg-theme-bg-hover text-theme-text-muted hover:text-red-400"
                             }`}
                             title="移除此仓位"
                           >
-                            {deleteConfirmSymbol === p.symbol ? "确认移除" : <Trash2 size={14} />}
+                            {deleteConfirmSymbol === p.symbol ? "确认" : <Trash2 size={13} />}
                           </button>
                         </div>
                       </div>
@@ -2080,7 +2184,10 @@ export default function App() {
                 news.map((item, idx) => (
                   <div
                     key={idx}
-                    onClick={() => setSelectedNewsArticle(item)}
+                    onClick={() => {
+                      setSelectedNewsArticle(item);
+                      setAppNewsSentiment("");
+                    }}
                     className="p-3.5 bg-theme-panel hover:bg-theme-bg-hover rounded-2xl border border-theme-border-muted border-l-4 transition-all duration-200 group cursor-pointer shadow-sm hover:shadow"
                     style={{ borderLeftColor: item.sentiment === 'bullish' ? '#10b981' : (item.sentiment === 'bearish' ? '#ef4444' : '#6366f1') }}
                   >
@@ -2983,7 +3090,7 @@ export default function App() {
               </div>
 
               {/* Body */}
-              <div className="p-6 overflow-y-auto space-y-4 text-theme-text-primary leading-relaxed text-sm">
+              <div className="p-6 overflow-y-auto space-y-4 text-theme-text-primary leading-relaxed text-sm scrollbar-thin">
                 <h2 className="text-lg font-bold text-theme-text-heading leading-snug">
                   {selectedNewsArticle.title}
                 </h2>
@@ -2997,6 +3104,59 @@ export default function App() {
 
                 <div className="whitespace-pre-line text-theme-text-primary/90 text-sm leading-relaxed pt-2">
                   {selectedNewsArticle.fullContent || selectedNewsArticle.summary || "正在载入更多深度研报细节..."}
+                </div>
+
+                {/* AI Sentiment Analysis Section */}
+                <div className="pt-3 border-t border-theme-border">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
+                        <Bot size={16} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-theme-text-heading">
+                          AI 舆情深度推演与板块传导剖析
+                        </h4>
+                        <p className="text-[10px] text-theme-text-muted">
+                          研判此条舆情对科技、新能源、消费等板块的流动性与基本面冲击
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleAnalyzeAppNewsSentiment(selectedNewsArticle)}
+                      disabled={loadingAppNewsSentiment}
+                      className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                    >
+                      {loadingAppNewsSentiment ? (
+                        <>
+                          <Loader2 size={13} className="animate-spin" />
+                          <span>AI 推演中...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={13} />
+                          <span>{appNewsSentiment ? "重新分析" : "开始 AI 深度推演"}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {appNewsSentiment && (
+                    <div className="p-4 rounded-2xl bg-theme-panel border border-theme-border text-xs leading-relaxed space-y-3 animate-fade-in relative">
+                      <button
+                        onClick={handleCopyAppNewsSentiment}
+                        className="absolute top-3 right-3 p-1.5 rounded-lg bg-theme-card hover:bg-theme-bg-hover text-theme-text-muted hover:text-theme-text-heading border border-theme-border text-[10px] flex items-center gap-1 cursor-pointer transition-colors"
+                        title="复制分析内容"
+                      >
+                        {copiedAppNewsSentiment ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                        <span>{copiedAppNewsSentiment ? "已复制" : "复制"}</span>
+                      </button>
+                      <div className="prose prose-invert max-w-none text-theme-text-primary text-xs leading-relaxed">
+                        <Markdown>{appNewsSentiment}</Markdown>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -3026,6 +3186,15 @@ export default function App() {
         onClose={() => setShowIntelligenceModal(false)}
         initialStock={intelligenceStock || activeStock}
         allStocks={stocks}
+        isUpRed={isUpRed}
+      />
+
+      {/* AI Portfolio & Sector Diagnostic Advisor Modal */}
+      <PortfolioAdvisorModal
+        isOpen={showPortfolioAdvisorModal}
+        onClose={() => setShowPortfolioAdvisorModal(false)}
+        positions={positions}
+        stocks={stocks}
         isUpRed={isUpRed}
       />
 

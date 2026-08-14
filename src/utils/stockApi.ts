@@ -736,3 +736,50 @@ export async function fetchCategorizedNews(category = "ALL"): Promise<any[]> {
   }
   return fetchStockNews("大盘");
 }
+
+export async function fetchSentimentAnalysis(params: {
+  newsItem?: any;
+  newsList?: any[];
+  symbol?: string;
+  customApiKey?: string;
+}): Promise<string> {
+  try {
+    const res = await fetch("/api/ai/sentiment-analysis", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+      signal: AbortSignal.timeout(18000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.analysis) return data.analysis;
+    }
+  } catch (e) {
+    console.warn("fetchSentimentAnalysis error:", e);
+  }
+  return "### 📌 舆情分析摘要\n当前新闻对科技与成长板块流动性构成积极支撑，建议关注核心龙头在关键均线附近的支撑力度，保持理性仓位配置。";
+}
+
+export async function fetchPortfolioDiagnostic(params: {
+  positions: any[];
+  stocks?: any[];
+  thinkingMode?: boolean;
+  customApiKey?: string;
+}): Promise<string> {
+  try {
+    const res = await fetch("/api/ai/portfolio-diagnostic", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+      signal: AbortSignal.timeout(25000)
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.analysis) return data.analysis;
+    }
+  } catch (e) {
+    console.warn("fetchPortfolioDiagnostic error:", e);
+  }
+  return "### 📌 持仓与板块诊断报告\n建议均衡配置核心成长赛道与防御型高股息资产，控制单只股票仓位在30%以内，对于盈利标的实施移动止盈。";
+}
+

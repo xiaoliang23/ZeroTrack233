@@ -21,14 +21,21 @@ import {
   Flame,
   ArrowUpRight,
   ArrowDownRight,
-  Info
+  Info,
+  Bot,
+  Sparkles,
+  BrainCircuit,
+  Copy,
+  Check
 } from "lucide-react";
+import Markdown from "react-markdown";
 import { Stock, CompanyFinancials, Superinvestor, MacroMarketData, NewsItem } from "../types";
 import {
   fetchCompanyFinancials,
   fetchSuperinvestors,
   fetchMacroMarketData,
-  fetchCategorizedNews
+  fetchCategorizedNews,
+  fetchSentimentAnalysis
 } from "../utils/stockApi";
 
 interface MarketIntelligenceModalProps {
@@ -72,6 +79,35 @@ export const MarketIntelligenceModal: React.FC<MarketIntelligenceModalProps> = (
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
   const [activeArticle, setActiveArticle] = useState<NewsItem | null>(null);
+
+  // AI Dynamic Sentiment State
+  const [sentimentAnalysis, setSentimentAnalysis] = useState<string>("");
+  const [loadingSentiment, setLoadingSentiment] = useState(false);
+  const [copiedSentiment, setCopiedSentiment] = useState(false);
+  const [analyzedArticleId, setAnalyzedArticleId] = useState<string | null>(null);
+
+  const handleAnalyzeArticleSentiment = async (article: NewsItem) => {
+    setLoadingSentiment(true);
+    setAnalyzedArticleId(article.id || article.title);
+    try {
+      const res = await fetchSentimentAnalysis({
+        newsItem: article,
+        symbol: selectedSymbol
+      });
+      setSentimentAnalysis(res);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingSentiment(false);
+    }
+  };
+
+  const handleCopySentiment = () => {
+    if (!sentimentAnalysis) return;
+    navigator.clipboard.writeText(sentimentAnalysis);
+    setCopiedSentiment(true);
+    setTimeout(() => setCopiedSentiment(false), 2000);
+  };
 
   // Update selected symbol if initialStock changes
   useEffect(() => {
@@ -812,27 +848,49 @@ export const MarketIntelligenceModal: React.FC<MarketIntelligenceModalProps> = (
           {/* TAB 4: 7x24 REAL-TIME NEWS & RESEARCH */}
           {activeTab === "news" && (
             <div className="space-y-5 animate-fade-in">
-              {/* Category Filter Tabs */}
-              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
-                {[
-                  { id: "ALL", label: "全部快讯" },
-                  { id: "EARNINGS", label: "📊 财报与业绩" },
-                  { id: "SUPERINVESTOR", label: "🐋 机构与巨鲸" },
-                  { id: "MACRO", label: "🧭 宏观与利率" },
-                  { id: "QUANT", label: "⚡ 量化与做市" }
-                ].map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setNewsCategory(c.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                      newsCategory === c.id
-                        ? "bg-indigo-600 text-white shadow-xs"
-                        : "bg-theme-panel hover:bg-theme-bg-hover text-theme-text-muted border border-theme-border"
-                    }`}
-                  >
-                    {c.label}
-                  </button>
-                ))}
+              {/* Category Filter Tabs & AI Radar Button */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
+                  {[
+                    { id: "ALL", label: "全部快讯" },
+                    { id: "EARNINGS", label: "📊 财报与业绩" },
+                    { id: "SUPERINVESTOR", label: "🐋 机构与巨鲸" },
+                    { id: "MACRO", label: "🧭 宏观与利率" },
+                    { id: "QUANT", label: "⚡ 量化与做市" }
+                  ].map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => setNewsCategory(c.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                        newsCategory === c.id
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "bg-theme-panel hover:bg-theme-bg-hover text-theme-text-muted border border-theme-border"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => {
+                    const topNews: NewsItem = newsList[0] || {
+                      id: "top-radar",
+                      title: "全球宏观市场流动性与科技板块动态",
+                      summary: "美联储降息预期升温，AI半导体与消费电子板块资金持续活跃。",
+                      publisher: "AI 金融智库",
+                      providerPublishTime: Math.floor(Date.now() / 1000),
+                      link: "https://finance.yahoo.com",
+                      sentiment: "bullish"
+                    };
+                    setActiveArticle(topNews);
+                    handleAnalyzeArticleSentiment(topNews);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600/20 to-purple-600/20 hover:from-indigo-600/30 hover:to-purple-600/30 border border-indigo-500/30 text-indigo-400 hover:text-indigo-300 text-xs font-bold transition-all flex items-center gap-1.5 self-start sm:self-auto cursor-pointer shadow-xs"
+                >
+                  <Bot size={14} className="text-indigo-400" />
+                  <span>🤖 AI 舆情风向与板块传导总揽</span>
+                </button>
               </div>
 
               {loadingNews ? (
@@ -845,7 +903,10 @@ export const MarketIntelligenceModal: React.FC<MarketIntelligenceModalProps> = (
                   {newsList.map((item, idx) => (
                     <div
                       key={idx}
-                      onClick={() => setActiveArticle(item)}
+                      onClick={() => {
+                        setActiveArticle(item);
+                        setSentimentAnalysis("");
+                      }}
                       className="p-4 bg-theme-panel hover:bg-theme-bg-hover rounded-2xl border border-theme-border border-l-4 transition-all duration-200 group cursor-pointer shadow-xs hover:shadow flex flex-col justify-between"
                       style={{
                         borderLeftColor:
@@ -920,7 +981,7 @@ export const MarketIntelligenceModal: React.FC<MarketIntelligenceModalProps> = (
           )}
         </div>
 
-        {/* IN-MODAL ARTICLE READER */}
+        {/* IN-MODAL ARTICLE READER & AI SENTIMENT ANALYSIS */}
         <AnimatePresence>
           {activeArticle && (
             <div
@@ -931,10 +992,10 @@ export const MarketIntelligenceModal: React.FC<MarketIntelligenceModalProps> = (
                 initial={{ opacity: 0, scale: 0.95, y: 15 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 15 }}
-                className="bg-theme-card border border-theme-border rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl relative"
+                className="bg-theme-card border border-theme-border rounded-2xl w-full max-w-3xl max-h-[88vh] overflow-hidden flex flex-col shadow-2xl relative"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex items-center justify-between p-4 sm:p-5 border-b border-theme-border bg-theme-panel">
+                <div className="flex items-center justify-between p-4 sm:p-5 border-b border-theme-border bg-theme-panel shrink-0">
                   <div>
                     <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
                       {activeArticle.publisher}
@@ -954,7 +1015,7 @@ export const MarketIntelligenceModal: React.FC<MarketIntelligenceModalProps> = (
                   </button>
                 </div>
 
-                <div className="p-5 sm:p-6 overflow-y-auto space-y-4 text-theme-text-primary leading-relaxed text-sm scrollbar-thin">
+                <div className="p-5 sm:p-6 overflow-y-auto space-y-5 text-theme-text-primary leading-relaxed text-sm scrollbar-thin">
                   <h3 className="text-base sm:text-lg font-black text-theme-text-heading leading-snug">
                     {activeArticle.title}
                   </h3>
@@ -966,18 +1027,71 @@ export const MarketIntelligenceModal: React.FC<MarketIntelligenceModalProps> = (
                     </div>
                   )}
 
-                  <div className="whitespace-pre-line text-theme-text-primary/90 text-sm leading-relaxed pt-2">
+                  <div className="whitespace-pre-line text-theme-text-primary/90 text-sm leading-relaxed">
                     {activeArticle.fullContent || activeArticle.summary}
+                  </div>
+
+                  {/* AI SENTIMENT & TRANSMISSION ANALYSIS SECTION */}
+                  <div className="pt-3 border-t border-theme-border">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-indigo-600/20 text-indigo-400 flex items-center justify-center">
+                          <Bot size={16} />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-black text-theme-text-heading">
+                            AI 舆情深度推演与板块传导剖析
+                          </h4>
+                          <p className="text-[10px] text-theme-text-muted">
+                            深度研判核心逻辑、波及行业、暗藏隐患与持仓操作启示
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleAnalyzeArticleSentiment(activeArticle)}
+                        disabled={loadingSentiment}
+                        className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                      >
+                        {loadingSentiment ? (
+                          <>
+                            <Loader2 size={13} className="animate-spin" />
+                            <span>AI 正在研判中...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles size={13} />
+                            <span>{sentimentAnalysis ? "重新分析" : "开始 AI 深度推演"}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {sentimentAnalysis && (
+                      <div className="p-4 rounded-2xl bg-theme-panel border border-theme-border text-xs leading-relaxed space-y-3 animate-fade-in relative">
+                        <button
+                          onClick={handleCopySentiment}
+                          className="absolute top-3 right-3 p-1.5 rounded-lg bg-theme-card hover:bg-theme-bg-hover text-theme-text-muted hover:text-theme-text-heading border border-theme-border text-[10px] flex items-center gap-1 cursor-pointer transition-colors"
+                          title="复制分析内容"
+                        >
+                          {copiedSentiment ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                          <span>{copiedSentiment ? "已复制" : "复制"}</span>
+                        </button>
+                        <div className="prose prose-invert max-w-none text-theme-text-primary text-xs leading-relaxed">
+                          <Markdown>{sentimentAnalysis}</Markdown>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="p-4 border-t border-theme-border bg-theme-panel/60 flex items-center justify-between gap-3">
+                <div className="p-4 border-t border-theme-border bg-theme-panel/60 flex items-center justify-between gap-3 shrink-0">
                   <span className="text-xs text-theme-text-muted">权威金融数据源</span>
                   <a
                     href={activeArticle.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-theme-panel hover:bg-theme-bg-hover text-theme-text-heading border border-theme-border rounded-xl text-xs font-bold transition-all cursor-pointer"
                   >
                     <span>在源站中查看原文</span>
                     <ExternalLink size={13} />

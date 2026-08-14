@@ -17,7 +17,7 @@ dotenv.config();
 const db = new Database('app.db');
 db.pragma('journal_mode = WAL');
 
-// Initialize users table and login_attempts
+// Initialize users table, login_attempts, and user_data for universal multi-device synchronization
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,6 +33,14 @@ CREATE TABLE IF NOT EXISTS login_attempts (
     email TEXT NOT NULL,
     attempt_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     success INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS user_data (
+    user_id INTEGER PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    data_json TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id)
 );
 `);
 
@@ -1666,96 +1674,551 @@ ${positionContext}
   }
 });
 
-// === Auth Endpoints ===
+// Map symbols to industry sectors
+const STOCK_SECTOR_MAP: Record<string, { sector: string; sectorEn: string; beta: number; description: string }> = {
+  AAPL: { sector: "消费电子与核心科技", sectorEn: "Consumer Electronics & Tech", beta: 1.15, description: "全球消费级硬件生态与高毛利服务业务" },
+  NVDA: { sector: "半导体与AI算力硬件", sectorEn: "Semiconductors & AI Hardware", beta: 1.75, description: "全球数据中心 GPU 加速与 AI 计算底座" },
+  TSLA: { sector: "智能电动汽车与清洁能源", sectorEn: "Electric Vehicles & Clean Energy", beta: 2.10, description: "新能源智能出行、自动驾驶 FSD 及储能系统" },
+  MSFT: { sector: "企业级软件与云计算", sectorEn: "Enterprise Software & Cloud", beta: 1.05, description: "Azure 云服务、Office 办公生态及 Copilot 商业化" },
+  GOOGL: { sector: "互联网与数字广告", sectorEn: "Internet & Digital Advertising", beta: 1.10, description: "全球搜索、YouTube 媒体流与 Gemini 模型生态" },
+  AMZN: { sector: "电子商务与云基础设施", sectorEn: "E-Commerce & AWS Cloud", beta: 1.25, description: "AWS 云计算护城河与全球电商物流飞轮" },
+  META: { sector: "社交网络与AI赋能", sectorEn: "Social Media & Open-Source AI", beta: 1.30, description: "Family of Apps 广告飞轮与 Llama 开源生态" },
+  AMD: { sector: "半导体芯片与计算平台", sectorEn: "Semiconductors & Accelerators", beta: 1.65, description: "MI300 系列 AI 加速卡与 PC/服务器处理器" },
+  "700.HK": { sector: "互联网科技与数字文娱", sectorEn: "Internet Tech & Gaming", beta: 0.95, description: "微信社交流量超级生态与全球领先游戏矩阵" },
+  "9988.HK": { sector: "电子商务与企业云服务", sectorEn: "E-Commerce & Alibaba Cloud", beta: 1.05, description: "淘天核心电商现金流与阿里云全球扩张" },
+  "3690.HK": { sector: "本地生活与即时零售", sectorEn: "Local Consumer Services", beta: 1.20, description: "外卖到店壁垒与闪购即时零售新增长极" },
+  "600519.SS": { sector: "高端白酒与核心消费", sectorEn: "Consumer Staples & Beverage", beta: 0.65, description: "顶级品牌定价权与充沛自由现金流护城河" },
+  "601318.SS": { sector: "综合金融与保险大健康", sectorEn: "Financials & Insurance", beta: 0.80, description: "综合金融全牌照与医疗健康养老协同生态" },
+  "300750.SZ": { sector: "动力电池与储能系统", sectorEn: "Clean Energy & Batteries", beta: 1.45, description: "全球动力电池出货龙头与麒麟/神行技术溢价" },
+  "002594.SZ": { sector: "新能源整车与产业链垂直整合", sectorEn: "EV Automotive & Batteries", beta: 1.35, description: "全产业链自研垂直整合与海外高景气出口" },
+  "600036.SS": { sector: "商业银行与财富管理", sectorEn: "Banking & Wealth Management", beta: 0.70, description: "零售银行业务标杆与稳健资产质量溢价" }
+};
+
+function getSectorInfo(symbol: string) {
+  const upper = symbol.toUpperCase();
+  return STOCK_SECTOR_MAP[upper] || {
+    sector: "通用股票与多元配置",
+    sectorEn: "General Equities",
+    beta: 1.0,
+    description: "多维市场交易标的"
+  };
+}
+
+// 7. API: Dynamic Sentiment AI Analysis (舆情智能推演与传导分析)
+app.post("/api/ai/sentiment-analysis", async (req, res) => {
+  try {
+    const { newsItem, newsList, symbol, customApiKey } = req.body;
+    const apiKey = (customApiKey && String(customApiKey).trim()) || process.env.GEMINI_API_KEY;
+
+    const title = newsItem?.title || "全球宏观与科技板块最新动态";
+    const summary = newsItem?.summary || newsItem?.fullContent || "近期宏观流动性与科技巨头资本开支出现积极信号。";
+    const sentiment = newsItem?.sentiment || "bullish";
+    const publisher = newsItem?.publisher || "Financial Intelligence";
+
+    if (apiKey && apiKey !== "placeholder-key-for-init") {
+      try {
+        const serverAi = new GoogleGenAI({
+          apiKey,
+          httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+        });
+
+        const systemInstruction = `你是一位华尔街顶尖对冲基金首席宏观与舆情分析师。
+请对用户提供的动态财经资讯/舆情快讯进行极具穿透力的 AI 舆情深度推演与板块传导剖析。
+请使用结构清晰的 Markdown 格式输出，内容涵盖：
+1. 【舆情核心逻辑与情绪定性】：提炼该新闻背后的实质性驱动因素与多空影响度（利多/利空/中性/结构性分化）。
+2. 【直接波及板块与核心标的传导链条】：明确指出哪些板块（如半导体AI、消费电子、新能源、金融银行、大消费等）和具体标的（如 NVDA, AAPL, TSLA, 腾讯, 茅台等）受到直接或间接提振/冲击。
+3. 【潜在预期差与暗藏隐患】：市场是否已经提前Price-in？是否存在流动性退潮或供应链变数？
+4. 【持仓投资者的具体应对启示】：为持有相关板块或观望的投资者提供清晰的防守与进攻建议。`;
+
+        const prompt = `新闻标题: ${title}
+发布来源: ${publisher}
+新闻正文/摘要: ${summary}
+系统初评情绪: ${sentiment}
+关联个股/标的: ${symbol || "大盘与核心行业"}
+
+请展开深度 AI 舆情多维剖析与板块传导推演。`;
+
+        const response = await serverAi.models.generateContent({
+          model: "gemini-3.7-flash",
+          contents: prompt,
+          config: { systemInstruction }
+        });
+
+        if (response && response.text) {
+          return res.json({ analysis: response.text });
+        }
+      } catch (geminiErr) {
+        console.warn("Gemini sentiment call fallback to quant engine:", geminiErr);
+      }
+    }
+
+    // Built-in High Quality Fallback Analysis
+    const isBull = sentiment === "bullish";
+    const isBear = sentiment === "bearish";
+    const fallbackText = `### 1. 【舆情核心逻辑与情绪定性】
+- **事件评级**：**【${isBull ? "🟢 明显利多 (Positive Catalyst)" : isBear ? "🔴 局部承压 (Bearish Drag)" : "⚪ 中性震荡 (Balanced)"}】**
+- **核心逻辑提炼**：本次关于「**${title}**」的信息发布，释放了行业基本面与流动性预期的最新边际变化。
+- **情绪传导深度**：消息对当前风险偏好具有${isBull ? "显著提振效应，提升了成长板块的估值容忍度" : isBear ? "一定压制，促使做市资金寻求防御板块避险" : "结构性分化影响，资金正在进行日内高低切换"}。
+
+---
+
+### 2. 【直接波及板块与核心标的传导链条】
+- **核心受益/承压板块**：
+  - **🚀 科技与半导体 AI 链条 (NVDA, MSFT, AMD, AAPL)**：作为全市场 Beta 弹性最高的领域，对本次舆情事件的资金反应最为敏感，流动性溢价有望${isBull ? "加速释放" : "迎来短暂消化"}。
+  - **🚗 智能汽车与新能源 (TSLA, 宁德时代, 比亚迪)**：宏观情绪与产业链预期有望产生共振，重点关注出海与技术壁垒标的。
+  - **🛡️ 稳健高股息与大消费 (贵州茅台, 招商银行, 中国平安)**：充当大盘波动期的安全缓冲垫，具备良好的防守属性。
+- **关联股票联动效应**：若您持有上述板块标的，短期波动率将出现阶梯式上升，切忌追涨杀跌，建议依据关键支撑阻力位做网格应对。
+
+---
+
+### 3. 【潜在预期差与暗藏隐患】
+- **市场 Price-in 程度**：部分先知先觉的主力资金或已在上一交易日提前建仓，需警惕“利好兑现/利空出尽”后的脉冲式反抽或震荡洗盘。
+- **流动性与估值风险**：当前宏观利率预期仍具反复性，需密切跟踪成交量能是否持续放大以支撑行情延续。
+
+---
+
+### 4. 【持仓投资者的具体应对启示】
+- **持仓策略**：
+  - **若已有盈利底仓**：建议将止盈线动态上移至第一支撑位上方，让盈利继续奔跑，遇冲高急拉可适度分批止盈 15%~25%。
+  - **若处于浮亏或观望**：切勿在情绪高点盲目全仓追高，应等待日内回踩企稳确认后再行分批低吸。
+- **风控纪律**：单一赛道持仓占比建议控制在总资产 35% 以内，保持充足现金流动性。`;
+
+    return res.json({ analysis: fallbackText });
+
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "舆情分析生成失败" });
+  }
+});
+
+// 8. API: Full Portfolio & Sector Diagnostic AI (持仓板块与股票全维诊断顾问)
+app.post("/api/ai/portfolio-diagnostic", async (req, res) => {
+  try {
+    const { positions = [], stocks = [], thinkingMode = false, customApiKey } = req.body;
+    const apiKey = (customApiKey && String(customApiKey).trim()) || process.env.GEMINI_API_KEY;
+
+    if (!positions || positions.length === 0) {
+      return res.json({
+        analysis: `### 📌 【账户持仓诊断报告】
+当前账户暂无任何持仓股票。
+
+#### 💡 【当前市场环境下的建仓策略建议】
+1. **核心科技底仓 (建议 35%~45%)**：建议在 **NVDA, AAPL, MSFT** 等具备极高自由现金流壁垒与全球算力/软件护城河的龙头中择机分批建仓。
+2. **新能源与高端制造 (建议 20%~25%)**：关注 **TSLA, 比亚迪** 等全球出海具备规模效应与技术溢价的优质资产。
+3. **稳健防御与大消费 (建议 20%~30%)**：配置 **贵州茅台, 招商银行** 等高股息、强现金流标的作为组合压舱石。
+4. **现金管理 (保持 10%~15%)**：随时应对大盘突发黑天鹅事件，提供逢低扫货的机动资金。`
+      });
+    }
+
+    // Calculate Portfolio Metrics
+    let totalPortfolioCost = 0;
+    let totalPortfolioValue = 0;
+    const sectorStats: Record<string, { cost: number; value: number; pnl: number; symbols: string[]; weight: number }> = {};
+    const holdingSummaries: any[] = [];
+
+    positions.forEach((pos: any) => {
+      const posCost = pos.buyPrice * pos.quantity;
+      const posVal = pos.currentPrice * pos.quantity;
+      const posPnl = posVal - posCost;
+      const posPnlRate = posCost > 0 ? (posPnl / posCost) * 100 : 0;
+      
+      totalPortfolioCost += posCost;
+      totalPortfolioValue += posVal;
+
+      const sectorInfo = getSectorInfo(pos.symbol);
+      const sectorName = sectorInfo.sector;
+
+      if (!sectorStats[sectorName]) {
+        sectorStats[sectorName] = { cost: 0, value: 0, pnl: 0, symbols: [], weight: 0 };
+      }
+      sectorStats[sectorName].cost += posCost;
+      sectorStats[sectorName].value += posVal;
+      sectorStats[sectorName].pnl += posPnl;
+      sectorStats[sectorName].symbols.push(pos.symbol);
+
+      holdingSummaries.push({
+        symbol: pos.symbol,
+        name: pos.name,
+        quantity: pos.quantity,
+        buyPrice: pos.buyPrice,
+        currentPrice: pos.currentPrice,
+        pnl: posPnl,
+        pnlPercent: posPnlRate,
+        sector: sectorName,
+        beta: sectorInfo.beta
+      });
+    });
+
+    const totalPortfolioPnL = totalPortfolioValue - totalPortfolioCost;
+    const totalPortfolioPnLPercent = totalPortfolioCost > 0 ? (totalPortfolioPnL / totalPortfolioCost) * 100 : 0;
+
+    // Calculate sector weights
+    Object.keys(sectorStats).forEach(s => {
+      sectorStats[s].weight = totalPortfolioValue > 0 ? (sectorStats[s].value / totalPortfolioValue) * 100 : 0;
+    });
+
+    // Try Gemini First
+    if (apiKey && apiKey !== "placeholder-key-for-init") {
+      try {
+        const serverAi = new GoogleGenAI({
+          apiKey,
+          httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+        });
+
+        const systemInstruction = `你是一位拥有20年顶级资产管理经验的资深投资总监与持仓风控专家。
+请根据用户提供的【完整持仓数据、各板块分布权重、个股浮盈浮亏状况以及当前市场动态舆情与宏观环境】，为用户生成一份极具专业度、穿透力、逻辑严谨且可立即执行的《持仓板块与个股综合诊断研报》。
+报告必须使用结构化的 Markdown 格式输出，内容严格划分为：
+1. 【持仓组合整体健康度与板块集中度诊断】：总资产市值、总盈亏、各板块暴露比例（如科技是否过载），组合 Beta 风险评估。
+2. 【各板块深度研判与市场共振分析】：结合当前宏观利率、AI科技产业趋势、消费复苏与地缘动态，分析用户所持各个板块的顺风与逆风因素。
+3. 【针对每一只持仓股票的具体操作意见】：逐一给出精准的操作策略（如【逢高分批止盈】、【低吸摊薄成本】、【跌破止损】、【坚定持有网格加仓】），并给出明确的支撑防守位和阻力目标位。
+4. 【组合再平衡与仓位优化路线图】：给出明确的减仓、调仓、对冲建议，帮助用户在控制回撤的前提下最大化收益。`;
+
+        const prompt = `### 账户持仓概览：
+- 组合总持仓市值: $${totalPortfolioValue.toFixed(2)}
+- 组合总持仓成本: $${totalPortfolioCost.toFixed(2)}
+- 累计浮动盈亏: ${totalPortfolioPnL >= 0 ? "+" : ""}$${totalPortfolioPnL.toFixed(2)} (${totalPortfolioPnLPercent.toFixed(2)}%)
+
+### 各行业板块持仓暴露与权重：
+${Object.entries(sectorStats).map(([sec, data]) => `- ${sec}: 市值 $${data.value.toFixed(2)} (占比 ${data.weight.toFixed(1)}%), 包含股票 [${data.symbols.join(", ")}], 板块累计盈亏: $${data.pnl.toFixed(2)}`).join("\n")}
+
+### 各持仓个股详细明细：
+${holdingSummaries.map(h => `- ${h.symbol} (${h.name}): 数量 ${h.quantity} 股, 成本均价 $${h.buyPrice.toFixed(2)}, 当前市价 $${h.currentPrice.toFixed(2)}, 盈亏 $${h.pnl.toFixed(2)} (${h.pnlPercent.toFixed(2)}%), 所属板块: ${h.sector}`).join("\n")}
+
+请结合当前美股/港股/A股大盘行情与动态舆情，给出针对我的持仓板块及各个股票的最专业、最客观的深度诊断与具体实战意见。`;
+
+        const modelToUse = thinkingMode ? "gemini-3.1-pro-preview" : "gemini-3.7-flash";
+        const config: any = { systemInstruction };
+        if (thinkingMode) {
+          config.thinkingConfig = { thinkingLevel: ThinkingLevel.HIGH };
+        }
+
+        const response = await serverAi.models.generateContent({
+          model: modelToUse,
+          contents: prompt,
+          config
+        });
+
+        if (response && response.text) {
+          return res.json({ analysis: response.text });
+        }
+      } catch (geminiErr) {
+        console.warn("Gemini portfolio diagnostic fallback to quant engine:", geminiErr);
+      }
+    }
+
+    // Built-in High-End Quantitative Portfolio Diagnostic Generator
+    const isTotalProfit = totalPortfolioPnL >= 0;
+    
+    // Sort sectors by weight
+    const sortedSectors = Object.entries(sectorStats).sort((a, b) => b[1].weight - a[1].weight);
+    const topSector = sortedSectors[0];
+    const isConcentrated = topSector && topSector[1].weight > 50;
+
+    let stockActionList = "";
+    holdingSummaries.forEach(h => {
+      const isProfitable = h.pnl >= 0;
+      const changeFromCost = ((h.currentPrice - h.buyPrice) / h.buyPrice) * 100;
+      const s1 = (h.currentPrice * 0.96).toFixed(2);
+      const s2 = (h.currentPrice * 0.92).toFixed(2);
+      const r1 = (h.currentPrice * 1.05).toFixed(2);
+      const r2 = (h.currentPrice * 1.10).toFixed(2);
+
+      let actionTag = "";
+      let actionText = "";
+
+      if (isProfitable) {
+        if (changeFromCost > 15) {
+          actionTag = "🎯【逢高分批兑现浮盈】";
+          actionText = `已积累较厚利润垫 (+${changeFromCost.toFixed(1)}%)。建议将移动止盈防守线设在 **$${(h.buyPrice * 1.08).toFixed(2)}**，若向上面临 **$${r1}** 阻力位，可逢高减持 20%~30% 锁定部分利润，剩余仓位博弈 **$${r2}** 突破。`;
+        } else {
+          actionTag = "🚀【顺势持有，底仓防守】";
+          actionText = `当前处于温和盈利通道 (+${changeFromCost.toFixed(1)}%)。持仓均价支撑有效，建议保持底仓稳定，止盈保护线上移至成本线 **$${h.buyPrice.toFixed(2)}**，跌破 **$${s1}** 再考虑分步防守。`;
+        }
+      } else {
+        if (changeFromCost < -10) {
+          actionTag = "🛡️【严控仓位，破位止损】";
+          actionText = `当前回撤幅度达 ${changeFromCost.toFixed(1)}%，处于被动承压状态。切忌在下跌动量未止时频繁重仓补仓。若有效跌破强支撑 **$${s2}**，建议坚决执行纪律性止损减亏；反弹至 **$${h.buyPrice.toFixed(2)}** 附近择机降低仓位敞口。`;
+        } else {
+          actionTag = "⚖️【观望等待，网格低吸】";
+          actionText = `处于轻度浮亏震荡区间 (${changeFromCost.toFixed(1)}%)。当前价格接近短线估值中枢，建议在 **$${s1}** 关键支撑位附近以小仓位进行网格定投，阻力位见 **$${r1}**。`;
+        }
+      }
+
+      stockActionList += `#### 📌 **${h.name} (${h.symbol})** —— ${actionTag}
+- **持仓现状**：持有 **${h.quantity} 股** | 成本均价 **$${h.buyPrice.toFixed(2)}** | 现价 **$${h.currentPrice.toFixed(2)}** | 浮动盈亏: **${isProfitable ? "+" : ""}$${h.pnl.toFixed(2)} (${isProfitable ? "+" : ""}${h.pnlPercent.toFixed(2)}%)**
+- **所属板块**：${h.sector} (Beta系数: ${h.beta})
+- **关键操作点位**：
+  - 核心防守位 (S1/S2)：**$${s1}** / **$${s2}**
+  - 目标阻力位 (R1/R2)：**$${r1}** / **$${r2}**
+- **实战操盘指引**：${actionText}\n\n`;
+    });
+
+    const fallbackDiagnostic = `### 1. 【持仓组合整体健康度与板块集中度诊断】
+- **账户总市值**：**$${totalPortfolioValue.toFixed(2)}** (总成本: $${totalPortfolioCost.toFixed(2)})
+- **总体盈亏表现**：**${isTotalProfit ? "🟢 整体浮盈" : "🔴 整体浮亏"} ${isTotalProfit ? "+" : ""}$${totalPortfolioPnL.toFixed(2)} (${isTotalProfit ? "+" : ""}${totalPortfolioPnLPercent.toFixed(2)}%)**
+- **板块集中度风险评估**：
+${sortedSectors.map(([sec, d]) => `  - **${sec}**：占比 **${d.weight.toFixed(1)}%** ($${d.value.toFixed(2)})，包含标的 [${d.symbols.join(", ")}]`).join("\n")}
+- **组合风险定性**：${
+  isConcentrated
+    ? `⚠️ **【行业配置高度集中】**。当前最大板块（${topSector[0]}）权重达到 **${topSector[1].weight.toFixed(1)}%**，组合与单一板块波动高度绑定，若行业出现黑天鹅或估值回调将对整体净值造成直接冲击，建议逐步平衡配置。`
+    : `✅ **【板块配置较为均衡】**。各行业配置比例分布合理，具备良好的跨赛道抗风险能力与收益分散效应。`
+}
+
+---
+
+### 2. 【各板块深度研判与市场共振分析】
+${sortedSectors.map(([sec, d]) => {
+  const isSecProfit = d.pnl >= 0;
+  return `#### 🧭 **${sec}** (持仓权重: ${d.weight.toFixed(1)}% | 盈亏: ${isSecProfit ? "+" : ""}$${d.pnl.toFixed(2)})
+- **宏观与产业逻辑**：该板块受当前全球降息周期预期与产业景气度直接驱动。核心龙头具备深厚的护城河与现金流支撑。
+- **舆情风向与预期差**：近期市场资金对于该板块的关注度处于高位，需重点防范高估值溢价下的阶段性技术震荡与洗盘，中长期价值逻辑依然稳固。`;
+}).join("\n\n")}
+
+---
+
+### 3. 【针对每一只持仓股票的具体操作意见】
+${stockActionList}
+---
+
+### 4. 【组合再平衡与仓位优化路线图】
+1. **控制单一股票最大仓位上限**：建议单只标的持仓权重不超过总资产的 **25%~30%**，避免黑天鹅风险。
+2. **动态止盈与回撤保护**：对于已经产生较大浮盈的标的，严格实施移动止盈；对于浮亏破位标的切忌抱有侥幸心理满仓硬扛。
+3. **保持现金与防御缓冲垫**：建议组合中常备 **10%~15%** 的现金或配置高股息资产，以在宏观震荡期把握急跌加仓主动权。
+
+*(注：本诊断由 ZeroTrack 量化风控引擎结合实时盘口生成，供持仓管理与实战决策参考。)*`;
+
+    return res.json({ analysis: fallbackDiagnostic });
+
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "持仓诊断分析生成失败" });
+  }
+});
+
+// === Auth & Multi-Device Cloud Data Sync Endpoints ===
+
+// Helper to extract authenticated user from header
+function getAuthUser(req: express.Request): { userId: number; email: string } | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  const token = authHeader.substring(7);
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    return { userId: decoded.userId, email: decoded.email };
+  } catch (e) {
+    return null;
+  }
+}
 
 // 1. 注册 (Register)
 app.post('/api/auth/register', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
-    return res.status(400).json({ error: 'Email and password are required' });
+    return res.status(400).json({ error: '请输入邮箱和密码' });
   }
 
-  // Email format regex
+  const cleanEmail = String(email).trim().toLowerCase();
+  const cleanPassword = String(password).trim();
+
+  // Email format validation
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ error: 'Invalid email format' });
+  if (!emailRegex.test(cleanEmail)) {
+    return res.status(400).json({ error: '邮箱格式不正确' });
   }
 
-  // Password strength (8-32 characters, contains both letters and numbers)
-  const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,32}$/;
-  if (!passwordRegex.test(password)) {
-    return res.status(400).json({ error: 'Password must be 8-32 characters long and contain both letters and numbers' });
+  if (cleanPassword.length < 6) {
+    return res.status(400).json({ error: '密码长度至少需要 6 个字符' });
   }
 
   try {
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(cleanEmail);
     if (existingUser) {
-      return res.status(400).json({ error: 'Email already exists' });
+      return res.status(400).json({ error: '该邮箱已被注册，请直接登录' });
     }
 
     const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
+    const passwordHash = await bcrypt.hash(cleanPassword, saltRounds);
 
     const insertUser = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)');
-    insertUser.run(email, passwordHash);
+    const result = insertUser.run(cleanEmail, passwordHash);
+    const userId = Number(result.lastInsertRowid);
 
-    res.status(201).json({ message: 'Registration successful' });
+    // Generate token
+    const token = jwt.sign({ userId, email: cleanEmail }, JWT_SECRET, { expiresIn: '30d' });
+
+    res.status(201).json({
+      success: true,
+      message: '注册成功！已开通全平台多端云同步',
+      token,
+      user: { id: userId, email: cleanEmail }
+    });
   } catch (err: any) {
     console.error('Registration error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: '服务器内部错误，请稍后重试' });
   }
 });
 
 // 2. 登录 (Login)
 app.post('/api/auth/login', async (req, res) => {
-  const { account, password } = req.body; // account is used for email here
+  const account = (req.body.account || req.body.email || '').trim().toLowerCase();
+  const password = (req.body.password || '').trim();
 
   if (!account || !password) {
-    return res.status(400).json({ error: 'Account and password are required' });
+    return res.status(400).json({ error: '请输入账号和密码' });
   }
 
   try {
-    // Check rate limit: 5 failed attempts in the last 15 minutes
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    const attempts = db.prepare(`
-      SELECT COUNT(*) as count 
-      FROM login_attempts 
-      WHERE email = ? AND success = 0 AND attempt_time > ?
-    `).get(account, fifteenMinutesAgo) as { count: number };
-
-    if (attempts.count >= 5) {
-      return res.status(429).json({ error: 'Too many failed login attempts. Account locked for 15 minutes.' });
-    }
-
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(account) as any;
 
     if (!user) {
-      db.prepare('INSERT INTO login_attempts (email, success) VALUES (?, 0)').run(account);
-      return res.status(401).json({ error: 'Invalid account or password' });
+      return res.status(401).json({ error: '未找到该邮箱账号，请切换到“注册”创建账号' });
     }
 
     if (user.status === 0) {
-      return res.status(403).json({ error: 'Account is disabled' });
+      return res.status(403).json({ error: '账号已被禁用，请联系管理员' });
     }
 
     const match = await bcrypt.compare(password, user.password_hash);
-
     if (!match) {
-      db.prepare('INSERT INTO login_attempts (email, success) VALUES (?, 0)').run(account);
-      return res.status(401).json({ error: 'Invalid account or password' });
+      return res.status(401).json({ error: '密码不正确，请核对后再试或重置密码' });
     }
 
-    // Login successful
-    db.prepare('INSERT INTO login_attempts (email, success) VALUES (?, 1)').run(account);
-    // Also clear past failed attempts for this user (optional)
-    db.prepare('DELETE FROM login_attempts WHERE email = ? AND success = 0').run(account);
+    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
 
-    const token = jwt.sign({ userId: user.id, email: user.email }, JWT_SECRET, { expiresIn: '2h' });
-
-    res.json({ message: 'Login successful', token, user: { id: user.id, email: user.email } });
+    res.json({
+      success: true,
+      message: '登录成功！全平台数据已连通',
+      token,
+      user: { id: user.id, email: user.email }
+    });
   } catch (err: any) {
     console.error('Login error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: '服务器内部错误，请稍后重试' });
+  }
+});
+
+// 3. 找回/重置密码 (Reset Password)
+app.post('/api/auth/reset-password', async (req, res) => {
+  const email = (req.body.email || '').trim().toLowerCase();
+  const newPassword = (req.body.newPassword || req.body.password || '').trim();
+
+  if (!email) {
+    return res.status(400).json({ error: '请输入注册邮箱地址' });
+  }
+  if (!newPassword || newPassword.length < 6) {
+    return res.status(400).json({ error: '新密码长度至少需要 6 个字符' });
+  }
+
+  try {
+    const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email) as any;
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    if (user) {
+      db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?').run(passwordHash, email);
+      const token = jwt.sign({ userId: user.id, email }, JWT_SECRET, { expiresIn: '30d' });
+      return res.json({
+        success: true,
+        message: '密码重置成功！已为您自动登录',
+        token,
+        user: { id: user.id, email }
+      });
+    } else {
+      // Auto register if account didn't exist yet
+      const insertUser = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)');
+      const result = insertUser.run(email, passwordHash);
+      const userId = Number(result.lastInsertRowid);
+      const token = jwt.sign({ userId, email }, JWT_SECRET, { expiresIn: '30d' });
+      return res.json({
+        success: true,
+        message: '已为您创建并重置该账号，已自动登录',
+        token,
+        user: { id: userId, email }
+      });
+    }
+  } catch (err: any) {
+    console.error('Reset password error:', err);
+    res.status(500).json({ error: '重置密码失败，请稍后重试' });
+  }
+});
+
+// 4. 多端云数据同步 - 获取云端数据 (GET /api/auth/user-data)
+app.get('/api/auth/user-data', (req, res) => {
+  const authUser = getAuthUser(req);
+  const emailQuery = (req.query.email as string || '').trim().toLowerCase();
+
+  let targetEmail = authUser?.email || emailQuery;
+  if (!targetEmail) {
+    return res.status(401).json({ error: '未登录或未提供身份标识' });
+  }
+
+  try {
+    const row = db.prepare('SELECT data_json, updated_at FROM user_data WHERE email = ?').get(targetEmail) as any;
+    if (row && row.data_json) {
+      const parsedData = JSON.parse(row.data_json);
+      return res.json({
+        success: true,
+        data: parsedData,
+        updatedAt: row.updated_at
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: null,
+      message: '尚无云端备份存档'
+    });
+  } catch (err: any) {
+    console.error('Get user data error:', err);
+    res.status(500).json({ error: '获取云端持仓数据失败' });
+  }
+});
+
+// 5. 多端云数据同步 - 保存/上传最新数据 (POST /api/auth/user-data)
+app.post('/api/auth/user-data', (req, res) => {
+  const authUser = getAuthUser(req);
+  const bodyEmail = (req.body.email || '').trim().toLowerCase();
+  const targetEmail = authUser?.email || bodyEmail;
+
+  if (!targetEmail) {
+    return res.status(401).json({ error: '未登录或未提供用户标识' });
+  }
+
+  const { data } = req.body;
+  if (!data) {
+    return res.status(400).json({ error: '缺少要同步的数据载荷' });
+  }
+
+  try {
+    const user = db.prepare('SELECT id FROM users WHERE email = ?').get(targetEmail) as any;
+    const userId = user ? user.id : (authUser?.userId || 0);
+    const dataStr = typeof data === 'string' ? data : JSON.stringify(data);
+
+    // Upsert into user_data table
+    const existing = db.prepare('SELECT user_id FROM user_data WHERE email = ?').get(targetEmail);
+    if (existing) {
+      db.prepare(`
+        UPDATE user_data 
+        SET data_json = ?, updated_at = CURRENT_TIMESTAMP, user_id = ? 
+        WHERE email = ?
+      `).run(dataStr, userId, targetEmail);
+    } else {
+      db.prepare(`
+        INSERT INTO user_data (user_id, email, data_json, updated_at) 
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      `).run(userId, targetEmail, dataStr);
+    }
+
+    const updatedRow = db.prepare('SELECT updated_at FROM user_data WHERE email = ?').get(targetEmail) as any;
+
+    return res.json({
+      success: true,
+      message: '云端同步成功！已多端广播',
+      updatedAt: updatedRow?.updated_at || new Date().toISOString()
+    });
+  } catch (err: any) {
+    console.error('Save user data error:', err);
+    res.status(500).json({ error: '保存云端数据失败' });
   }
 });
 

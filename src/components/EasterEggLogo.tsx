@@ -210,7 +210,7 @@ export const EasterEggLogo: React.FC<EasterEggLogoProps> = ({ size = "sm", showT
   const isLarge = size === "lg";
 
   return (
-    <div className="relative inline-flex items-center gap-2 select-none">
+    <div className="relative inline-flex items-center gap-2 select-none shrink-0">
       <motion.div
         whileHover={{ scale: 1.08 }}
         whileTap={{ scale: 0.85, rotate: [0, -12, 12, 0] }}
@@ -225,7 +225,7 @@ export const EasterEggLogo: React.FC<EasterEggLogoProps> = ({ size = "sm", showT
         <img
           src={appLogoImg}
           alt="ZeroTrack Logo"
-          className="w-full h-full object-cover group-hover:brightness-110 transition-all"
+          className="w-full h-full object-cover group-hover:brightness-110 transition-all shrink-0"
           referrerPolicy="no-referrer"
         />
         
@@ -242,7 +242,7 @@ export const EasterEggLogo: React.FC<EasterEggLogoProps> = ({ size = "sm", showT
       {showTitle && (
         <span
           onClick={handleClick}
-          className="font-bold text-base text-theme-text-heading tracking-tight hidden md:block hover:text-indigo-400 transition-colors cursor-pointer"
+          className="font-black text-sm sm:text-base text-theme-text-heading tracking-tight hover:text-indigo-400 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
         >
           ZeroTrack
         </span>
