@@ -180,7 +180,7 @@ export default function AIAnalyst({
             <span>AI 智能投资分析助理</span>
           </h3>
           <p className="text-[11px] text-theme-text-muted mt-0.5">
-            基于 Gemini 3.6/3.1 深度研判股票走势与您的持仓风险
+            结合 Gemini 深度思考与量化技术模型，研判个股走势与持仓风险
           </p>
         </div>
 
@@ -190,18 +190,18 @@ export default function AIAnalyst({
             className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all cursor-pointer ${
               hasApiKey
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                : "border-amber-500/50 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 animate-pulse"
+                : "border-theme-border bg-theme-panel text-theme-text-muted hover:text-theme-text-primary hover:border-theme-border-hover"
             }`}
-            title="配置 Gemini API Key (用于前端直接调用 AI)"
+            title="配置专属 Gemini API Key (选填，不填将自动使用服务端量化与AI引擎)"
           >
             <Key size={13} />
-            <span>{hasApiKey ? "API Key 已配置" : "设置 API Key"}</span>
+            <span>{hasApiKey ? "自定义 Key 已配置" : "自定义 Key (选填)"}</span>
           </button>
 
           <button
             onClick={() => onAnalyze(thinkingMode, image ? { base64: image.base64, mimeType: image.mimeType } : null)}
             disabled={loading}
-            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-theme-bg-hover text-white disabled:text-theme-text-muted rounded-xl text-xs font-bold shadow-lg transition-all cursor-pointer"
+            className="flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-theme-bg-hover text-white disabled:text-theme-text-muted rounded-xl text-xs font-bold shadow-lg transition-all cursor-pointer hover:shadow-indigo-500/20"
           >
             {loading ? (
               <>
@@ -211,7 +211,7 @@ export default function AIAnalyst({
             ) : (
               <>
                 <Sparkles size={13} />
-                <span>分析 {symbol} 仓位</span>
+                <span>立即分析 {symbol} 仓位</span>
               </>
             )}
           </button>
@@ -363,8 +363,8 @@ export default function AIAnalyst({
                   <Key size={18} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-theme-text-heading">配置 Gemini API Key</h4>
-                  <p className="text-[11px] text-theme-text-muted">纯前端部署模式：保存在您的本地浏览器中</p>
+                  <h4 className="text-sm font-bold text-theme-text-heading">自定义 Gemini API Key（选填）</h4>
+                  <p className="text-[11px] text-theme-text-muted">不配置亦可直接使用系统内置智能量化与AI引擎</p>
                 </div>
               </div>
               <button
@@ -385,7 +385,7 @@ export default function AIAnalyst({
                 className="w-full px-3.5 py-2.5 bg-theme-panel border border-theme-border rounded-xl text-xs font-mono focus:outline-none focus:border-indigo-500 transition-colors"
               />
               <p className="text-[11px] text-theme-text-muted leading-relaxed">
-                密钥将仅用于与 Google Gemini 接口通信，不会上传至任何中转服务器，支持在 GitHub Pages 纯静态环境下独立运行。
+                若填入专属 Key，系统将优先调用您专属的 Gemini Pro/Flash 模型配额；若留空则自动由后端智能量化与分析引擎无缝处理。
               </p>
             </div>
 

@@ -27,7 +27,8 @@ import {
   Edit2,
   GripVertical,
   Loader2, PieChart, Bell, BellRing, BellOff,
-  AlertTriangle, ShieldAlert, Sliders
+  AlertTriangle, ShieldAlert, Sliders, Newspaper,
+  Compass, BarChart3
 } from "lucide-react";
 import { Stock, Position, Candle, ChartType, TimeRange, AIAnalysisResult, PriceAlert } from "./types";
 import { fetchStocksList, searchStocks, fetchCandlesticks, fetchStockNews, saveStoredStocks } from "./utils/stockApi";
@@ -41,6 +42,7 @@ import CloudSync from "./components/CloudSync";
 import CalendarHeatmap, { DailyPnL } from "./components/CalendarHeatmap";
 import AnimatedNumber from "./components/AnimatedNumber";
 import { EasterEggLogo } from "./components/EasterEggLogo";
+import { MarketIntelligenceModal } from "./components/MarketIntelligenceModal";
 import appLogoImg from "/src/assets/images/app_logo_1786623180494.jpg";
 
 
@@ -482,6 +484,11 @@ export default function App() {
   // News State
   const [news, setNews] = useState<any[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
+  const [selectedNewsArticle, setSelectedNewsArticle] = useState<any | null>(null);
+
+  // Market Intelligence State (Financials, Superinvestors, Macro)
+  const [showIntelligenceModal, setShowIntelligenceModal] = useState(false);
+  const [intelligenceStock, setIntelligenceStock] = useState<Stock | null>(null);
 
   // Sorting state for positions
   const [sortConfig, setSortConfig] = useState<{ key: keyof Position | null; direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
@@ -1226,6 +1233,19 @@ export default function App() {
             <RefreshCw size={13} className="animate-hover" />
           </button>
 
+          {/* Market Intelligence Hub Launcher */}
+          <button
+            onClick={() => {
+              setIntelligenceStock(activeStock || stocks[0] || null);
+              setShowIntelligenceModal(true);
+            }}
+            className="h-8 shrink-0 bg-gradient-to-r from-indigo-500/15 to-violet-500/15 hover:from-indigo-500/25 hover:to-violet-500/25 text-indigo-400 border border-indigo-500/30 px-2.5 sm:px-3 rounded-xl font-bold text-xs shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+            title="全维投研与市场情报中心 (公司财报 / 13F机构持仓 / 宏观罗盘 / 实时资讯)"
+          >
+            <Compass size={14} className="text-indigo-400 stroke-[2.2]" />
+            <span className="hidden sm:inline">投研情报</span>
+          </button>
+
           <button
             onClick={() => {
               setModalSymbol("");
@@ -1845,6 +1865,18 @@ export default function App() {
                     ${(activeStock.currentPrice * 0.94).toFixed(2)} - ${(activeStock.currentPrice * 1.04).toFixed(2)}
                   </span>
                 </div>
+
+                {/* Direct Fundamental Intelligence Jump */}
+                <button
+                  onClick={() => {
+                    setIntelligenceStock(activeStock);
+                    setShowIntelligenceModal(true);
+                  }}
+                  className="w-full mt-2 py-2 px-3 rounded-xl bg-indigo-600/15 hover:bg-indigo-600/25 border border-indigo-500/30 text-indigo-400 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-98"
+                >
+                  <BarChart3 size={13} />
+                  <span>查看 {activeStock.symbol} 财报与基本面</span>
+                </button>
               </div>
             ) : (
               <div className="text-center py-6 text-xs text-theme-text-muted">选择某一股票可查看特定量化支撑分析</div>
@@ -2016,45 +2048,127 @@ export default function App() {
         {/* Bento Cell 6: Recent Buzz News Stream (col-span-12 lg:col-span-6) */}
         <div className="col-span-12 lg:col-span-6 bg-theme-card border border-theme-border rounded-2xl md:rounded-3xl p-4 md:p-6 flex flex-col justify-between shadow-xl">
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-bold text-theme-text-muted uppercase tracking-widest flex items-center gap-2">
-                <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 4a2 2 0 00-2-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                <span>市场动态与舆情 • News</span>
-              </h3>
-              {loadingNews && <Loader2 className="w-3 h-3 text-indigo-400 animate-spin" />}
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-theme-border/60">
+              <div>
+                <h3 className="text-xs font-bold text-theme-text-muted uppercase tracking-widest flex items-center gap-2">
+                  <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 4a2 2 0 00-2-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <span>市场动态与舆情 • News & Research</span>
+                </h3>
+                <p className="text-[10px] text-theme-text-muted mt-0.5">点击快讯卡片可直接在站内阅读全文，或直达原始财经源</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {loadingNews && <Loader2 className="w-3.5 h-3.5 text-indigo-400 animate-spin" />}
+                <button
+                  onClick={() => {
+                    setIntelligenceStock(activeStock || stocks[0] || null);
+                    setShowIntelligenceModal(true);
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="打开全维投研中心（财报/机构/宏观/深度研报）"
+                >
+                  <Compass size={13} className="text-indigo-400" />
+                  <span>全维投研大厅</span>
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-3.5 overflow-y-auto max-h-[400px] pr-1 scrollbar-thin">
+            <div className="space-y-3 overflow-y-auto max-h-[380px] pr-1 scrollbar-thin">
               {news.length > 0 ? (
                 news.map((item, idx) => (
-                  <a
+                  <div
                     key={idx}
-                    href={item.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block p-3 bg-theme-panel hover:bg-theme-bg-hover rounded-2xl border border-theme-border-muted border-l-2 transition-colors duration-200 group"
-                    style={{ borderLeftColor: idx % 2 === 0 ? '#10b981' : '#6366f1' }}
+                    onClick={() => setSelectedNewsArticle(item)}
+                    className="p-3.5 bg-theme-panel hover:bg-theme-bg-hover rounded-2xl border border-theme-border-muted border-l-4 transition-all duration-200 group cursor-pointer shadow-sm hover:shadow"
+                    style={{ borderLeftColor: item.sentiment === 'bullish' ? '#10b981' : (item.sentiment === 'bearish' ? '#ef4444' : '#6366f1') }}
                   >
-                    <p className="text-xs font-semibold leading-relaxed text-theme-text-primary line-clamp-3 group-hover:text-indigo-400 transition-colors">
-                      {item.title}
-                    </p>
-                    <p className="text-[9px] text-theme-text-muted mt-1.5 uppercase tracking-wider font-mono flex items-center justify-between">
-                      <span>{item.publisher || "Yahoo Finance"}</span>
-                      {item.providerPublishTime && (
-                        <span>
-                          {new Date(item.providerPublishTime * 1000).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      )}
-                    </p>
-                  </a>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-xs font-bold leading-relaxed text-theme-text-primary line-clamp-2 group-hover:text-indigo-400 transition-colors">
+                        {item.title}
+                      </p>
+                      <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 font-medium group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                        全文
+                      </span>
+                    </div>
+
+                    {item.summary && (
+                      <p className="text-[11px] text-theme-text-muted mt-1.5 line-clamp-2 leading-relaxed">
+                        {item.summary}
+                      </p>
+                    )}
+
+                    <div className="text-[10px] text-theme-text-muted mt-2.5 pt-2 border-t border-theme-border/40 font-mono flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-theme-text-primary">{item.publisher || "Yahoo Finance"}</span>
+                        <span>•</span>
+                        {item.providerPublishTime ? (
+                          <span>
+                            {new Date(item.providerPublishTime * 1000).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        ) : (
+                          <span>刚刚</span>
+                        )}
+                        {item.sentiment && (
+                          <span className={`px-1.5 py-0.2 rounded text-[9px] font-sans ${
+                            item.sentiment === 'bullish' ? 'bg-emerald-500/10 text-emerald-400' : (item.sentiment === 'bearish' ? 'bg-rose-500/10 text-rose-400' : 'bg-slate-500/10 text-slate-400')
+                          }`}>
+                            {item.sentiment === 'bullish' ? '利多' : (item.sentiment === 'bearish' ? '利空' : '中性')}
+                          </span>
+                        )}
+                      </div>
+
+                      <a
+                        href={item.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 font-medium hover:underline cursor-pointer"
+                        title="跳转至源站"
+                      >
+                        <span>源站</span>
+                        <ExternalLink size={11} />
+                      </a>
+                    </div>
+                  </div>
                 ))
               ) : (
                 !loadingNews && (
-                  <div className="text-xs text-theme-text-muted text-center py-6">暂无相关新闻资讯</div>
+                  <div className="text-xs text-theme-text-muted text-center py-8">暂无相关新闻资讯</div>
                 )
               )}
+            </div>
+
+            {/* Quick Portals */}
+            <div className="mt-3.5 pt-3 border-t border-theme-border/60 flex flex-wrap items-center justify-between gap-2 text-[11px] text-theme-text-muted">
+              <span className="font-medium text-[10px] uppercase tracking-wider">实时资讯直达：</span>
+              <div className="flex items-center gap-1.5">
+                <a 
+                  href={activeStock ? `https://xueqiu.com/s/${activeStock.symbol.toUpperCase()}` : "https://xueqiu.com/hq"} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="px-2 py-0.5 rounded-lg bg-theme-panel hover:bg-theme-bg-hover text-theme-text-primary border border-theme-border flex items-center gap-1 text-[10px] transition-colors"
+                >
+                  雪球 <ExternalLink size={9} />
+                </a>
+                <a 
+                  href={activeStock ? `https://finance.yahoo.com/quote/${activeStock.symbol}/news` : "https://finance.yahoo.com/topic/stock-market-news"} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="px-2 py-0.5 rounded-lg bg-theme-panel hover:bg-theme-bg-hover text-theme-text-primary border border-theme-border flex items-center gap-1 text-[10px] transition-colors"
+                >
+                  Yahoo <ExternalLink size={9} />
+                </a>
+                <a 
+                  href={activeStock ? `https://www.google.com/finance/quote/${activeStock.symbol}` : "https://www.google.com/finance/"} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  className="px-2 py-0.5 rounded-lg bg-theme-panel hover:bg-theme-bg-hover text-theme-text-primary border border-theme-border flex items-center gap-1 text-[10px] transition-colors"
+                >
+                  Google <ExternalLink size={9} />
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -2833,6 +2947,87 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* In-App Full News Article Modal */}
+      <AnimatePresence>
+        {selectedNewsArticle && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedNewsArticle(null)}>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="bg-theme-card border border-theme-border rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-theme-border bg-theme-panel/70">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl">
+                    <Newspaper size={20} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
+                      {selectedNewsArticle.publisher || selectedNewsArticle.source || "财经快讯"}
+                    </span>
+                    <p className="text-[11px] text-theme-text-muted mt-0.5">
+                      发布时间：{selectedNewsArticle.providerPublishTime ? new Date(selectedNewsArticle.providerPublishTime * 1000).toLocaleString("zh-CN") : (selectedNewsArticle.time || "刚刚")}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedNewsArticle(null)}
+                  className="p-2 rounded-xl text-theme-text-muted hover:text-theme-text-heading hover:bg-theme-bg-hover transition-colors cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 overflow-y-auto space-y-4 text-theme-text-primary leading-relaxed text-sm">
+                <h2 className="text-lg font-bold text-theme-text-heading leading-snug">
+                  {selectedNewsArticle.title}
+                </h2>
+
+                {selectedNewsArticle.summary && (
+                  <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 dark:text-indigo-200 leading-relaxed font-sans">
+                    <span className="font-bold text-indigo-400 block mb-1 text-xs">📌 核心要闻提要：</span>
+                    {selectedNewsArticle.summary}
+                  </div>
+                )}
+
+                <div className="whitespace-pre-line text-theme-text-primary/90 text-sm leading-relaxed pt-2">
+                  {selectedNewsArticle.fullContent || selectedNewsArticle.summary || "正在载入更多深度研报细节..."}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-theme-border bg-theme-panel/40 flex items-center justify-between gap-3">
+                <span className="text-xs text-theme-text-muted">
+                  资讯来源：{selectedNewsArticle.publisher || selectedNewsArticle.source || "Yahoo Finance"}
+                </span>
+                <a
+                  href={selectedNewsArticle.link || selectedNewsArticle.url || "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow-md transition-all cursor-pointer"
+                >
+                  <span>在原始财经网站中查看</span>
+                  <ExternalLink size={13} />
+                </a>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Market Intelligence Modal (Financials, Superinvestors 13F, Macro Benchmarks, Categorized News) */}
+      <MarketIntelligenceModal
+        isOpen={showIntelligenceModal}
+        onClose={() => setShowIntelligenceModal(false)}
+        initialStock={intelligenceStock || activeStock}
+        allStocks={stocks}
+        isUpRed={isUpRed}
+      />
 
       {/* FOOTER */}
       <footer className="border-t border-slate-900 py-5 px-6 text-center text-[10px] uppercase tracking-[0.2em] text-slate-600 flex flex-col sm:flex-row items-center justify-between gap-3">
