@@ -151,13 +151,33 @@ export function saveStoredStocks(stocks: Stock[]) {
   }
 }
 
+// Safe JSON parser helper to prevent "Unexpected end of JSON input" on static deployments (Vercel/GitHub Pages)
+export async function safeParseResponse(res: Response): Promise<any> {
+  try {
+    if (!res.ok) return null;
+    const contentType = res.headers.get("content-type") || "";
+    // If response is HTML from SPA fallback, don't attempt JSON parse
+    if (!contentType.includes("application/json") && !contentType.includes("text/json")) {
+      return null;
+    }
+    const text = await res.text();
+    if (!text || !text.trim()) return null;
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
 // Fetch helper via CORS Proxy for browser environment
 async function fetchWithProxy(url: string, timeoutMs = 5000): Promise<any> {
   const fetchWithTimeout = async (targetUrl: string) => {
     try {
       const res = await fetch(targetUrl, { signal: AbortSignal.timeout(timeoutMs) });
       if (res.ok) {
-        return await res.json();
+        const text = await res.text();
+        if (text && text.trim()) {
+          return JSON.parse(text);
+        }
       }
     } catch {
       // Ignore network / abort / timeout errors silently
@@ -229,25 +249,23 @@ export async function fetchStocksList(requestedSymbols: string[] = []): Promise<
       ...requestedSymbols
     ])).join(",");
     const res = await fetch(`/api/stocks?symbols=${encodeURIComponent(querySymbols)}`, { signal: AbortSignal.timeout(4500) });
-    if (res.ok) {
-      const serverStocks: Stock[] = await res.json();
-      if (Array.isArray(serverStocks) && serverStocks.length > 0) {
-        serverStocks.forEach(s => {
-          const existing = localMap.get(s.symbol);
-          if (existing) {
-            localMap.set(s.symbol, {
-              ...existing,
-              ...s,
-              name: existing.name || s.name
-            });
-          } else {
-            localMap.set(s.symbol, s);
-          }
-        });
-        const updatedList = Array.from(localMap.values());
-        saveStoredStocks(updatedList);
-        return updatedList;
-      }
+    const serverStocks = await safeParseResponse(res);
+    if (Array.isArray(serverStocks) && serverStocks.length > 0) {
+      serverStocks.forEach((s: Stock) => {
+        const existing = localMap.get(s.symbol);
+        if (existing) {
+          localMap.set(s.symbol, {
+            ...existing,
+            ...s,
+            name: existing.name || s.name
+          });
+        } else {
+          localMap.set(s.symbol, s);
+        }
+      });
+      const updatedList = Array.from(localMap.values());
+      saveStoredStocks(updatedList);
+      return updatedList;
     }
   } catch {
     // Fallback to client-side CORS proxy
@@ -655,8 +673,9 @@ export async function fetchCompanyFinancials(symbol: string): Promise<any> {
     const res = await fetch(`/api/market/intelligence/financials/${encodeURIComponent(symbol)}`, {
       signal: AbortSignal.timeout(4000)
     });
-    if (res.ok) {
-      return await res.json();
+    const data = await safeParseResponse(res);
+    if (data && data.symbol) {
+      return data;
     }
   } catch {
     // Return standard fallback
@@ -695,8 +714,9 @@ export async function fetchSuperinvestors(): Promise<any[]> {
     const res = await fetch(`/api/market/intelligence/superinvestors`, {
       signal: AbortSignal.timeout(4000)
     });
-    if (res.ok) {
-      return await res.json();
+    const data = await safeParseResponse(res);
+    if (Array.isArray(data)) {
+      return data;
     }
   } catch {
     // Return empty fallback
@@ -709,8 +729,9 @@ export async function fetchMacroMarketData(): Promise<any> {
     const res = await fetch(`/api/market/intelligence/macro`, {
       signal: AbortSignal.timeout(4000)
     });
-    if (res.ok) {
-      return await res.json();
+    const data = await safeParseResponse(res);
+    if (data && data.fearAndGreed) {
+      return data;
     }
   } catch {
     // Return fallback
@@ -728,8 +749,9 @@ export async function fetchCategorizedNews(category = "ALL"): Promise<any[]> {
     const res = await fetch(`/api/market/intelligence/news?category=${encodeURIComponent(category)}`, {
       signal: AbortSignal.timeout(4000)
     });
-    if (res.ok) {
-      return await res.json();
+    const data = await safeParseResponse(res);
+    if (Array.isArray(data) && data.length > 0) {
+      return data;
     }
   } catch {
     // Fallback to stock news
@@ -750,10 +772,8 @@ export async function fetchSentimentAnalysis(params: {
       body: JSON.stringify(params),
       signal: AbortSignal.timeout(18000)
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.analysis) return data.analysis;
-    }
+    const data = await safeParseResponse(res);
+    if (data && data.analysis) return data.analysis;
   } catch (e) {
     console.warn("fetchSentimentAnalysis error:", e);
   }
@@ -773,10 +793,8 @@ export async function fetchPortfolioDiagnostic(params: {
       body: JSON.stringify(params),
       signal: AbortSignal.timeout(25000)
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.analysis) return data.analysis;
-    }
+    const data = await safeParseResponse(res);
+    if (data && data.analysis) return data.analysis;
   } catch (e) {
     console.warn("fetchPortfolioDiagnostic error:", e);
   }

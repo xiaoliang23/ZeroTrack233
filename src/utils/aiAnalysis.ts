@@ -52,9 +52,15 @@ export async function analyzeStockWithGemini(req: AnalysisRequest): Promise<stri
     });
 
     if (res.ok) {
-      const data = await res.json();
-      if (data && data.analysis) {
-        return data.analysis;
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json") || contentType.includes("text/json")) {
+        const text = await res.text();
+        if (text && text.trim()) {
+          const data = JSON.parse(text);
+          if (data && data.analysis) {
+            return data.analysis;
+          }
+        }
       }
     }
   } catch (serverErr: any) {
