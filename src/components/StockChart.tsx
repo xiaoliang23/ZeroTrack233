@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { motion } from "motion/react";
 import { Candle, ChartType, Stock } from "../types";
 import { 
   Maximize2, 
@@ -476,13 +477,30 @@ export default function StockChart({
     ctx.save();
     ctx.scale(dpr, dpr);
 
-    const isDark = theme === "dark" || document.documentElement.classList.contains("dark");
-    const bgColor = isDark ? "#0F172A" : "#FFFFFF";
-    const gridColor = isDark ? "#1E293B" : "#F1F5F9";
-    const textColor = isDark ? "#CBD5E1" : "#475569";
+    const isDark = theme === "dark" || (!theme && document.documentElement.classList.contains("dark")) || (!document.documentElement.classList.contains("light") && !document.documentElement.classList.contains("sakura") && !document.documentElement.classList.contains("ocean"));
+    const isSakura = theme === "sakura" || document.documentElement.classList.contains("sakura");
+    const isOcean = theme === "ocean" || document.documentElement.classList.contains("ocean");
+
+    // Dynamic color assignment synced with CSS variables for seamless theme blend
+    let bgColor = "#0F172A";
+    let gridColor = "rgba(51, 65, 85, 0.38)";
+    let textColor = "#94A3B8";
+
+    if (isSakura) {
+      bgColor = "#FFFFFF";
+      gridColor = "rgba(252, 231, 243, 0.9)";
+      textColor = "#9D7188";
+    } else if (isOcean) {
+      bgColor = "#FFFFFF";
+      gridColor = "rgba(186, 230, 253, 0.65)";
+      textColor = "#0284C7";
+    } else if (!isDark) {
+      bgColor = "#FFFFFF";
+      gridColor = "rgba(226, 232, 240, 0.85)";
+      textColor = "#64748B";
+    }
 
     ctx.fillStyle = bgColor;
-    ctx.fillRect(0, 0, width, height);
     ctx.fillRect(0, 0, width, height);
 
     // Layout Heights & Margins
@@ -1216,24 +1234,30 @@ export default function StockChart({
   };
 
   return (
-    <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-3 md:p-5 flex flex-col justify-between transition-all duration-300 shadow-sm ${
-      isExpanded ? "fixed inset-2 md:inset-4 z-50 overflow-hidden bg-white dark:bg-slate-900 flex flex-col" : ""
-    }`} id="kline-chart-section">
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.98, y: 6 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      className={`bg-theme-card border border-theme-border rounded-2xl p-3 md:p-5 flex flex-col justify-between transition-colors duration-300 shadow-sm ${
+        isExpanded ? "fixed inset-2 md:inset-4 z-50 overflow-hidden bg-theme-card flex flex-col" : ""
+      }`} 
+      id="kline-chart-section"
+    >
       
       {/* 1. Top Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-2 border-b border-slate-200 dark:border-slate-800 text-xs select-none">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-2 border-b border-theme-border text-xs select-none">
         
         {/* Left: Stock Name & Timeframe Cycle Tabs */}
         <div className="flex items-center gap-2.5 flex-wrap max-w-full">
           <div className="flex items-center gap-2">
             <Layers className="text-indigo-500" size={18} />
-            <h3 className="font-bold text-base text-slate-800 dark:text-slate-100 font-mono tracking-tight">
+            <h3 className="font-bold text-base text-theme-text-heading font-mono tracking-tight">
               {name || symbol} ({symbol})
             </h3>
           </div>
 
           {/* Timeframe Cycles (5分, 时K, 日K, 周K, 月K) */}
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 overflow-x-auto max-w-full scrollbar-none">
+          <div className="flex bg-theme-panel p-0.5 rounded-lg border border-theme-border overflow-x-auto max-w-full scrollbar-none">
             {(["5M", "60M", "1D", "1W", "1M"] as const).map((cycle) => (
               <button
                 key={cycle}
@@ -1242,7 +1266,7 @@ export default function StockChart({
                   if (onRangeChange) onRangeChange(cycle);
                 }}
                 className={`px-2.5 py-1 rounded-md font-bold transition text-xs cursor-pointer whitespace-nowrap ${
-                  cycleType === cycle ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  cycleType === cycle ? "bg-theme-card text-indigo-500 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"
                 }`}
               >
                 {cycle === "5M" ? "5分" : cycle === "60M" ? "时K" : cycle === "1D" ? "日K" : cycle === "1W" ? "周K" : "月K"}
@@ -1251,11 +1275,11 @@ export default function StockChart({
           </div>
 
           {/* Chart Type Toggle */}
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+          <div className="flex bg-theme-panel p-0.5 rounded-lg border border-theme-border">
             <button
               onClick={() => setLocalChartType("candlestick")}
               className={`px-2 py-1 rounded-md font-bold transition text-xs cursor-pointer ${
-                localChartType === "candlestick" ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs" : "text-slate-600 dark:text-slate-400"
+                localChartType === "candlestick" ? "bg-theme-card text-indigo-500 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"
               }`}
             >
               蜡烛图
@@ -1263,7 +1287,7 @@ export default function StockChart({
             <button
               onClick={() => setLocalChartType("hollow")}
               className={`px-2 py-1 rounded-md font-bold transition text-xs cursor-pointer ${
-                localChartType === "hollow" ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs" : "text-slate-600 dark:text-slate-400"
+                localChartType === "hollow" ? "bg-theme-card text-indigo-500 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"
               }`}
             >
               空心K
@@ -1271,7 +1295,7 @@ export default function StockChart({
             <button
               onClick={() => setLocalChartType("area")}
               className={`px-2 py-1 rounded-md font-bold transition text-xs cursor-pointer ${
-                localChartType === "area" ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs" : "text-slate-600 dark:text-slate-400"
+                localChartType === "area" ? "bg-theme-card text-indigo-500 shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"
               }`}
             >
               分时图
@@ -1281,54 +1305,54 @@ export default function StockChart({
 
         {/* Right: Technical Indicator Toggle Pills */}
         <div className="flex items-center gap-2 flex-wrap max-w-full">
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px] font-mono overflow-x-auto scrollbar-none">
+          <div className="flex bg-theme-panel p-0.5 rounded-lg border border-theme-border text-[11px] font-mono overflow-x-auto scrollbar-none">
             <button
               onClick={() => setShowBoll(!showBoll)}
-              className={`px-2 py-1 rounded-md transition cursor-pointer ${showBoll ? "bg-indigo-600 text-white font-bold" : "text-slate-600 dark:text-slate-400"}`}
+              className={`px-2 py-1 rounded-md transition cursor-pointer ${showBoll ? "bg-indigo-600 text-white font-bold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
             >
               BOLL
             </button>
             <button
               onClick={() => setShowBBI(!showBBI)}
-              className={`px-2 py-1 rounded-md transition cursor-pointer ${showBBI ? "bg-indigo-600 text-white font-bold" : "text-slate-600 dark:text-slate-400"}`}
+              className={`px-2 py-1 rounded-md transition cursor-pointer ${showBBI ? "bg-indigo-600 text-white font-bold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
             >
               BBI
             </button>
             <button
               onClick={() => setShowPSY(!showPSY)}
-              className={`px-2 py-1 rounded-md transition cursor-pointer ${showPSY ? "bg-indigo-600 text-white font-bold" : "text-slate-600 dark:text-slate-400"}`}
+              className={`px-2 py-1 rounded-md transition cursor-pointer ${showPSY ? "bg-indigo-600 text-white font-bold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
             >
               PSY
             </button>
             <button
               onClick={() => setShowKDJ(!showKDJ)}
-              className={`px-2 py-1 rounded-md transition cursor-pointer ${showKDJ ? "bg-indigo-600 text-white font-bold" : "text-slate-600 dark:text-slate-400"}`}
+              className={`px-2 py-1 rounded-md transition cursor-pointer ${showKDJ ? "bg-indigo-600 text-white font-bold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
             >
               KDJ
             </button>
             <button
               onClick={() => setShowVolume(!showVolume)}
-              className={`px-2 py-1 rounded-md transition cursor-pointer ${showVolume ? "bg-indigo-600 text-white font-bold" : "text-slate-600 dark:text-slate-400"}`}
+              className={`px-2 py-1 rounded-md transition cursor-pointer ${showVolume ? "bg-indigo-600 text-white font-bold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
             >
               VOL
             </button>
             <button
               onClick={() => setShowMACD(!showMACD)}
-              className={`px-2 py-1 rounded-md transition cursor-pointer ${showMACD ? "bg-indigo-600 text-white font-bold" : "text-slate-600 dark:text-slate-400"}`}
+              className={`px-2 py-1 rounded-md transition cursor-pointer ${showMACD ? "bg-indigo-600 text-white font-bold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
             >
               MACD
             </button>
           </div>
 
           {/* Density Preset Control (舒展 / 适中 / 密集) */}
-          <div className="flex bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700 text-[11px]">
+          <div className="flex bg-theme-panel p-0.5 rounded-lg border border-theme-border text-[11px]">
             <button
               onClick={() => {
                 const count = Math.min(30, effectiveCandles.length);
                 setVisibleCount(count);
                 setStartIndex(Math.max(0, effectiveCandles.length - count));
               }}
-              className={`px-2 py-1 rounded-md font-medium transition cursor-pointer ${visibleCount <= 32 ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs font-bold" : "text-slate-600 dark:text-slate-400"}`}
+              className={`px-2 py-1 rounded-md font-medium transition cursor-pointer ${visibleCount <= 32 ? "bg-theme-card text-indigo-500 shadow-xs font-bold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
               title="舒展模式（每根K线宽度较大）"
             >
               舒展
@@ -1339,7 +1363,7 @@ export default function StockChart({
                 setVisibleCount(count);
                 setStartIndex(Math.max(0, effectiveCandles.length - count));
               }}
-              className={`px-2 py-1 rounded-md font-medium transition cursor-pointer ${visibleCount > 32 && visibleCount <= 55 ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs font-bold" : "text-slate-600 dark:text-slate-400"}`}
+              className={`px-2 py-1 rounded-md font-medium transition cursor-pointer ${visibleCount > 32 && visibleCount <= 55 ? "bg-theme-card text-indigo-500 shadow-xs font-bold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
               title="适中模式"
             >
               适中
@@ -1350,26 +1374,26 @@ export default function StockChart({
                 setVisibleCount(count);
                 setStartIndex(Math.max(0, effectiveCandles.length - count));
               }}
-              className={`px-2 py-1 rounded-md font-medium transition cursor-pointer ${visibleCount > 55 ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-xs font-bold" : "text-slate-600 dark:text-slate-400"}`}
+              className={`px-2 py-1 rounded-md font-medium transition cursor-pointer ${visibleCount > 55 ? "bg-theme-card text-indigo-500 shadow-xs font-bold" : "text-theme-text-muted hover:text-theme-text-primary"}`}
               title="紧凑模式"
             >
               紧凑
             </button>
           </div>
 
-          <div className="flex items-center gap-1 border-l border-slate-200 dark:border-slate-800 pl-2">
-            <button onClick={handleZoomIn} className="p-1.5 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" title="放大">
+          <div className="flex items-center gap-1 border-l border-theme-border pl-2">
+            <button onClick={handleZoomIn} className="p-1.5 rounded-md text-theme-text-muted hover:text-theme-text-primary hover:bg-theme-bg-hover" title="放大">
               <ZoomIn size={16} />
             </button>
-            <button onClick={handleZoomOut} className="p-1.5 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" title="缩小">
+            <button onClick={handleZoomOut} className="p-1.5 rounded-md text-theme-text-muted hover:text-theme-text-primary hover:bg-theme-bg-hover" title="缩小">
               <ZoomOut size={16} />
             </button>
-            <button onClick={handleResetZoom} className="p-1.5 rounded-md text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800" title="复位">
+            <button onClick={handleResetZoom} className="p-1.5 rounded-md text-theme-text-muted hover:text-theme-text-primary hover:bg-theme-bg-hover" title="复位">
               <RefreshCw size={15} />
             </button>
             <button
               onClick={handleExportCSV}
-              className="p-1.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900 transition flex items-center gap-1 font-semibold cursor-pointer"
+              className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 transition flex items-center gap-1 font-semibold cursor-pointer border border-emerald-500/20"
               title="导出当前可见K线数据为CSV"
             >
               <Download size={15} />
@@ -1377,7 +1401,7 @@ export default function StockChart({
             </button>
             <button
               onClick={() => setShowSettingsModal(true)}
-              className="p-1.5 rounded-md bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900 transition flex items-center gap-1 font-semibold"
+              className="p-1.5 rounded-md bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500/20 transition flex items-center gap-1 font-semibold border border-indigo-500/20"
               title="指标设置"
             >
               <Settings size={15} />
@@ -1385,7 +1409,7 @@ export default function StockChart({
             </button>
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="p-1.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+              className="p-1.5 rounded-md bg-theme-panel text-theme-text-muted hover:text-theme-text-primary hover:bg-theme-bg-hover transition border border-theme-border"
               title="全屏"
             >
               {isExpanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
@@ -1395,29 +1419,29 @@ export default function StockChart({
       </div>
 
       {/* 2. Live Candle Real-Time Metrics & Indicators Legend Banner */}
-      <div className="bg-slate-50 dark:bg-slate-900/90 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 mb-2 font-mono text-xs md:text-sm leading-relaxed text-slate-700 dark:text-slate-300 select-none shadow-2xs">
+      <div className="bg-theme-panel/80 p-3 rounded-xl border border-theme-border mb-2 font-mono text-xs md:text-sm leading-relaxed text-theme-text-primary select-none shadow-2xs">
         {/* Row 1: OHLC Data */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 font-black">
-          <span><strong className="text-slate-400 font-normal">时间:</strong> {currentCandle.time || "--"}</span>
-          <span><strong className="text-slate-400 font-normal">开:</strong> <span className="font-mono font-black text-slate-800 dark:text-slate-100">${currentCandle.open?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-slate-400 font-normal">高:</strong> <span className="text-red-500 font-black font-mono [text-shadow:_0_1px_2px_rgba(0,0,0,0.3)]">${currentCandle.high?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-slate-400 font-normal">低:</strong> <span className="text-emerald-500 font-black font-mono [text-shadow:_0_1px_2px_rgba(0,0,0,0.3)]">${currentCandle.low?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-slate-400 font-normal">收:</strong> <span className={isUp ? "text-red-500 font-black font-mono text-sm [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)]" : "text-emerald-500 font-black font-mono text-sm [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)]"}>${currentCandle.close?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal">时间:</strong> {currentCandle.time || "--"}</span>
+          <span><strong className="text-theme-text-muted font-normal">开:</strong> <span className="font-mono font-black text-theme-text-heading">${currentCandle.open?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal">高:</strong> <span className="text-red-500 font-black font-mono [text-shadow:_0_1px_2px_rgba(0,0,0,0.3)]">${currentCandle.high?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal">低:</strong> <span className="text-emerald-500 font-black font-mono [text-shadow:_0_1px_2px_rgba(0,0,0,0.3)]">${currentCandle.low?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal">收:</strong> <span className={isUp ? "text-red-500 font-black font-mono text-sm [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)]" : "text-emerald-500 font-black font-mono text-sm [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)]"}>${currentCandle.close?.toFixed(2) || "--"}</span></span>
           <span className="flex items-center gap-1">
-            <strong className="text-slate-400 font-normal">涨跌:</strong> 
+            <strong className="text-theme-text-muted font-normal">涨跌:</strong> 
             <span className={`inline-flex items-center px-2 py-0.5 rounded border font-black font-mono text-xs md:text-sm shadow-2xs ${
               currentChangePercent >= 0 
-                ? isUpRed ? "bg-red-500/20 text-red-500 border-red-500/40 dark:bg-red-500/30 dark:text-red-400" : "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 dark:bg-emerald-500/30 dark:text-emerald-400"
-                : isUpRed ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 dark:bg-emerald-500/30 dark:text-emerald-400" : "bg-red-500/20 text-red-500 border-red-500/40 dark:bg-red-500/30 dark:text-red-400"
+                ? isUpRed ? "bg-red-500/20 text-red-500 border-red-500/40" : "bg-emerald-500/20 text-emerald-500 border-emerald-500/40"
+                : isUpRed ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/40" : "bg-red-500/20 text-red-500 border-red-500/40"
             }`}>
               {currentChangePercent >= 0 ? "+" : ""}{currentChangePercent.toFixed(2)}%
             </span>
           </span>
-          <span><strong className="text-slate-400 font-normal">成交量:</strong> <span className="font-mono font-black text-slate-800 dark:text-slate-200">{((currentCandle.volume || 0) / 10000).toFixed(2)}万</span></span>
+          <span><strong className="text-theme-text-muted font-normal">成交量:</strong> <span className="font-mono font-black text-theme-text-heading">{((currentCandle.volume || 0) / 10000).toFixed(2)}万</span></span>
         </div>
 
         {/* Row 2: Overlay Indicator Values */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 pt-1.5 border-t border-slate-200/60 dark:border-slate-800/60 text-[10px]">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 pt-1.5 border-t border-theme-border/60 text-[10px]">
           {showBoll && (
             <span className="text-orange-500 font-medium">
               BOLL({bollParams.n},{bollParams.k}) UP: {fullBoll.upper[activeCandleIndex]?.toFixed(2) || "-"} MID: {fullBoll.mid[activeCandleIndex]?.toFixed(2) || "-"} DN: {fullBoll.lower[activeCandleIndex]?.toFixed(2) || "-"}
@@ -1437,7 +1461,7 @@ export default function StockChart({
       {/* 3. HTML5 Canvas Chart Container */}
       <div 
         ref={canvasContainerRef}
-        className={`w-full relative select-none ${
+        className={`w-full relative select-none rounded-xl overflow-hidden ${
           isExpanded ? "flex-1 min-h-[460px]" : "h-[420px] sm:h-[520px] md:h-[620px]"
         }`}
       >
@@ -1453,18 +1477,18 @@ export default function StockChart({
           onWheel={handleWheel}
           onDoubleClick={handleJumpToLatest}
           style={{ touchAction: "none" }}
-          className={`w-full h-full block rounded-xl border border-slate-200/60 dark:border-slate-800/60 ${
+          className={`w-full h-full block rounded-xl border border-theme-border ${
             isDragging ? "cursor-grabbing" : touchMode === "pan" ? "cursor-grab" : "cursor-crosshair"
           }`}
         />
         
         {/* Top-Left Touch Mode Toggle & Helper Hint Overlay */}
         <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 flex-wrap">
-          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur border border-slate-200 dark:border-slate-800 p-0.5 rounded-lg flex items-center shadow-xs text-[10px] font-bold">
+          <div className="bg-theme-card/90 backdrop-blur border border-theme-border p-0.5 rounded-lg flex items-center shadow-xs text-[10px] font-bold">
             <button
               onClick={() => setTouchMode("pan")}
               className={`px-2 py-1 rounded-md flex items-center gap-1 transition cursor-pointer ${
-                touchMode === "pan" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                touchMode === "pan" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"
               }`}
               title="滑动平移模式"
             >
@@ -1474,7 +1498,7 @@ export default function StockChart({
             <button
               onClick={() => setTouchMode("crosshair")}
               className={`px-2 py-1 rounded-md flex items-center gap-1 transition cursor-pointer ${
-                touchMode === "crosshair" ? "bg-indigo-600 text-white shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                touchMode === "crosshair" ? "bg-indigo-600 text-white shadow-xs" : "text-theme-text-muted hover:text-theme-text-primary"
               }`}
               title="十字准星查价模式"
             >
@@ -1483,46 +1507,46 @@ export default function StockChart({
             </button>
           </div>
 
-          <div className="hidden sm:flex items-center gap-1 text-[10px] text-slate-500 dark:text-slate-400 bg-white/80 dark:bg-slate-900/80 backdrop-blur px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800">
+          <div className="hidden sm:flex items-center gap-1 text-[10px] text-theme-text-muted bg-theme-card/85 backdrop-blur px-2 py-1 rounded-lg border border-theme-border">
             <MoveHorizontal size={12} />
             <span>支持拖拽/滚轮/双击回到最新</span>
           </div>
         </div>
 
         {/* Bottom-Right Floating Quick Action Control Bar */}
-        <div className="absolute bottom-3 right-3 z-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200 dark:border-slate-800 p-1 rounded-xl shadow-lg flex items-center gap-1 text-xs select-none">
+        <div className="absolute bottom-3 right-3 z-10 bg-theme-card/90 backdrop-blur-md border border-theme-border p-1 rounded-xl shadow-lg flex items-center gap-1 text-xs select-none">
           <button
             onClick={handlePanLeft}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition cursor-pointer active:scale-95"
+            className="p-1.5 rounded-lg hover:bg-theme-bg-hover text-theme-text-muted hover:text-theme-text-primary transition cursor-pointer active:scale-95"
             title="查看历史K线 (向左平移)"
           >
             <ChevronLeft size={16} />
           </button>
           <button
             onClick={handleZoomOut}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition cursor-pointer active:scale-95"
+            className="p-1.5 rounded-lg hover:bg-theme-bg-hover text-theme-text-muted hover:text-theme-text-primary transition cursor-pointer active:scale-95"
             title="缩小K线"
           >
             <ZoomOut size={16} />
           </button>
           <button
             onClick={handleZoomIn}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition cursor-pointer active:scale-95"
+            className="p-1.5 rounded-lg hover:bg-theme-bg-hover text-theme-text-muted hover:text-theme-text-primary transition cursor-pointer active:scale-95"
             title="放大K线"
           >
             <ZoomIn size={16} />
           </button>
           <button
             onClick={handlePanRight}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition cursor-pointer active:scale-95"
+            className="p-1.5 rounded-lg hover:bg-theme-bg-hover text-theme-text-muted hover:text-theme-text-primary transition cursor-pointer active:scale-95"
             title="查看近期K线 (向右平移)"
           >
             <ChevronRight size={16} />
           </button>
-          <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-0.5" />
+          <div className="h-4 w-px bg-theme-border mx-0.5" />
           <button
             onClick={handleJumpToLatest}
-            className="px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900 font-bold transition flex items-center gap-1 text-[11px] cursor-pointer active:scale-95"
+            className="px-2 py-1 rounded-lg bg-indigo-500/15 text-indigo-500 hover:bg-indigo-500/25 font-bold transition flex items-center gap-1 text-[11px] cursor-pointer active:scale-95 border border-indigo-500/20"
             title="一键平移至最新K线"
           >
             <SkipForward size={13} />
@@ -1530,7 +1554,7 @@ export default function StockChart({
           </button>
           <button
             onClick={handleResetZoom}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition cursor-pointer active:scale-95"
+            className="p-1.5 rounded-lg hover:bg-theme-bg-hover text-theme-text-muted hover:text-theme-text-primary transition cursor-pointer active:scale-95"
             title="重置缩放"
           >
             <RefreshCw size={14} />
@@ -1540,31 +1564,31 @@ export default function StockChart({
 
       {/* 4. Indicator Settings Modal */}
       {showSettingsModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-theme-card border border-theme-border rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
             
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-theme-border bg-theme-panel">
               <div className="flex items-center gap-2">
-                <Sliders className="text-indigo-600 dark:text-indigo-400" size={18} />
-                <h3 className="font-bold text-slate-900 dark:text-slate-100 text-sm">技术指标与配色自定义</h3>
+                <Sliders className="text-indigo-500" size={18} />
+                <h3 className="font-bold text-theme-text-heading text-sm">技术指标与配色自定义</h3>
               </div>
               <button
                 onClick={() => setShowSettingsModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-md"
+                className="text-theme-text-muted hover:text-theme-text-primary p-1 rounded-md cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="flex border-b border-slate-200 dark:border-slate-800 bg-slate-100/50 dark:bg-slate-800/30 overflow-x-auto text-xs font-semibold text-slate-600 dark:text-slate-400">
+            <div className="flex border-b border-theme-border bg-theme-panel/50 overflow-x-auto text-xs font-semibold text-theme-text-muted">
               {(["MA", "BOLL", "PSY", "KDJ", "VOL", "MACD", "COLOR"] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveSettingsTab(tab)}
                   className={`px-4 py-2.5 transition whitespace-nowrap cursor-pointer border-b-2 ${
                     activeSettingsTab === tab
-                      ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 font-bold bg-white dark:bg-slate-900"
-                      : "border-transparent hover:text-slate-900 dark:hover:text-slate-200"
+                      ? "border-indigo-600 text-indigo-500 font-bold bg-theme-card"
+                      : "border-transparent hover:text-theme-text-primary"
                   }`}
                 >
                   {tab === "MA" ? "均线(MA)" : tab === "BOLL" ? "布林线" : tab === "PSY" ? "心理线" : tab === "KDJ" ? "KDJ" : tab === "VOL" ? "成交量" : tab === "MACD" ? "MACD" : "配色方案"}
@@ -1572,10 +1596,10 @@ export default function StockChart({
               ))}
             </div>
 
-            <div className="p-6 text-xs text-slate-700 dark:text-slate-300 space-y-4 max-h-[380px] overflow-y-auto">
+            <div className="p-6 text-xs text-theme-text-primary space-y-4 max-h-[380px] overflow-y-auto">
               {activeSettingsTab === "MA" && (
                 <div className="space-y-3">
-                  <p className="text-slate-500 dark:text-slate-400 mb-2 font-medium">配置移动平均线 (MA) 周期:</p>
+                  <p className="text-theme-text-muted mb-2 font-medium">配置移动平均线 (MA) 周期:</p>
                   {[
                     { key: "ma1", paramKey: "p1", name: "MA 1", color: "text-amber-500" },
                     { key: "ma2", paramKey: "p2", name: "MA 2", color: "text-pink-500" },
@@ -1583,7 +1607,7 @@ export default function StockChart({
                     { key: "ma4", paramKey: "p4", name: "MA 4", color: "text-purple-500" },
                     { key: "ma5", paramKey: "p5", name: "MA 5", color: "text-emerald-500" },
                   ].map(({ key, paramKey, name, color }) => (
-                    <div key={key} className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800">
+                    <div key={key} className="flex items-center justify-between bg-theme-panel p-2.5 rounded-lg border border-theme-border">
                       <label className="flex items-center gap-2 cursor-pointer font-bold">
                         <input
                           type="checkbox"
@@ -1594,12 +1618,12 @@ export default function StockChart({
                         <span className={color}>{name}</span>
                       </label>
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400">周期:</span>
+                        <span className="text-theme-text-muted">周期:</span>
                         <input
                           type="number"
                           value={(maParams as any)[paramKey]}
                           onChange={(e) => setMaParams({ ...maParams, [paramKey]: Number(e.target.value) || 1 })}
-                          className="w-16 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded text-center font-mono font-bold"
+                          className="w-16 px-2 py-1 bg-theme-card border border-theme-border rounded text-center font-mono font-bold text-theme-text-primary"
                         />
                       </div>
                     </div>
@@ -1607,44 +1631,192 @@ export default function StockChart({
                 </div>
               )}
 
+              {activeSettingsTab === "BOLL" && (
+                <div className="space-y-3">
+                  <p className="text-theme-text-muted mb-2 font-medium">配置布林线 (BOLL) 参数:</p>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between bg-theme-panel p-2.5 rounded-lg border border-theme-border">
+                      <span className="font-bold text-orange-500">周期 (N):</span>
+                      <input
+                        type="number"
+                        value={bollParams.n}
+                        onChange={(e) => setBollParams({ ...bollParams, n: Number(e.target.value) || 20 })}
+                        className="w-20 px-2 py-1 bg-theme-card border border-theme-border rounded text-center font-mono font-bold text-theme-text-primary"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between bg-theme-panel p-2.5 rounded-lg border border-theme-border">
+                      <span className="font-bold text-orange-500">标准差倍数 (K):</span>
+                      <input
+                        type="number"
+                        value={bollParams.k}
+                        onChange={(e) => setBollParams({ ...bollParams, k: Number(e.target.value) || 2 })}
+                        className="w-20 px-2 py-1 bg-theme-card border border-theme-border rounded text-center font-mono font-bold text-theme-text-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSettingsTab === "PSY" && (
+                <div className="space-y-3">
+                  <p className="text-theme-text-muted mb-2 font-medium">配置心理线 (PSY) 参数:</p>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between bg-theme-panel p-2.5 rounded-lg border border-theme-border">
+                      <span className="font-bold text-indigo-400">统计周期 (N):</span>
+                      <input
+                        type="number"
+                        value={psyParams.n}
+                        onChange={(e) => setPsyParams({ ...psyParams, n: Number(e.target.value) || 12 })}
+                        className="w-20 px-2 py-1 bg-theme-card border border-theme-border rounded text-center font-mono font-bold text-theme-text-primary"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between bg-theme-panel p-2.5 rounded-lg border border-theme-border">
+                      <span className="font-bold text-indigo-400">平滑周期 (M):</span>
+                      <input
+                        type="number"
+                        value={psyParams.m}
+                        onChange={(e) => setPsyParams({ ...psyParams, m: Number(e.target.value) || 6 })}
+                        className="w-20 px-2 py-1 bg-theme-card border border-theme-border rounded text-center font-mono font-bold text-theme-text-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSettingsTab === "KDJ" && (
+                <div className="space-y-3">
+                  <p className="text-theme-text-muted mb-2 font-medium">配置随机指标 (KDJ) 参数:</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-theme-panel p-2.5 rounded-lg border border-theme-border text-center">
+                      <span className="block text-theme-text-muted font-bold mb-1">N (周期)</span>
+                      <input
+                        type="number"
+                        value={kdjParams.n}
+                        onChange={(e) => setKdjParams({ ...kdjParams, n: Number(e.target.value) || 9 })}
+                        className="w-full px-1 py-1 bg-theme-card border border-theme-border rounded text-center font-mono font-bold text-theme-text-primary"
+                      />
+                    </div>
+                    <div className="bg-theme-panel p-2.5 rounded-lg border border-theme-border text-center">
+                      <span className="block text-theme-text-muted font-bold mb-1">M1 (K平滑)</span>
+                      <input
+                        type="number"
+                        value={kdjParams.m1}
+                        onChange={(e) => setKdjParams({ ...kdjParams, m1: Number(e.target.value) || 3 })}
+                        className="w-full px-1 py-1 bg-theme-card border border-theme-border rounded text-center font-mono font-bold text-theme-text-primary"
+                      />
+                    </div>
+                    <div className="bg-theme-panel p-2.5 rounded-lg border border-theme-border text-center">
+                      <span className="block text-theme-text-muted font-bold mb-1">M2 (D平滑)</span>
+                      <input
+                        type="number"
+                        value={kdjParams.m2}
+                        onChange={(e) => setKdjParams({ ...kdjParams, m2: Number(e.target.value) || 3 })}
+                        className="w-full px-1 py-1 bg-theme-card border border-theme-border rounded text-center font-mono font-bold text-theme-text-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSettingsTab === "VOL" && (
+                <div className="space-y-3">
+                  <p className="text-theme-text-muted mb-2 font-medium">配置成交量均线 (VOL MA) 参数:</p>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between bg-theme-panel p-2.5 rounded-lg border border-theme-border">
+                      <span className="font-bold text-amber-500">VOL MA 1 周期:</span>
+                      <input
+                        type="number"
+                        value={volParams.ma1}
+                        onChange={(e) => setVolParams({ ...volParams, ma1: Number(e.target.value) || 5 })}
+                        className="w-20 px-2 py-1 bg-theme-card border border-theme-border rounded text-center font-mono font-bold text-theme-text-primary"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between bg-theme-panel p-2.5 rounded-lg border border-theme-border">
+                      <span className="font-bold text-sky-500">VOL MA 2 周期:</span>
+                      <input
+                        type="number"
+                        value={volParams.ma2}
+                        onChange={(e) => setVolParams({ ...volParams, ma2: Number(e.target.value) || 10 })}
+                        className="w-20 px-2 py-1 bg-theme-card border border-theme-border rounded text-center font-mono font-bold text-theme-text-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSettingsTab === "MACD" && (
+                <div className="space-y-3">
+                  <p className="text-theme-text-muted mb-2 font-medium">配置指数平滑异同移动平均线 (MACD):</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-theme-panel p-2.5 rounded-lg border border-theme-border text-center">
+                      <span className="block text-theme-text-muted font-bold mb-1">快线 (SHORT)</span>
+                      <input
+                        type="number"
+                        value={macdParams.short}
+                        onChange={(e) => setMacdParams({ ...macdParams, short: Number(e.target.value) || 12 })}
+                        className="w-full px-1 py-1 bg-theme-card border border-theme-border rounded text-center font-mono font-bold text-theme-text-primary"
+                      />
+                    </div>
+                    <div className="bg-theme-panel p-2.5 rounded-lg border border-theme-border text-center">
+                      <span className="block text-theme-text-muted font-bold mb-1">慢线 (LONG)</span>
+                      <input
+                        type="number"
+                        value={macdParams.long}
+                        onChange={(e) => setMacdParams({ ...macdParams, long: Number(e.target.value) || 26 })}
+                        className="w-full px-1 py-1 bg-theme-card border border-theme-border rounded text-center font-mono font-bold text-theme-text-primary"
+                      />
+                    </div>
+                    <div className="bg-theme-panel p-2.5 rounded-lg border border-theme-border text-center">
+                      <span className="block text-theme-text-muted font-bold mb-1">信号 (SIGNAL)</span>
+                      <input
+                        type="number"
+                        value={macdParams.signal}
+                        onChange={(e) => setMacdParams({ ...macdParams, signal: Number(e.target.value) || 9 })}
+                        className="w-full px-1 py-1 bg-theme-card border border-theme-border rounded text-center font-mono font-bold text-theme-text-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {activeSettingsTab === "COLOR" && (
                 <div className="space-y-4">
-                  <p className="text-slate-500 dark:text-slate-400 font-medium">切换 K 线红绿涨跌习惯:</p>
+                  <p className="text-theme-text-muted font-medium">切换 K 线红绿涨跌习惯:</p>
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => setIsUpRed(true)}
                       className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition cursor-pointer ${
-                        isUpRed ? "border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/30" : "border-slate-200 dark:border-slate-800"
+                        isUpRed ? "border-indigo-600 bg-indigo-500/10" : "border-theme-border bg-theme-panel"
                       }`}
                     >
                       <div className="flex gap-2 font-bold text-sm">
                         <span className="text-red-500">红涨</span>
                         <span className="text-emerald-500">绿跌</span>
                       </div>
-                      <span className="text-[11px] text-slate-500">中国 A 股 / 港股标准</span>
+                      <span className="text-[11px] text-theme-text-muted">中国 A 股 / 港股标准</span>
                     </button>
 
                     <button
                       onClick={() => setIsUpRed(false)}
                       className={`p-4 rounded-xl border-2 flex flex-col items-center gap-2 transition cursor-pointer ${
-                        !isUpRed ? "border-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/30" : "border-slate-200 dark:border-slate-800"
+                        !isUpRed ? "border-indigo-600 bg-indigo-500/10" : "border-theme-border bg-theme-panel"
                       }`}
                     >
                       <div className="flex gap-2 font-bold text-sm">
                         <span className="text-emerald-500">绿涨</span>
                         <span className="text-red-500">红跌</span>
                       </div>
-                      <span className="text-[11px] text-slate-500">美股 / 欧股国际标准</span>
+                      <span className="text-[11px] text-theme-text-muted">美股 / 欧股国际标准</span>
                     </button>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+            <div className="p-4 bg-theme-panel border-t border-theme-border flex justify-end">
               <button
                 onClick={() => setShowSettingsModal(false)}
-                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition"
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition cursor-pointer"
               >
                 保存设置
               </button>
@@ -1652,6 +1824,6 @@ export default function StockChart({
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

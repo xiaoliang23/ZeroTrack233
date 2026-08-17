@@ -2175,7 +2175,7 @@ app.get('/api/auth/user-data', (req, res) => {
 });
 
 // 5. 多端云数据同步 - 保存/上传最新数据 (POST /api/auth/user-data)
-app.post('/api/auth/user-data', (req, res) => {
+app.post('/api/auth/user-data', async (req, res) => {
   const authUser = getAuthUser(req);
   const bodyEmail = (req.body.email || '').trim().toLowerCase();
   const targetEmail = authUser?.email || bodyEmail;
@@ -2190,8 +2190,19 @@ app.post('/api/auth/user-data', (req, res) => {
   }
 
   try {
-    const user = db.prepare('SELECT id FROM users WHERE email = ?').get(targetEmail) as any;
-    const userId = user ? user.id : (authUser?.userId || 0);
+    // Ensure the user account exists in users table to satisfy foreign key constraints
+    let user = db.prepare('SELECT id FROM users WHERE email = ?').get(targetEmail) as any;
+    if (!user) {
+      try {
+        const defaultHash = await bcrypt.hash('shadow_sync_account', 10);
+        const info = db.prepare('INSERT INTO users (email, password_hash) VALUES (?, ?)').run(targetEmail, defaultHash);
+        user = { id: Number(info.lastInsertRowid) };
+      } catch {
+        user = db.prepare('SELECT id FROM users WHERE email = ?').get(targetEmail) as any;
+      }
+    }
+
+    const userId = user?.id ? Number(user.id) : (authUser?.userId ? Number(authUser.userId) : 1);
     const dataStr = typeof data === 'string' ? data : JSON.stringify(data);
 
     // Upsert into user_data table

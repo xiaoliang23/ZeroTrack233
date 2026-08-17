@@ -1,6 +1,6 @@
 // Client-side Gemini AI Analysis service using @google/genai SDK
 import { GoogleGenAI } from "@google/genai";
-import { Stock } from "./stockApi";
+import { Stock, safeTimeoutSignal } from "./stockApi";
 
 const GEMINI_KEY_STORAGE = "stock_app_gemini_api_key_v1";
 
@@ -48,7 +48,7 @@ export async function analyzeStockWithGemini(req: AnalysisRequest): Promise<stri
         image: req.image ? { base64: req.image.base64, mimeType: req.image.mimeType } : undefined,
         customApiKey: apiKey
       }),
-      signal: AbortSignal.timeout(30000)
+      signal: safeTimeoutSignal(30000)
     });
 
     if (res.ok) {

@@ -1,66 +1,174 @@
 @import "tailwindcss";
 
-:root {
-  /* Default "Deep Night" dark mode values */
-  --theme-bg-app: #0A0B0D;
-  --theme-bg-card: rgba(15, 23, 42, 0.4);
-  --theme-bg-panel: #020617;
-  --theme-border: rgba(30, 41, 59, 0.8);
-  --theme-text-heading: #ffffff;
-  --theme-text-primary: #cbd5e1;
-  --theme-text-secondary: #94a3b8;
-  --theme-text-muted: #64748b;
-  --theme-bg-active: rgba(49, 46, 129, 0.2);
-  --theme-bg-hover: rgba(30, 41, 59, 0.25);
-  --theme-border-muted: rgba(30, 41, 59, 0.4);
+:root, .dark {
+  /* iOS Safari Safe Area Inset Variables with fallbacks */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+
+  /* Deep Night Dark Mode Color System */
+  --theme-bg-app: #090D16;
+  --theme-bg-card: #0F172A;
+  --theme-bg-panel: #0B1120;
+  --theme-border: rgba(51, 65, 85, 0.65);
+  --theme-border-muted: rgba(30, 41, 59, 0.5);
+  --theme-text-heading: #FFFFFF;
+  --theme-text-primary: #E2E8F0;
+  --theme-text-secondary: #94A3B8;
+  --theme-text-muted: #64748B;
+  --theme-bg-active: rgba(99, 102, 241, 0.2);
+  --theme-bg-hover: rgba(30, 41, 59, 0.45);
+
+  /* K-Line Chart Specific Dark Mode Palette */
+  --theme-chart-bg: #0F172A;
+  --theme-chart-surface: #0B1120;
+  --theme-chart-grid: rgba(51, 65, 85, 0.38);
+  --theme-chart-text: #94A3B8;
+  --theme-chart-border: rgba(51, 65, 85, 0.65);
+  --theme-chart-crosshair: rgba(129, 140, 248, 0.75);
+  --theme-chart-tooltip-bg: rgba(15, 23, 42, 0.95);
+  --theme-chart-watermark: rgba(148, 163, 184, 0.04);
+}
+
+/* iOS Safari & Mobile Viewport Baseline */
+html {
+  min-height: 100vh;
+  min-height: 100dvh;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: var(--theme-bg-app);
+  color: var(--theme-text-primary);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 
 .light {
-  /* "Day" light mode values */
-  --theme-bg-app: #f8fafc;
-  --theme-bg-card: #ffffff;
-  --theme-bg-panel: #f1f5f9;
-  --theme-border: #cbd5e1;
-  --theme-text-heading: #0f172a;
-  --theme-text-primary: #1e293b;
+  /* Day Light Mode Color System */
+  --theme-bg-app: #F8FAFC;
+  --theme-bg-card: #FFFFFF;
+  --theme-bg-panel: #F1F5F9;
+  --theme-border: #E2E8F0;
+  --theme-border-muted: #EDF2F7;
+  --theme-text-heading: #0F172A;
+  --theme-text-primary: #1E293B;
   --theme-text-secondary: #475569;
-  --theme-text-muted: #64748b;
-  --theme-bg-active: #e0e7ff;
-  --theme-bg-hover: rgba(241, 245, 249, 0.8);
-  --theme-border-muted: #e2e8f0;
+  --theme-text-muted: #64748B;
+  --theme-bg-active: #EEF2FF;
+  --theme-bg-hover: rgba(241, 245, 249, 0.85);
+
+  /* K-Line Chart Specific Light Mode Palette */
+  --theme-chart-bg: #FFFFFF;
+  --theme-chart-surface: #F8FAFC;
+  --theme-chart-grid: rgba(226, 232, 240, 0.85);
+  --theme-chart-text: #64748B;
+  --theme-chart-border: #E2E8F0;
+  --theme-chart-crosshair: rgba(99, 102, 241, 0.65);
+  --theme-chart-tooltip-bg: rgba(255, 255, 255, 0.96);
+  --theme-chart-watermark: rgba(15, 23, 42, 0.03);
 }
 
 .sakura {
-  --theme-bg-app: #fdfbfc;
-  --theme-bg-card: #ffffff;
-  --theme-bg-panel: #fcf4f8;
-  --theme-border: #fce7f3;
+  /* Sakura Blossom Mode Color System */
+  --theme-bg-app: #FDF7FA;
+  --theme-bg-card: #FFFFFF;
+  --theme-bg-panel: #FDF0F5;
+  --theme-border: #FCE7F3;
+  --theme-border-muted: #FDF2F8;
   --theme-text-heading: #831843;
   --theme-text-primary: #334155;
-  --theme-text-secondary: #64748b;
-  --theme-text-muted: #94a3b8;
-  --theme-bg-active: #fbcfe8;
+  --theme-text-secondary: #64748B;
+  --theme-text-muted: #9D7188;
+  --theme-bg-active: #FCE7F3;
   --theme-bg-hover: rgba(252, 231, 243, 0.7);
-  --theme-border-muted: #fdf2f4;
+
+  /* K-Line Chart Specific Sakura Mode Palette */
+  --theme-chart-bg: #FFFFFF;
+  --theme-chart-surface: #FDF4F8;
+  --theme-chart-grid: rgba(252, 231, 243, 0.9);
+  --theme-chart-text: #9D7188;
+  --theme-chart-border: #FCE7F3;
+  --theme-chart-crosshair: rgba(236, 72, 153, 0.65);
+  --theme-chart-tooltip-bg: rgba(255, 255, 255, 0.96);
+  --theme-chart-watermark: rgba(236, 72, 153, 0.03);
 }
 
 .ocean {
-  /* Light Ocean Breeze Theme */
-  --theme-bg-app: #eef7ff;
-  --theme-bg-card: #ffffff;
-  --theme-bg-panel: #f0f8ff;
-  --theme-border: #bae6fd;
-  --theme-text-heading: #0369a1;
-  --theme-text-primary: #0f172a;
-  --theme-text-secondary: #0369a1;
-  --theme-text-muted: #0284c7;
-  --theme-bg-active: #e0f2fe;
-  --theme-bg-hover: rgba(224, 242, 254, 0.7);
-  --theme-border-muted: #e0f2fe;
+  /* Ocean Breeze Mode Color System */
+  --theme-bg-app: #F0F8FF;
+  --theme-bg-card: #FFFFFF;
+  --theme-bg-panel: #EBF5FB;
+  --theme-border: #BAE6FD;
+  --theme-border-muted: #E0F2FE;
+  --theme-text-heading: #0369A1;
+  --theme-text-primary: #0F172A;
+  --theme-text-secondary: #0284C7;
+  --theme-text-muted: #0369A1;
+  --theme-bg-active: #E0F2FE;
+  --theme-bg-hover: rgba(224, 242, 254, 0.75);
+
+  /* K-Line Chart Specific Ocean Mode Palette */
+  --theme-chart-bg: #FFFFFF;
+  --theme-chart-surface: #F0F8FF;
+  --theme-chart-grid: rgba(186, 230, 253, 0.65);
+  --theme-chart-text: #0284C7;
+  --theme-chart-border: #BAE6FD;
+  --theme-chart-crosshair: rgba(14, 165, 233, 0.65);
+  --theme-chart-tooltip-bg: rgba(255, 255, 255, 0.96);
+  --theme-chart-watermark: rgba(3, 105, 161, 0.03);
 }
 
 html.ocean body {
-  background: linear-gradient(180deg, #e0f2fe 0%, #f0f9ff 100%) fixed;
+  background: linear-gradient(180deg, #E0F2FE 0%, #F0F9FF 100%) fixed;
+}
+
+/* Global Smooth Theme Switching Transitions */
+html,
+body,
+#root,
+div,
+header,
+nav,
+main,
+footer,
+section,
+aside,
+article,
+button,
+input,
+select,
+table,
+th,
+td {
+  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+  transition-duration: 260ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Disable transition on dynamic/animated components where transition could cause lag or flicker */
+canvas,
+.no-theme-transition,
+.price-stroke,
+.animate-spin,
+.animate-pulse,
+.sakura-petal,
+.ocean-bubble,
+svg * {
+  transition: none !important;
 }
 
 @keyframes sakura-fall {
@@ -114,13 +222,20 @@ html.ocean body {
   --color-theme-card: var(--theme-bg-card);
   --color-theme-panel: var(--theme-bg-panel);
   --color-theme-border: var(--theme-border);
+  --color-theme-border-muted: var(--theme-border-muted);
   --color-theme-text-primary: var(--theme-text-primary);
   --color-theme-text-secondary: var(--theme-text-secondary);
   --color-theme-text-muted: var(--theme-text-muted);
   --color-theme-text-heading: var(--theme-text-heading);
   --color-theme-bg-active: var(--theme-bg-active);
   --color-theme-bg-hover: var(--theme-bg-hover);
-  --color-theme-border-muted: var(--theme-border-muted);
+  --color-theme-chart-bg: var(--theme-chart-bg);
+  --color-theme-chart-surface: var(--theme-chart-surface);
+  --color-theme-chart-grid: var(--theme-chart-grid);
+  --color-theme-chart-text: var(--theme-chart-text);
+  --color-theme-chart-border: var(--theme-chart-border);
+  --color-theme-chart-crosshair: var(--theme-chart-crosshair);
+  --color-theme-chart-tooltip-bg: var(--theme-chart-tooltip-bg);
 }
 
 @keyframes pulse-glow {
@@ -187,4 +302,54 @@ html.ocean body {
   letter-spacing: -0.01em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
+
+/* ==========================================================================
+   iOS Safari Safe Area Utilities & Bottom Home Bar Inset Adaptation
+   ========================================================================== */
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pb-safe-offset {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.pl-safe {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.pr-safe {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.p-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.bottom-safe {
+  bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.min-h-screen-safe {
+  min-height: calc(100vh - env(safe-area-inset-bottom, 0px));
+  min-height: calc(100dvh - env(safe-area-inset-bottom, 0px));
+}
+
+/* Auto safe area padding on fixed modals and drawers */
+.modal-bottom-safe {
+  padding-bottom: max(1.5rem, calc(1rem + env(safe-area-inset-bottom, 0px)));
+}
+
 

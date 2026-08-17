@@ -168,11 +168,27 @@ export async function safeParseResponse(res: Response): Promise<any> {
   }
 }
 
+// Safe timeout signal helper compatible with older iOS Safari and mobile WebViews
+export function safeTimeoutSignal(timeoutMs: number): AbortSignal {
+  if (typeof AbortSignal !== "undefined" && typeof (AbortSignal as any).timeout === "function") {
+    try {
+      return (AbortSignal as any).timeout(timeoutMs);
+    } catch {}
+  }
+  const controller = new AbortController();
+  setTimeout(() => {
+    try {
+      controller.abort();
+    } catch {}
+  }, timeoutMs);
+  return controller.signal;
+}
+
 // Fetch helper via CORS Proxy for browser environment
 async function fetchWithProxy(url: string, timeoutMs = 4500): Promise<any> {
   const fetchWithTimeout = async (targetUrl: string) => {
     try {
-      const res = await fetch(targetUrl, { signal: AbortSignal.timeout(timeoutMs) });
+      const res = await fetch(targetUrl, { signal: safeTimeoutSignal(timeoutMs) });
       if (res.ok) {
         const text = await res.text();
         if (text && text.trim()) {
@@ -253,7 +269,7 @@ export async function fetchStocksList(requestedSymbols: string[] = []): Promise<
       ...currentLocal.map(s => s.symbol),
       ...requestedSymbols
     ])).join(",");
-    const res = await fetch(`/api/stocks?symbols=${encodeURIComponent(querySymbols)}`, { signal: AbortSignal.timeout(4500) });
+    const res = await fetch(`/api/stocks?symbols=${encodeURIComponent(querySymbols)}`, { signal: safeTimeoutSignal(4500) });
     const serverStocks = await safeParseResponse(res);
     if (Array.isArray(serverStocks) && serverStocks.length > 0) {
       serverStocks.forEach((s: Stock) => {
@@ -331,7 +347,7 @@ export async function searchStocks(query: string): Promise<Stock[]> {
 
   // 2. Try Server API search route first (Fastest, direct Node fetch without CORS proxy limits)
   try {
-    const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`, { signal: safeTimeoutSignal(4000) });
     const serverResults = await safeParseResponse(res);
     if (Array.isArray(serverResults) && serverResults.length > 0) {
       serverResults.forEach((s: Stock) => map.set(s.symbol, s));
@@ -428,7 +444,7 @@ export async function fetchCandlesticks(symbol: string, range: string): Promise<
 
   // 1. Try server API candles endpoint first (Fetches live Yahoo Finance data on backend)
   try {
-    const res = await fetch(`/api/stocks/candles/${cleanSym}?range=${range}`, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(`/api/stocks/candles/${cleanSym}?range=${range}`, { signal: safeTimeoutSignal(4000) });
     const candles = await safeParseResponse(res);
     if (Array.isArray(candles) && candles.length > 0) {
       return candles;
@@ -584,7 +600,7 @@ export async function fetchStockNews(query = "US Stocks"): Promise<NewsItem[]> {
   // 1. Try server-side enhanced endpoint first
   try {
     const res = await fetch(`/api/news?q=${encodeURIComponent(query)}`, {
-      signal: AbortSignal.timeout(3500)
+      signal: safeTimeoutSignal(3500)
     });
     const data = await safeParseResponse(res);
     if (Array.isArray(data) && data.length > 0) {
@@ -828,7 +844,7 @@ export async function fetchCompanyFinancials(symbol: string): Promise<any> {
   const sym = symbol.toUpperCase().trim();
   try {
     const res = await fetch(`/api/market/intelligence/financials/${encodeURIComponent(sym)}`, {
-      signal: AbortSignal.timeout(3500)
+      signal: safeTimeoutSignal(3500)
     });
     const data = await safeParseResponse(res);
     if (data && data.symbol) {
@@ -880,7 +896,7 @@ export async function fetchCompanyFinancials(symbol: string): Promise<any> {
 export async function fetchSuperinvestors(): Promise<any[]> {
   try {
     const res = await fetch(`/api/market/intelligence/superinvestors`, {
-      signal: AbortSignal.timeout(3500)
+      signal: safeTimeoutSignal(3500)
     });
     const data = await safeParseResponse(res);
     if (Array.isArray(data) && data.length > 0) {
@@ -895,7 +911,7 @@ export async function fetchSuperinvestors(): Promise<any[]> {
 export async function fetchMacroMarketData(): Promise<any> {
   try {
     const res = await fetch(`/api/market/intelligence/macro`, {
-      signal: AbortSignal.timeout(3500)
+      signal: safeTimeoutSignal(3500)
     });
     const data = await safeParseResponse(res);
     if (data && data.fearAndGreed && Array.isArray(data.indicators) && data.indicators.length > 0) {
@@ -910,7 +926,7 @@ export async function fetchMacroMarketData(): Promise<any> {
 export async function fetchCategorizedNews(category = "ALL"): Promise<any[]> {
   try {
     const res = await fetch(`/api/market/intelligence/news?category=${encodeURIComponent(category)}`, {
-      signal: AbortSignal.timeout(3500)
+      signal: safeTimeoutSignal(3500)
     });
     const data = await safeParseResponse(res);
     if (Array.isArray(data) && data.length > 0) {
@@ -933,7 +949,7 @@ export async function fetchSentimentAnalysis(params: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(params),
-      signal: AbortSignal.timeout(18000)
+      signal: safeTimeoutSignal(18000)
     });
     const data = await safeParseResponse(res);
     if (data && data.analysis) return data.analysis;
@@ -954,7 +970,7 @@ export async function fetchPortfolioDiagnostic(params: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(params),
-      signal: AbortSignal.timeout(25000)
+      signal: safeTimeoutSignal(25000)
     });
     const data = await safeParseResponse(res);
     if (data && data.analysis) return data.analysis;

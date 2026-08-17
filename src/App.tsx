@@ -574,10 +574,8 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem("theme", theme);
-    document.documentElement.classList.remove("light", "sakura", "ocean");
-    if (theme !== "dark") {
-      document.documentElement.classList.add(theme);
-    }
+    document.documentElement.classList.remove("dark", "light", "sakura", "ocean");
+    document.documentElement.classList.add(theme);
   }, [theme]);
 
   // Reset modal search when modal closes or opens
@@ -1923,34 +1921,57 @@ export default function App() {
 
             <div className="flex flex-col lg:flex-row gap-6">
               <div className="flex-1 min-w-0">
-                {/* Interactive chart display */}
-                {loadingCandles ? (
-                  <div className="min-h-[380px] sm:min-h-[480px] md:min-h-[580px] flex flex-col items-center justify-center text-slate-500 gap-2 bg-theme-card rounded-3xl border border-theme-border">
-                    <RefreshCw size={28} className="animate-spin text-indigo-500" />
-                    <span className="text-sm font-semibold">正在渲染多周期专业K线走势...</span>
-                  </div>
-                ) : activeStock ? (
-                  <StockChart
-                    candles={candles}
-                    chartType={chartType}
-                    isUpRed={isUpRed}
-                    symbol={activeStock.symbol}
-                    name={activeStock.name}
-                    theme={theme}
-                    activeStock={activeStock}
-                    activeRange={activeRange}
-                    onRangeChange={(newRange) => {
-                      setActiveRange(newRange as any);
-                      if (activeSymbol) {
-                        fetchCandles(activeSymbol, newRange);
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="min-h-[380px] sm:min-h-[480px] md:min-h-[580px] flex items-center justify-center text-slate-500 text-sm bg-theme-card rounded-3xl border border-theme-border">
-                    请在上方选择股票以加载实时走势图
-                  </div>
-                )}
+                {/* Interactive chart display with smooth transition */}
+                <AnimatePresence mode="wait">
+                  {loadingCandles ? (
+                    <motion.div
+                      key="chart-loading"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      transition={{ duration: 0.2 }}
+                      className="min-h-[380px] sm:min-h-[480px] md:min-h-[580px] flex flex-col items-center justify-center text-slate-500 gap-2 bg-theme-card rounded-3xl border border-theme-border"
+                    >
+                      <RefreshCw size={28} className="animate-spin text-indigo-500" />
+                      <span className="text-sm font-semibold">正在渲染多周期专业K线走势...</span>
+                    </motion.div>
+                  ) : activeStock ? (
+                    <motion.div
+                      key={`chart-${activeStock.symbol}-${activeRange}-${chartType}`}
+                      initial={{ opacity: 0, scale: 0.985, y: 4 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.99 }}
+                      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                      <StockChart
+                        candles={candles}
+                        chartType={chartType}
+                        isUpRed={isUpRed}
+                        symbol={activeStock.symbol}
+                        name={activeStock.name}
+                        theme={theme}
+                        activeStock={activeStock}
+                        activeRange={activeRange}
+                        onRangeChange={(newRange) => {
+                          setActiveRange(newRange as any);
+                          if (activeSymbol) {
+                            fetchCandles(activeSymbol, newRange);
+                          }
+                        }}
+                      />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="chart-empty"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="min-h-[380px] sm:min-h-[480px] md:min-h-[580px] flex items-center justify-center text-slate-500 text-sm bg-theme-card rounded-3xl border border-theme-border"
+                    >
+                      请在上方选择股票以加载实时走势图
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
               
               <div className="w-full lg:w-80 lg:shrink-0 flex flex-col justify-between bg-theme-panel/70 border border-theme-border-muted rounded-2xl md:rounded-3xl p-4 sm:p-5 shadow-sm">
@@ -3244,7 +3265,7 @@ export default function App() {
       />
 
       {/* FOOTER */}
-      <footer className="border-t border-slate-900 py-5 px-6 text-center text-[10px] uppercase tracking-[0.2em] text-slate-600 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <footer className="border-t border-slate-900 py-5 px-6 pb-safe text-center text-[10px] uppercase tracking-[0.2em] text-slate-600 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex flex-wrap gap-4 justify-center">
           <span>Session: Live sandbox</span>
           <span>API: Normal</span>
