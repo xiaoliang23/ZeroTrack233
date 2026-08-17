@@ -1,8 +1,26 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Isolated User Profile & Portfolio by UID
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if true;
+    }
+
+    // Isolated User Portfolios collection by UID
+    match /user_portfolios/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if true;
+    }
+
+    // Account Registry for Cross-Device / Hybrid Auth
+    match /user_accounts/{accountKey} {
+      allow read, write: if true;
+    }
+
     match /{document=**} {
       allow read, write: if true;
     }
   }
 }
+

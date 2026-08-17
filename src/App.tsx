@@ -41,7 +41,7 @@ import PortfolioAllocationChart from "./components/PortfolioAllocationChart";
 import PortfolioTrendChart from "./components/PortfolioTrendChart";
 import CloudSync from "./components/CloudSync";
 import AuthGuard from "./components/AuthGuard";
-import { getStoredUser, loadUserPortfolio, CloudUser, UserPortfolioData } from "./utils/authEngine";
+import { getStoredUser, loadUserPortfolio, saveUserPortfolio, CloudUser, UserPortfolioData, USER_DATA_PREFIX, CLEAN_DEFAULT_PORTFOLIO } from "./utils/authEngine";
 import CalendarHeatmap, { DailyPnL } from "./components/CalendarHeatmap";
 import AnimatedNumber from "./components/AnimatedNumber";
 import { EasterEggLogo } from "./components/EasterEggLogo";
@@ -409,33 +409,58 @@ export default function App() {
     setActiveAlerts(prev => prev.filter(a => a.id !== id));
   };
 
+  const [currentUser, setCurrentUser] = useState<CloudUser | null>(() => getStoredUser());
+  const [dataOwnerUid, setDataOwnerUid] = useState<string | null>(() => {
+    const user = getStoredUser();
+    return user ? user.email.toLowerCase() : 'guest';
+  });
+  const [showAuthGuard, setShowAuthGuard] = useState<boolean>(() => !getStoredUser());
+
   // Watchlist (symbols list)
   const [watchlist, setWatchlist] = useState<string[]>(() => {
-    const saved = localStorage.getItem("watchlist");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
+    const user = getStoredUser();
+    if (user && user.email) {
+      const savedUser = localStorage.getItem(`${USER_DATA_PREFIX}${user.email.toLowerCase()}`);
+      if (savedUser) {
+        try {
+          const parsed = JSON.parse(savedUser);
+          if (parsed && Array.isArray(parsed.watchlist)) return parsed.watchlist;
+        } catch {}
+      }
+    } else {
+      const guestSaved = localStorage.getItem("zerotrack_guest_stocks");
+      if (guestSaved) {
+        try {
+          const parsed = JSON.parse(guestSaved);
+          if (parsed && Array.isArray(parsed.watchlist)) return parsed.watchlist;
+        } catch {}
+      }
     }
-    return ["AAPL", "NVDA", "TSLA", "VZ", "0700.HK"];
+    return CLEAN_DEFAULT_PORTFOLIO.watchlist;
   });
 
   // User Custom Positions
   // Stored as an array of objects: { symbol: string, quantity: number, buyPrice: number, dividends?: number }
   const [rawPositions, setRawPositions] = useState<{ symbol: string; quantity: number; buyPrice: number; dividends?: number }[]>(() => {
-    const saved = localStorage.getItem("positions");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
+    const user = getStoredUser();
+    if (user && user.email) {
+      const savedUser = localStorage.getItem(`${USER_DATA_PREFIX}${user.email.toLowerCase()}`);
+      if (savedUser) {
+        try {
+          const parsed = JSON.parse(savedUser);
+          if (parsed && Array.isArray(parsed.positions)) return parsed.positions;
+        } catch {}
+      }
+    } else {
+      const guestSaved = localStorage.getItem("zerotrack_guest_stocks");
+      if (guestSaved) {
+        try {
+          const parsed = JSON.parse(guestSaved);
+          if (parsed && Array.isArray(parsed.positions)) return parsed.positions;
+        } catch {}
+      }
     }
-    return [
-      { symbol: "AAPL", quantity: 10, buyPrice: 172.5, dividends: 12.5 },
-      { symbol: "NVDA", quantity: 15, buyPrice: 820.0, dividends: 0.0 },
-      { symbol: "VZ", quantity: 100, buyPrice: 40.0, dividends: 18.0 }
-    ];
+    return CLEAN_DEFAULT_PORTFOLIO.positions;
   });
 
   // Calculated Positions (fully populated with current prices and P&Ls)
@@ -455,15 +480,12 @@ export default function App() {
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteConfirmSymbol, setDeleteConfirmSymbol] = useState<string | null>(null);
 
-  const [dataOwnerUid, setDataOwnerUid] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<CloudUser | null>(() => getStoredUser());
-  const [showAuthGuard, setShowAuthGuard] = useState<boolean>(() => !getStoredUser());
-
   // Handle Authentication Success (from AuthGuard or CloudSync)
   const handleAuthSuccess = useCallback((user: CloudUser, userPortfolio?: UserPortfolioData) => {
+    const cleanEmail = user.email.toLowerCase();
     setCurrentUser(user);
     setShowAuthGuard(false);
-    setDataOwnerUid(user.email);
+    setDataOwnerUid(cleanEmail);
     if (userPortfolio) {
       if (userPortfolio.watchlist && Array.isArray(userPortfolio.watchlist)) {
         setWatchlist(userPortfolio.watchlist);
@@ -489,16 +511,48 @@ export default function App() {
     }
   }, []);
 
-  const handleRemoteUpdate = (data: any) => {
-    if (data._ownerUid !== undefined) setDataOwnerUid(data._ownerUid);
-    if (data.watchlist) setWatchlist(data.watchlist);
-    if (data.positions) setRawPositions(data.positions);
-    if (data.priceAlerts) setAlerts(data.priceAlerts);
+  const handleRemoteUpdate = useCallback((data: any) => {
+    if (data._ownerUid !== undefined) {
+      const owner = String(data._ownerUid);
+      setDataOwnerUid(owner);
+      if (owner === 'guest') {
+        setCurrentUser(null);
+      } else {
+        const stored = getStoredUser();
+        if (stored && (stored.uid === owner || stored.email.toLowerCase() === owner.toLowerCase())) {
+          setCurrentUser(stored);
+        } else {
+          setCurrentUser({ email: owner.includes('@') ? owner : (stored?.email || owner), uid: owner });
+        }
+      }
+    }
+    if (data.watchlist && Array.isArray(data.watchlist)) setWatchlist(data.watchlist);
+    if (data.positions && Array.isArray(data.positions)) setRawPositions(data.positions);
+    if (data.priceAlerts && Array.isArray(data.priceAlerts)) setAlerts(data.priceAlerts);
     if (data.theme) setTheme(data.theme);
     if (data.isUpRed !== undefined) setIsUpRed(data.isUpRed);
     if (data.pnlLossAlertEnabled !== undefined) setPnlLossAlertEnabled(data.pnlLossAlertEnabled);
     if (data.pnlLossAlertThreshold !== undefined) setPnlLossAlertThreshold(data.pnlLossAlertThreshold);
-  };
+  }, []);
+
+  // Sync state on user change
+  useEffect(() => {
+    if (currentUser && currentUser.email) {
+      loadUserPortfolio(currentUser).then((userPortfolio) => {
+        if (userPortfolio) {
+          const effectiveUid = userPortfolio._ownerUid || currentUser.uid || currentUser.email.toLowerCase();
+          setDataOwnerUid(effectiveUid);
+          if (userPortfolio.watchlist) setWatchlist(userPortfolio.watchlist);
+          if (userPortfolio.positions) setRawPositions(userPortfolio.positions);
+          if (userPortfolio.priceAlerts) setAlerts(userPortfolio.priceAlerts);
+          if (userPortfolio.theme) setTheme(userPortfolio.theme as any);
+          if (userPortfolio.isUpRed !== undefined) setIsUpRed(userPortfolio.isUpRed);
+          if (userPortfolio.pnlLossAlertEnabled !== undefined) setPnlLossAlertEnabled(userPortfolio.pnlLossAlertEnabled);
+          if (userPortfolio.pnlLossAlertThreshold !== undefined) setPnlLossAlertThreshold(userPortfolio.pnlLossAlertThreshold);
+        }
+      });
+    }
+  }, [currentUser?.email, currentUser?.uid]);
 
   
   // Custom Stock addition state
@@ -559,24 +613,55 @@ export default function App() {
   // Sorting state for positions
   const [sortConfig, setSortConfig] = useState<{ key: keyof Position | null; direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
 
-  // --- Persist settings to localStorage ---
-  useEffect(() => {
-    localStorage.setItem("isUpRed", String(isUpRed));
-  }, [isUpRed]);
-
-  useEffect(() => {
-    localStorage.setItem("watchlist", JSON.stringify(watchlist));
-  }, [watchlist]);
-
-  useEffect(() => {
-    localStorage.setItem("positions", JSON.stringify(rawPositions));
-  }, [rawPositions]);
-
+  // --- Persist theme & display settings ---
   useEffect(() => {
     localStorage.setItem("theme", theme);
     document.documentElement.classList.remove("dark", "light", "sakura", "ocean");
     document.documentElement.classList.add(theme);
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem("isUpRed", String(isUpRed));
+  }, [isUpRed]);
+
+  // Persist portfolio strictly to the active user's isolated storage & cloud
+  useEffect(() => {
+    if (!currentUser || !currentUser.email) {
+      // Guest mode: isolated local guest storage
+      const guestPayload = {
+        watchlist,
+        positions: rawPositions,
+        priceAlerts: alerts,
+        theme,
+        isUpRed,
+        pnlLossAlertEnabled,
+        pnlLossAlertThreshold,
+        _ownerUid: 'guest'
+      };
+      localStorage.setItem("zerotrack_guest_stocks", JSON.stringify(guestPayload));
+      return;
+    }
+
+    // Safety guard: ensure the React state currently matches this user's identity before persisting
+    const cleanEmail = currentUser.email.toLowerCase();
+    const effectiveUid = currentUser.uid || cleanEmail;
+    if (dataOwnerUid && dataOwnerUid !== effectiveUid && dataOwnerUid.toLowerCase() !== cleanEmail) {
+      return;
+    }
+
+    const payload: UserPortfolioData = {
+      watchlist,
+      positions: rawPositions,
+      priceAlerts: alerts,
+      theme,
+      isUpRed,
+      pnlLossAlertEnabled,
+      pnlLossAlertThreshold,
+      _ownerUid: effectiveUid
+    };
+
+    saveUserPortfolio(currentUser, payload);
+  }, [watchlist, rawPositions, alerts, theme, isUpRed, pnlLossAlertEnabled, pnlLossAlertThreshold, currentUser?.email, currentUser?.uid, dataOwnerUid]);
 
   // Reset modal search when modal closes or opens
   useEffect(() => {

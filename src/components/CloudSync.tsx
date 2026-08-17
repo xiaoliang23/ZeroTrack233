@@ -178,119 +178,80 @@ export default function CloudSync({ data, onRemoteUpdate, onOpenAuthGuard }: Clo
   // Helper to fetch user data from server API & Firestore
   const fetchCloudUserData = async (targetEmail: string, userToken?: string) => {
     if (!targetEmail) return null;
+    const cleanEmail = targetEmail.toLowerCase().trim();
     isSyncingFromCloudRef.current = true;
     setSyncStatus('syncing');
 
-    let pulledData: any = null;
-
-    // 1. Fetch from Express Central Cloud Database API
     try {
-      const headers: Record<string, string> = {};
-      if (userToken) {
-        headers['Authorization'] = `Bearer ${userToken}`;
-      }
-      const res = await fetch(`/api/auth/user-data?email=${encodeURIComponent(targetEmail)}`, {
-        headers
-      });
-      const json = await safeParseJson(res);
-      if (json && json.success && json.data) {
-        pulledData = json.data;
-        if (json.updatedAt) {
-          setLastSyncedTime(new Date(json.updatedAt).toLocaleTimeString('zh-CN'));
-        }
+      const userObj: CloudUser = {
+        email: cleanEmail,
+        uid: activeUser?.uid || cloudUser?.uid || `uid_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
+        token: userToken || activeUser?.token
+      };
+      const pulledData = await loadUserPortfolio(userObj);
+
+      if (pulledData) {
+        onRemoteUpdate({ ...pulledData, _ownerUid: pulledData._ownerUid || userObj.uid });
+        setSyncStatus('synced');
+        setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
+        loadedUidRef.current = userObj.uid;
+        setTimeout(() => {
+          isSyncingFromCloudRef.current = false;
+        }, 400);
+        return pulledData;
       }
     } catch (err) {
-      console.warn('Central API fetch failed, trying Firestore fallback:', err);
+      console.warn('Fetch user portfolio error:', err);
     }
 
-    // 2. Fallback or augment with Firestore if available
-    if (!pulledData && auth?.currentUser) {
-      try {
-        const docRef = doc(db, 'users', auth.currentUser.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          pulledData = docSnap.data();
-          if (pulledData.updatedAt) {
-            setLastSyncedTime(new Date(pulledData.updatedAt).toLocaleTimeString('zh-CN'));
-          }
-        }
-      } catch (err) {
-        console.warn('Firestore fetch notice:', err);
-      }
-    }
-
-    if (pulledData) {
-      onRemoteUpdate({ ...pulledData, _ownerUid: targetEmail });
-      setSyncStatus('synced');
-    } else {
-      // First time user on cloud database: push current clean default data
-      const initData = {
-        ...CLEAN_DEFAULT_DATA,
-        updatedAt: new Date().toISOString()
-      };
-      onRemoteUpdate({ ...initData, _ownerUid: targetEmail });
-      saveCloudUserData(targetEmail, initData, userToken).catch(() => {});
-      setSyncStatus('synced');
-      setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
-    }
-
-    loadedUidRef.current = targetEmail;
+    // Default fallback
+    const fallbackUid = activeUser?.uid || cloudUser?.uid || `uid_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+    const initData = {
+      ...CLEAN_DEFAULT_DATA,
+      _ownerUid: fallbackUid,
+      updatedAt: new Date().toISOString()
+    };
+    onRemoteUpdate(initData);
+    setSyncStatus('synced');
+    setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
+    loadedUidRef.current = fallbackUid;
     setTimeout(() => {
       isSyncingFromCloudRef.current = false;
     }, 400);
 
-    return pulledData;
+    return initData;
   };
 
   // Helper to save user data to server API & Firestore
   const saveCloudUserData = async (targetEmail: string, payload: any, userToken?: string) => {
     if (!targetEmail || !payload) return;
+    const cleanEmail = targetEmail.toLowerCase().trim();
+    const effectiveUid = activeUser?.uid || cloudUser?.uid || `uid_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+    // Guard against saving wrong user's data
+    if (payload._ownerUid && payload._ownerUid !== effectiveUid && payload._ownerUid.toLowerCase().trim() !== cleanEmail) {
+      console.warn(`Refusing to save data owned by ${payload._ownerUid} to ${cleanEmail} (UID: ${effectiveUid})`);
+      return;
+    }
+
     setSyncStatus('syncing');
 
-    const { _ownerUid, ...cleanData } = payload;
-    const dataToSave = {
-      ...cleanData,
-      updatedAt: new Date().toISOString()
+    const userObj: CloudUser = {
+      email: cleanEmail,
+      uid: effectiveUid,
+      token: userToken || activeUser?.token
     };
 
-    let serverSaved = false;
-
-    // 1. Save to Central Cloud Database API
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-      if (userToken) {
-        headers['Authorization'] = `Bearer ${userToken}`;
-      }
-      const res = await fetch('/api/auth/user-data', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ email: targetEmail, data: dataToSave })
-      });
-      const json = await safeParseJson(res);
-      if (json && json.success) {
-        serverSaved = true;
-        setLastSyncedTime(new Date(json.updatedAt || Date.now()).toLocaleTimeString('zh-CN'));
+      const saved = await saveUserPortfolio(userObj, { ...payload, _ownerUid: effectiveUid });
+      if (saved) {
+        setSyncStatus('synced');
+        setLastSyncedTime(new Date().toLocaleTimeString('zh-CN'));
+      } else {
+        setSyncStatus('synced');
       }
     } catch (err) {
-      console.warn('Central API save failed:', err);
-    }
-
-    // 2. Also save to Firestore if user is authenticated with Firebase
-    if (auth?.currentUser) {
-      try {
-        const docRef = doc(db, 'users', auth.currentUser.uid);
-        await setDoc(docRef, dataToSave);
-        serverSaved = true;
-      } catch (err) {
-        console.warn('Firestore setDoc notice:', err);
-      }
-    }
-
-    if (serverSaved) {
-      setSyncStatus('synced');
-    } else {
+      console.warn('Save user portfolio error:', err);
       setSyncStatus('error');
     }
   };
@@ -506,12 +467,17 @@ export default function CloudSync({ data, onRemoteUpdate, onOpenAuthGuard }: Clo
           return;
         }
 
-        const currentPayload = dataRef.current || CLEAN_DEFAULT_DATA;
-        const res = await universalRegister(cleanEmail, cleanPassword, currentPayload);
+        // Register Tab: Use clean independent portfolio for new user account
+        const cleanInitialData = {
+          ...CLEAN_DEFAULT_DATA,
+          _ownerUid: cleanEmail,
+          updatedAt: new Date().toISOString()
+        };
+        const res = await universalRegister(cleanEmail, cleanPassword, cleanInitialData);
         if (res.success && res.user) {
           setCloudUser(res.user);
-          onRemoteUpdate({ ...currentPayload, _ownerUid: cleanEmail });
-          setSuccessMsg('注册成功！已开通全平台多端云同步');
+          onRemoteUpdate(res.portfolio || cleanInitialData);
+          setSuccessMsg('注册成功！已开通全平台多端云同步专属账户');
           setTimeout(() => {
             setIsOpen(false);
             setSuccessMsg('');

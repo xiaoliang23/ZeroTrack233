@@ -159,85 +159,162 @@ export function setStoredUser(user: CloudUser | null) {
   }
 }
 
-// Load portfolio data for specific user
+// Helper to determine the strictly isolated, unique Firebase / Account UID
+export function getEffectiveUserUid(user: CloudUser): string {
+  if (user.isGuest) return 'guest';
+  if (user.uid && typeof user.uid === 'string' && user.uid.trim().length > 0) {
+    return user.uid.trim();
+  }
+  if (auth?.currentUser?.email?.toLowerCase() === user.email.toLowerCase().trim() && auth.currentUser.uid) {
+    return auth.currentUser.uid;
+  }
+  const cleanEmail = user.email.toLowerCase().trim();
+  return `uid_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`;
+}
+
+// Load portfolio data for specific user strictly isolated by Firebase UID
 export async function loadUserPortfolio(user: CloudUser): Promise<UserPortfolioData> {
-  const email = user.email.toLowerCase();
+  const email = user.email.toLowerCase().trim();
+  const uid = getEffectiveUserUid(user);
   let loadedData: UserPortfolioData | null = null;
 
-  // 1. Try local user-scoped storage first (fastest)
-  try {
-    const userLocal = localStorage.getItem(`${USER_DATA_PREFIX}${email}`);
-    if (userLocal) {
-      loadedData = JSON.parse(userLocal);
+  // 1. Try Firebase Firestore directly with strict UID path isolation (/users/{uid} and /user_portfolios/{uid})
+  if (db && !user.isGuest) {
+    try {
+      // Primary: Firestore path /users/{uid}
+      const userDocRef = doc(db, 'users', uid);
+      const userSnapshot = await getDoc(userDocRef);
+      if (userSnapshot.exists()) {
+        const uData = userSnapshot.data();
+        if (uData && uData.data) {
+          loadedData = { ...CLEAN_DEFAULT_PORTFOLIO, ...uData.data, _ownerUid: uid };
+        } else if (uData && (uData.positions || uData.watchlist)) {
+          loadedData = { ...CLEAN_DEFAULT_PORTFOLIO, ...uData, _ownerUid: uid };
+        }
+      }
+
+      // Secondary: Firestore path /user_portfolios/{uid}
+      if (!loadedData) {
+        const portDocRef = doc(db, 'user_portfolios', uid);
+        const portSnapshot = await getDoc(portDocRef);
+        if (portSnapshot.exists()) {
+          const fbData = portSnapshot.data();
+          if (fbData && fbData.data) {
+            loadedData = { ...CLEAN_DEFAULT_PORTFOLIO, ...fbData.data, _ownerUid: uid };
+          } else if (fbData && (fbData.positions || fbData.watchlist)) {
+            loadedData = { ...CLEAN_DEFAULT_PORTFOLIO, ...fbData, _ownerUid: uid };
+          }
+        }
+      }
+
+      // Migration fallback: check legacy email path if UID document not yet written
+      if (!loadedData) {
+        const legacyEmailKey = email.replace(/[^a-zA-Z0-9]/g, '_');
+        if (legacyEmailKey !== uid) {
+          const legacyDocRef = doc(db, 'user_portfolios', legacyEmailKey);
+          const legacySnapshot = await getDoc(legacyDocRef);
+          if (legacySnapshot.exists()) {
+            const legData = legacySnapshot.data();
+            if (legData && legData.data) {
+              loadedData = { ...CLEAN_DEFAULT_PORTFOLIO, ...legData.data, _ownerUid: uid };
+            } else if (legData && (legData.positions || legData.watchlist)) {
+              loadedData = { ...CLEAN_DEFAULT_PORTFOLIO, ...legData, _ownerUid: uid };
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Firestore load notice (UID path):', e);
     }
-  } catch (e) {
-    console.warn('Local user storage read error:', e);
   }
 
-  // 2. Try Central Server API if available and user has token
-  if (user.token && !user.isGuest) {
+  // 2. Try Central Server API (UID scoped)
+  if (!loadedData && user.token && !user.isGuest) {
     try {
-      const res = await fetch(`/api/auth/user-data?email=${encodeURIComponent(email)}`, {
+      const res = await fetch(`/api/auth/user-data?uid=${encodeURIComponent(uid)}&email=${encodeURIComponent(email)}`, {
         headers: { 'Authorization': `Bearer ${user.token}` }
       });
       const json = await safeParseResponseJson(res);
       if (json && json.success && json.data) {
-        loadedData = { ...CLEAN_DEFAULT_PORTFOLIO, ...json.data, _ownerUid: email };
+        loadedData = { ...CLEAN_DEFAULT_PORTFOLIO, ...json.data, _ownerUid: uid };
       }
     } catch {
       // Offline / Static host fallback
     }
   }
 
-  // 3. Try Firebase Firestore if configured
-  if (!loadedData && db && !user.isGuest) {
+  // 3. Try local user-scoped storage with strict UID isolation
+  if (!loadedData) {
     try {
-      const docRef = doc(db, 'users', user.uid || email.replace(/[^a-zA-Z0-9]/g, '_'));
-      const snapshot = await getDoc(docRef);
-      if (snapshot.exists()) {
-        const fbData = snapshot.data();
-        if (fbData && fbData.data) {
-          loadedData = { ...CLEAN_DEFAULT_PORTFOLIO, ...fbData.data, _ownerUid: email };
+      // Primary: read by UID key
+      const uidLocal = localStorage.getItem(`${USER_DATA_PREFIX}${uid}`);
+      if (uidLocal) {
+        const parsed = JSON.parse(uidLocal);
+        if (parsed && (!parsed._ownerUid || parsed._ownerUid === uid || parsed._ownerUid.toLowerCase() === email)) {
+          loadedData = { ...CLEAN_DEFAULT_PORTFOLIO, ...parsed, _ownerUid: uid };
         }
       }
-    } catch {
-      // Firebase fallback
+
+      // Fallback: migration read from legacy email key
+      if (!loadedData) {
+        const emailLocal = localStorage.getItem(`${USER_DATA_PREFIX}${email}`);
+        if (emailLocal) {
+          const parsed = JSON.parse(emailLocal);
+          if (parsed && (!parsed._ownerUid || parsed._ownerUid === uid || parsed._ownerUid.toLowerCase() === email)) {
+            loadedData = { ...CLEAN_DEFAULT_PORTFOLIO, ...parsed, _ownerUid: uid };
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Local user storage read error:', e);
     }
   }
 
-  // 4. Fallback to general local positions if existing (migration for existing users)
-  if (!loadedData) {
-    try {
-      const existingPositions = localStorage.getItem('positions');
-      const existingWatchlist = localStorage.getItem('watchlist');
-      if (existingPositions || existingWatchlist) {
-        loadedData = {
-          ...CLEAN_DEFAULT_PORTFOLIO,
-          watchlist: existingWatchlist ? JSON.parse(existingWatchlist) : CLEAN_DEFAULT_PORTFOLIO.watchlist,
-          positions: existingPositions ? JSON.parse(existingPositions) : CLEAN_DEFAULT_PORTFOLIO.positions,
-          _ownerUid: email
-        };
-      }
-    } catch {}
-  }
+  // 4. If new account with no previous data, generate fresh isolated clean default
+  // DO NOT inherit data from other accounts or global localStorage!
+  const finalData: UserPortfolioData = loadedData 
+    ? { ...loadedData, _ownerUid: uid }
+    : {
+        watchlist: [...CLEAN_DEFAULT_PORTFOLIO.watchlist],
+        positions: JSON.parse(JSON.stringify(CLEAN_DEFAULT_PORTFOLIO.positions)),
+        priceAlerts: [],
+        theme: 'dark',
+        isUpRed: true,
+        pnlLossAlertEnabled: true,
+        pnlLossAlertThreshold: 10,
+        _ownerUid: uid,
+        updatedAt: new Date().toISOString()
+      };
 
-  const finalData: UserPortfolioData = loadedData || { ...CLEAN_DEFAULT_PORTFOLIO, _ownerUid: email };
-
-  // Cache back to local user store
+  // Cache back to local strictly UID-isolated user store
   try {
+    localStorage.setItem(`${USER_DATA_PREFIX}${uid}`, JSON.stringify(finalData));
     localStorage.setItem(`${USER_DATA_PREFIX}${email}`, JSON.stringify(finalData));
   } catch {}
 
   return finalData;
 }
 
-// Save portfolio data for specific user
+// Save portfolio data for specific user strictly isolated by Firebase UID
 export async function saveUserPortfolio(user: CloudUser, data: UserPortfolioData): Promise<boolean> {
-  const email = user.email.toLowerCase();
-  const dataToSave = { ...data, _ownerUid: email, updatedAt: new Date().toISOString() };
+  const email = user.email.toLowerCase().trim();
+  const uid = getEffectiveUserUid(user);
 
-  // 1. Always persist to local user-scoped storage
+  // Strict UID security check: block cross-account write contamination
+  if (data._ownerUid && data._ownerUid !== uid && data._ownerUid.toLowerCase() !== email && !user.isGuest) {
+    console.warn(`Blocked saving data belonging to ${data._ownerUid} under account UID ${uid} (${email})`);
+    return false;
+  }
+
+  const dataToSave: UserPortfolioData = { 
+    ...data, 
+    _ownerUid: uid, 
+    updatedAt: new Date().toISOString() 
+  };
+
+  // 1. Always persist to strictly UID-isolated local user-scoped storage
   try {
+    localStorage.setItem(`${USER_DATA_PREFIX}${uid}`, JSON.stringify(dataToSave));
     localStorage.setItem(`${USER_DATA_PREFIX}${email}`, JSON.stringify(dataToSave));
   } catch (e) {
     console.warn('Local user storage save error:', e);
@@ -249,7 +326,29 @@ export async function saveUserPortfolio(user: CloudUser, data: UserPortfolioData
 
   let cloudSaved = false;
 
-  // 2. Try Central Server API
+  // 2. Save directly to Firebase Firestore under strictly isolated UID document paths: /users/{uid} and /user_portfolios/{uid}
+  if (db) {
+    try {
+      const docPayload = {
+        uid,
+        email,
+        data: dataToSave,
+        updatedAt: new Date().toISOString()
+      };
+
+      const userDocRef = doc(db, 'users', uid);
+      await setDoc(userDocRef, docPayload, { merge: true });
+
+      const portDocRef = doc(db, 'user_portfolios', uid);
+      await setDoc(portDocRef, docPayload, { merge: true });
+
+      cloudSaved = true;
+    } catch (e) {
+      console.warn('Firestore UID path save notice:', e);
+    }
+  }
+
+  // 3. Save to Central Server API if available (carrying both UID and email)
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (user.token) headers['Authorization'] = `Bearer ${user.token}`;
@@ -257,26 +356,13 @@ export async function saveUserPortfolio(user: CloudUser, data: UserPortfolioData
     const res = await fetch('/api/auth/user-data', {
       method: 'POST',
       headers,
-      body: JSON.stringify({ email, data: dataToSave })
+      body: JSON.stringify({ uid, email, data: dataToSave })
     });
     const json = await safeParseResponseJson(res);
     if (json && json.success) {
       cloudSaved = true;
     }
   } catch {}
-
-  // 3. Try Firebase Firestore
-  if (db) {
-    try {
-      const docRef = doc(db, 'users', user.uid || email.replace(/[^a-zA-Z0-9]/g, '_'));
-      await setDoc(docRef, {
-        email,
-        data: dataToSave,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-      cloudSaved = true;
-    } catch {}
-  }
 
   return cloudSaved;
 }
