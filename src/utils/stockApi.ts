@@ -211,7 +211,7 @@ async function fetchWithProxy(url: string, timeoutMs = 15000): Promise<any> {
   if (proxyData1) return proxyData1;
 
   // 3. Try AllOrigins CORS proxy
-  const proxyUrl2 = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+  const proxyUrl2 = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&_t=${Date.now()}`;
   const proxyData2 = await fetchWithTimeout(proxyUrl2);
   if (proxyData2) return proxyData2;
 
@@ -294,7 +294,7 @@ export async function fetchStocksList(requestedSymbols: string[] = []): Promise<
 
   // Symbols to update via CORS proxy fallback
   const targetSymbols = Array.from(new Set([
-    ...currentLocal.slice(0, 10).map(s => s.symbol),
+    ...currentLocal.map(s => s.symbol), // 移除 slice(0, 10) 限制，确保所有标的都能被刷新
     ...requestedSymbols
   ]));
 
