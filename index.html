@@ -4,6 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>ZeroTrack 投资管理</title>
+    <script>
+      (function() {
+        try {
+          var origFetch = (typeof window !== 'undefined' && window.fetch) ? window.fetch : null;
+          if (origFetch) {
+            var activeFetch = origFetch;
+            var descriptor = {
+              get: function() { return activeFetch; },
+              set: function(fn) { if (typeof fn === 'function') activeFetch = fn; },
+              configurable: true,
+              enumerable: true
+            };
+            try { Object.defineProperty(window, 'fetch', descriptor); } catch (e) {}
+            if (typeof Window !== 'undefined' && Window.prototype) {
+              try { Object.defineProperty(Window.prototype, 'fetch', descriptor); } catch (e) {}
+            }
+            if (typeof globalThis !== 'undefined' && globalThis !== window) {
+              try { Object.defineProperty(globalThis, 'fetch', descriptor); } catch (e) {}
+            }
+          }
+        } catch (err) {}
+      })();
+    </script>
     <link rel="icon" type="image/jpeg" href="/src/assets/images/app_logo_1786623180494.jpg" />
     <link rel="apple-touch-icon" href="/src/assets/images/app_logo_1786623180494.jpg" />
     <link rel="manifest" href="/manifest.json" />
@@ -15,6 +38,7 @@
     <meta name="format-detection" content="telephone=no" />
   </head>
   <body>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

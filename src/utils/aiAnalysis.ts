@@ -46,7 +46,7 @@ export async function analyzeStockWithGemini(req: AnalysisRequest): Promise<stri
         image: req.image ? { base64: req.image.base64, mimeType: req.image.mimeType } : undefined,
         customApiKey: apiKey
       }),
-      signal: safeTimeoutSignal(30000)
+      signal: safeTimeoutSignal(120000)
     });
 
     if (res.ok) {

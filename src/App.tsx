@@ -1,3 +1,4 @@
+import { DriveSync } from "./components/DriveSync";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -33,6 +34,7 @@ import {
 import Markdown from "react-markdown";
 import { Stock, Position, Candle, ChartType, TimeRange, AIAnalysisResult, PriceAlert } from "./types";
 import { fetchStocksList, searchStocks, fetchCandlesticks, fetchStockNews, saveStoredStocks, fetchSentimentAnalysis } from "./utils/stockApi";
+import { getSector } from "./utils/sectorMap";
 import { analyzeStockWithGemini } from "./utils/aiAnalysis";
 import StockChart from "./components/StockChart";
 import AIAnalyst from "./components/AIAnalyst";
@@ -167,9 +169,9 @@ const PriceTicker = ({ price }: { price: number }) => {
 
   useEffect(() => {
     if (price > prevPrice) {
-      setFlashClass("text-emerald-500 bg-emerald-500/25 px-1.5 rounded-md transition-none font-black ring-1 ring-emerald-500/40");
+      setFlashClass("text-emerald-500 bg-emerald-500/20 px-1.5 rounded-md transition-none font-semibold ring-1 ring-emerald-500/40");
     } else if (price < prevPrice) {
-      setFlashClass("text-red-500 bg-red-500/25 px-1.5 rounded-md transition-none font-black ring-1 ring-red-500/40");
+      setFlashClass("text-red-500 bg-red-500/20 px-1.5 rounded-md transition-none font-semibold ring-1 ring-red-500/40");
     }
     
     setPrevPrice(price);
@@ -182,7 +184,7 @@ const PriceTicker = ({ price }: { price: number }) => {
   }, [price]);
 
   return (
-    <span className={`font-black font-mono text-sm sm:text-base tracking-tight text-theme-text-heading [text-shadow:_0_1px_2px_rgba(0,0,0,0.5)] ${flashClass}`}>
+    <span className={`font-semibold font-mono text-sm sm:text-base tracking-tight text-theme-text-heading ${flashClass}`}>
       ${price.toFixed(2)}
     </span>
   );
@@ -468,6 +470,7 @@ export default function App() {
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState("");
+  const [sectorFilter, setSectorFilter] = useState<string>("All");
   
   // Modals & UI States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -597,7 +600,7 @@ export default function App() {
       });
       setAppNewsSentiment(res);
     } catch (e) {
-      console.error(e);
+      console.warn("AI Analysis failed:", e);
     } finally {
       setLoadingAppNewsSentiment(false);
     }
@@ -823,7 +826,7 @@ export default function App() {
         pnl,
         pnlPercent,
         dividends,
-        history: stock?.history || []
+        history: stock?.history || [], sector: getSector(raw.symbol, stock ? stock.name : raw.symbol)
       };
     });
 
@@ -1129,7 +1132,7 @@ export default function App() {
   };
 
   const sortedPositions = React.useMemo(() => {
-    let sortableItems = [...positions];
+    let sortableItems = sectorFilter === "All" ? [...positions] : positions.filter(p => p.sector === sectorFilter);
     if (sortConfig.key !== null) {
       sortableItems.sort((a, b) => {
         const aValue = a[sortConfig.key!];
@@ -1147,7 +1150,16 @@ export default function App() {
       });
     }
     return sortableItems;
-  }, [positions, sortConfig]);
+  }, [positions, sortConfig, sectorFilter]);
+
+
+  const availableSectors = useMemo(() => {
+    const sectors = new Set<string>();
+    positions.forEach(p => {
+      if (p.sector) sectors.add(p.sector);
+    });
+    return ["All", ...Array.from(sectors)].sort();
+  }, [positions]);
 
   const renderSortIndicator = (key: keyof Position) => {
     if (sortConfig.key !== key) return <span className="opacity-0 group-hover:opacity-100 transition-opacity ml-1">↕</span>;
@@ -1174,6 +1186,7 @@ export default function App() {
           {/* Left: Brand Logo & Desktop Net Asset Value */}
           <div className="flex items-center gap-2 sm:gap-4 shrink-0 min-w-max">
             <EasterEggLogo size="sm" showTitle={true} />
+            <div className="hidden md:block mx-1"><DriveSync positions={positions} onRestore={(p) => { setPositions(p); localStorage.setItem("zerotrack_guest_stocks", JSON.stringify({ positions: p, updatedAt: new Date().toISOString() })); }} /></div>
 
             <div className="h-5 w-[1px] bg-theme-border/80 hidden md:block"></div>
 
@@ -1478,28 +1491,28 @@ export default function App() {
         {/* Card 1: Asset Value details */}
         <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
           <div className="flex items-center justify-between text-theme-text-secondary min-w-0 gap-1">
-            <span className="text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-wider text-theme-text-muted truncate">持仓现值</span>
-            <DollarSign size={13} className="text-indigo-400 shrink-0" />
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-theme-text-muted truncate">持仓现值</span>
+            <DollarSign size={14} className="text-indigo-400 shrink-0" />
           </div>
           <div className="mt-1 sm:mt-2 md:mt-2.5 min-w-0">
-            <div className="text-xs sm:text-base md:text-2xl font-black font-mono tracking-tight text-theme-text-heading [text-shadow:_0_1px_2px_rgba(0,0,0,0.5)] truncate">
+            <div className="text-sm sm:text-lg md:text-2xl font-bold font-mono tracking-tight text-theme-text-heading truncate">
               ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-[8px] sm:text-[9px] md:text-[11px] text-theme-text-muted mt-0.5 md:mt-1 truncate">根据实时股价换算</p>
+            <p className="text-[10px] sm:text-xs text-theme-text-muted mt-0.5 md:mt-1 truncate">根据实时股价换算</p>
           </div>
         </div>
 
         {/* Card 2: Cost basis */}
         <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
           <div className="flex items-center justify-between text-theme-text-secondary min-w-0 gap-1">
-            <span className="text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-wider text-theme-text-muted truncate">本金成本</span>
-            <Briefcase size={13} className="text-theme-text-muted shrink-0" />
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-theme-text-muted truncate">本金成本</span>
+            <Briefcase size={14} className="text-theme-text-muted shrink-0" />
           </div>
           <div className="mt-1 sm:mt-2 md:mt-2.5 min-w-0">
-            <div className="text-xs sm:text-base md:text-2xl font-black font-mono tracking-tight text-theme-text-primary [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)] truncate">
+            <div className="text-sm sm:text-lg md:text-2xl font-bold font-mono tracking-tight text-theme-text-primary truncate">
               ${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </div>
-            <p className="text-[8px] sm:text-[9px] md:text-[11px] text-theme-text-muted mt-0.5 md:mt-1 truncate">累计交易成本</p>
+            <p className="text-[10px] sm:text-xs text-theme-text-muted mt-0.5 md:mt-1 truncate">累计交易成本</p>
           </div>
         </div>
 
@@ -1507,14 +1520,14 @@ export default function App() {
         <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
           <div className="flex items-center justify-between text-theme-text-secondary min-w-0 gap-1">
             <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
-              <span className="text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-wider text-theme-text-muted truncate">综合盈亏</span>
+              <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-theme-text-muted truncate">综合盈亏</span>
               <button
                 onClick={() => {
                   setModalThresholdInput(String(pnlLossAlertThreshold));
                   setShowPnlAlertModal(true);
                   if (pnlAlertDismissed) setPnlAlertDismissed(false);
                 }}
-                className={`text-[8px] sm:text-[9px] md:text-[10px] px-1 sm:px-1.5 py-0.5 rounded-full border transition-all flex items-center gap-0.5 sm:gap-1 cursor-pointer shrink-0 font-bold ${
+                className={`text-[9px] sm:text-[10px] md:text-xs px-1.5 py-0.5 rounded-full border transition-all flex items-center gap-0.5 sm:gap-1 cursor-pointer shrink-0 font-semibold ${
                   isPnlLossAlertTriggered
                     ? "bg-red-500/20 text-red-500 border-red-500/40 animate-pulse"
                     : pnlLossAlertEnabled
@@ -1523,19 +1536,19 @@ export default function App() {
                 }`}
                 title="点击设置或修改持仓组合亏损警戒线"
               >
-                <BellRing size={9} className={isPnlLossAlertTriggered ? "animate-bounce text-red-500" : ""} />
+                <BellRing size={10} className={isPnlLossAlertTriggered ? "animate-bounce text-red-500" : ""} />
                 <span>{pnlLossAlertEnabled ? `-${pnlLossAlertThreshold}%` : "预警关"}</span>
               </button>
             </div>
             {totalPnL >= 0 ? (
-              <TrendingUp size={13} className={`shrink-0 ${isUpRed ? "text-red-400" : "text-emerald-400"}`} />
+              <TrendingUp size={14} className={`shrink-0 ${isUpRed ? "text-red-400" : "text-emerald-400"}`} />
             ) : (
-              <TrendingDown size={13} className={`shrink-0 ${isUpRed ? "text-emerald-400" : "text-red-400"}`} />
+              <TrendingDown size={14} className={`shrink-0 ${isUpRed ? "text-emerald-400" : "text-red-400"}`} />
             )}
           </div>
           <div className="mt-1 sm:mt-2 md:mt-2.5 min-w-0">
             <div
-              className={`text-xs sm:text-base md:text-2xl font-black font-mono tracking-tight [text-shadow:_0_1px_3px_rgba(0,0,0,0.5)] truncate ${
+              className={`text-sm sm:text-lg md:text-2xl font-bold font-mono tracking-tight truncate ${
                 totalPnL >= 0
                   ? isUpRed ? "text-red-500 dark:text-red-400" : "text-emerald-500 dark:text-emerald-400"
                   : isUpRed ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
@@ -1544,8 +1557,8 @@ export default function App() {
               {totalPnL >= 0 ? "+" : ""}$<AnimatedNumber value={totalPnL} isUpRed={isUpRed} flashThreshold={0.5} formatter={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
             </div>
             <div className="mt-0.5 sm:mt-1 flex items-center gap-1 sm:gap-1.5">
-              <span className="text-[8px] sm:text-[10px] md:text-xs text-theme-text-muted font-bold">回报:</span>
-              <span className={`inline-flex items-center px-1.5 py-0.2 sm:py-0.5 rounded-md font-black font-mono text-[10px] sm:text-xs md:text-sm border shadow-2xs ${
+              <span className="text-[10px] sm:text-xs text-theme-text-muted font-medium">回报:</span>
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md font-semibold font-mono text-xs sm:text-sm border shadow-2xs ${
                 totalPnLPercent >= 0 
                   ? isUpRed ? "bg-red-500/20 text-red-500 border-red-500/40 dark:bg-red-500/30 dark:text-red-400" : "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 dark:bg-emerald-500/30 dark:text-emerald-400"
                   : isUpRed ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 dark:bg-emerald-500/30 dark:text-emerald-400" : "bg-red-500/20 text-red-500 border-red-500/40 dark:bg-red-500/30 dark:text-red-400"
@@ -1559,14 +1572,14 @@ export default function App() {
         {/* Card 4: Positions overview */}
         <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
           <div className="flex items-center justify-between text-theme-text-secondary min-w-0 gap-1">
-            <span className="text-[9px] sm:text-[10px] md:text-xs font-bold uppercase tracking-wider text-theme-text-muted truncate">配置分散度</span>
-            <Layers size={13} className="text-indigo-400 shrink-0" />
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-theme-text-muted truncate">配置分散度</span>
+            <Layers size={14} className="text-indigo-400 shrink-0" />
           </div>
           <div className="mt-1 sm:mt-2 md:mt-2.5 min-w-0">
-            <div className="text-xs sm:text-base md:text-xl font-bold font-mono tracking-tight text-theme-text-heading truncate">
+            <div className="text-sm sm:text-lg md:text-xl font-bold font-mono tracking-tight text-theme-text-heading truncate">
               {positions.length} 个标的
             </div>
-            <p className="text-[8px] sm:text-[9px] md:text-[10px] text-theme-text-muted mt-0.5 md:mt-1 truncate">
+            <p className="text-[10px] sm:text-xs text-theme-text-muted mt-0.5 md:mt-1 truncate">
               自选监视: {watchlist.length}
             </p>
           </div>
@@ -1589,6 +1602,19 @@ export default function App() {
                 <span>实时资产持仓 • Live Portfolio</span>
               </h2>
               <span className="hidden sm:inline-block text-xs text-theme-text-muted font-mono">点击各行可在下方切换K线</span>
+
+              <div className="flex items-center ml-2 bg-theme-bg-elevated border border-theme-border rounded-lg overflow-hidden">
+                <select 
+                  value={sectorFilter}
+                  onChange={(e) => setSectorFilter(e.target.value)}
+                  className="bg-transparent text-xs text-theme-text-primary px-2 py-1 outline-none cursor-pointer"
+                >
+                  {availableSectors.map(sec => (
+                    <option key={sec} value={sec} className="bg-theme-bg text-theme-text-primary">{sec === "All" ? "全部板块" : sec}</option>
+                  ))}
+                </select>
+              </div>
+
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2">
@@ -1610,7 +1636,7 @@ export default function App() {
               <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-theme-text-secondary border border-dashed border-theme-border rounded-xl sm:rounded-2xl">
                 <Briefcase size={24} className="text-theme-text-muted mb-2 sm:w-7 sm:h-7" />
                 <p className="text-xs font-semibold">您当前未配置任何持仓仓位</p>
-                <p className="text-[10px] text-theme-text-muted mt-1 max-w-xs text-center leading-relaxed">
+                <p className="text-xs text-theme-text-muted mt-1 max-w-xs text-center leading-relaxed">
                   点击顶部“记一笔”添加买入仓位与价格，实时监控行情涨跌。
                 </p>
               </div>
@@ -1618,48 +1644,48 @@ export default function App() {
               <>
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left min-w-[700px]">
-                <thead className="text-[10px] text-theme-text-muted uppercase tracking-wider border-b border-theme-border-muted select-none">
+                <thead className="text-xs text-theme-text-muted uppercase tracking-wider border-b border-theme-border-muted select-none">
                   <tr>
                     <th 
-                      className="pb-3 font-semibold pl-2 cursor-pointer hover:text-theme-text-secondary group transition-colors"
+                      className="pb-3 font-semibold text-xs text-theme-text-secondary pl-2 cursor-pointer hover:text-indigo-400 group transition-colors"
                       onClick={() => requestSort('symbol')}
                     >
                       <div className="flex items-center pl-7">标的资产 {renderSortIndicator('symbol')}</div>
                     </th>
                     <th 
-                      className="pb-3 font-semibold text-right cursor-pointer hover:text-theme-text-secondary group transition-colors"
+                      className="pb-3 font-semibold text-xs text-theme-text-secondary text-right cursor-pointer hover:text-indigo-400 group transition-colors"
                       onClick={() => requestSort('quantity')}
                     >
                       <div className="flex items-center justify-end">持仓大小 {renderSortIndicator('quantity')}</div>
                     </th>
                     <th 
-                      className="pb-3 font-semibold text-right cursor-pointer hover:text-theme-text-secondary group transition-colors"
+                      className="pb-3 font-semibold text-xs text-theme-text-secondary text-right cursor-pointer hover:text-indigo-400 group transition-colors"
                       onClick={() => requestSort('buyPrice')}
                     >
                       <div className="flex items-center justify-end">买入均价 {renderSortIndicator('buyPrice')}</div>
                     </th>
                     <th 
-                      className="pb-3 font-semibold text-right cursor-pointer hover:text-theme-text-secondary group transition-colors"
+                      className="pb-3 font-semibold text-xs text-theme-text-secondary text-right cursor-pointer hover:text-indigo-400 group transition-colors"
                       onClick={() => requestSort('currentPrice')}
                     >
                       <div className="flex items-center justify-end">当前市价 / 动态走势 {renderSortIndicator('currentPrice')}</div>
                     </th>
                     <th 
-                      className="pb-3 font-semibold text-right cursor-pointer hover:text-theme-text-secondary group transition-colors"
+                      className="pb-3 font-semibold text-xs text-theme-text-secondary text-right cursor-pointer hover:text-indigo-400 group transition-colors"
                       onClick={() => requestSort('dividends')}
                     >
                       <div className="flex items-center justify-end">累计股息 {renderSortIndicator('dividends')}</div>
                     </th>
                     <th 
-                      className="pb-3 font-semibold text-right cursor-pointer hover:text-theme-text-secondary group transition-colors"
+                      className="pb-3 font-semibold text-xs text-theme-text-secondary text-right cursor-pointer hover:text-indigo-400 group transition-colors"
                       onClick={() => requestSort('pnl')}
                     >
                       <div className="flex items-center justify-end">浮动盈亏 {renderSortIndicator('pnl')}</div>
                     </th>
-                    <th className="pb-3 font-semibold text-right pr-2">操作</th>
+                    <th className="pb-3 font-semibold text-xs text-theme-text-secondary text-right pr-2">操作</th>
                   </tr>
                 </thead>
-                <tbody className="text-xs divide-y divide-theme-border-muted">
+                <tbody className="text-xs md:text-sm divide-y divide-theme-border-muted">
                   <AnimatePresence mode="popLayout">
                   {sortedPositions.map((p) => {
                     const isPnLPositive = p.pnl >= 0;
@@ -1703,31 +1729,31 @@ export default function App() {
                             <GripVertical size={14} />
                           </div>
                           
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[10px] ${avatarBg}`}>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold text-xs ${avatarBg}`}>
                             {p.symbol.replace(".HK", "").substring(0, 4)}
                           </div>
                           <div className="ml-1">
-                            <p className="font-bold text-theme-text-heading flex items-center gap-1.5">
+                            <p className="font-bold text-sm text-theme-text-heading flex items-center gap-1.5">
                               {p.symbol}
                               {isActive && (
-                                <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-extrabold text-[10px] animate-pulse border border-indigo-500/30">
+                                <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-semibold text-xs animate-pulse border border-indigo-500/30">
                                   研判中
                                 </span>
                               )}
                             </p>
-                            <p className="text-[10px] text-theme-text-muted truncate max-w-[130px] font-sans" title={p.name}>
+                            <p className="text-xs text-theme-text-muted truncate max-w-[160px] font-sans" title={p.name}>
                               {p.name}
                             </p>
                           </div>
                         </td>
 
                         {/* Holding Size */}
-                        <td className="py-3.5 text-right font-mono font-black text-sm text-theme-text-primary">
+                        <td className="py-3.5 text-right font-mono font-semibold text-sm md:text-base text-theme-text-primary">
                           {p.quantity.toLocaleString(undefined, { maximumFractionDigits: 4 })}
                         </td>
 
                         {/* Cost */}
-                        <td className="py-3.5 text-right font-mono font-black text-sm text-theme-text-heading">
+                        <td className="py-3.5 text-right font-mono font-semibold text-sm md:text-base text-theme-text-heading">
                           ${p.buyPrice.toFixed(2)}
                         </td>
 
@@ -1740,14 +1766,14 @@ export default function App() {
                         </td>
 
                         {/* Dividends */}
-                        <td className="py-3.5 text-right font-mono text-indigo-400 font-black text-sm">
+                        <td className="py-3.5 text-right font-mono text-indigo-400 font-semibold text-sm md:text-base">
                           ${(p.dividends || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
 
                         {/* PNL Change */}
                         <td className="py-3.5 text-right font-mono">
                           <div
-                            className={`font-black text-sm md:text-base tracking-tight [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)] ${
+                            className={`font-bold text-sm md:text-base tracking-tight ${
                               isPnLPositive
                                 ? isUpRed ? "text-red-500 dark:text-red-400" : "text-emerald-500 dark:text-emerald-400"
                                 : isUpRed ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
@@ -1756,7 +1782,7 @@ export default function App() {
                             {isPnLPositive ? "+" : ""}$<AnimatedNumber value={p.pnl} isUpRed={isUpRed} flashThreshold={0.05} formatter={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
                           </div>
                           <div className="mt-0.5">
-                            <span className={`inline-block px-2 py-0.5 rounded-md font-black font-mono text-xs border shadow-2xs ${
+                            <span className={`inline-block px-2 py-0.5 rounded-md font-semibold font-mono text-xs border shadow-2xs ${
                               isPnLPositive
                                 ? isUpRed ? "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40" : "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40"
                                 : isUpRed ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40" : "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40"
@@ -1774,34 +1800,34 @@ export default function App() {
                                 e.stopPropagation();
                                 setShowAlertDialog(p.symbol);
                               }}
-                              className={`p-1.5 rounded-lg transition text-[10px] hover:bg-theme-bg-hover ${alerts.some(a => a.symbol === p.symbol && a.isActive) ? 'text-indigo-400' : 'text-theme-text-muted'} hover:text-indigo-400`}
+                              className={`p-1.5 rounded-lg transition text-xs hover:bg-theme-bg-hover ${alerts.some(a => a.symbol === p.symbol && a.isActive) ? 'text-indigo-400' : 'text-theme-text-muted'} hover:text-indigo-400`}
                               title="设置提醒"
                             >
-                              <Bell size={13} />
+                              <Bell size={14} />
                             </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 openEditModalFor(p);
                               }}
-                              className="p-1.5 rounded-lg transition text-[10px] hover:bg-theme-bg-hover text-theme-text-muted hover:text-indigo-400"
+                              className="p-1.5 rounded-lg transition text-xs hover:bg-theme-bg-hover text-theme-text-muted hover:text-indigo-400"
                               title="编辑此仓位"
                             >
-                              <Edit2 size={13} />
+                              <Edit2 size={14} />
                             </button>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleDeletePosition(p.symbol);
                               }}
-                              className={`p-1.5 rounded-lg transition text-[10px] font-bold ${
+                              className={`p-1.5 rounded-lg transition text-xs font-semibold ${
                                 deleteConfirmSymbol === p.symbol 
                                   ? "bg-red-500/20 text-red-500 hover:bg-red-500/30 px-2" 
                                   : "hover:bg-theme-bg-hover text-theme-text-muted hover:text-red-400"
                               }`}
                               title="移除此仓位"
                             >
-                              {deleteConfirmSymbol === p.symbol ? "确认移除" : <Trash2 size={13} />}
+                              {deleteConfirmSymbol === p.symbol ? "确认移除" : <Trash2 size={14} />}
                             </button>
                           </div>
                         </td>
@@ -1840,7 +1866,7 @@ export default function App() {
                     >
                       <div className="flex justify-between items-start mb-1.5">
                         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl shrink-0 flex items-center justify-center font-bold text-[9px] sm:text-[10px] ${avatarBg}`}>
+                          <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl shrink-0 flex items-center justify-center font-semibold text-[10px] sm:text-xs ${avatarBg}`}>
                             {p.symbol.replace(".HK", "").substring(0, 4)}
                           </div>
                           <div className="min-w-0">
@@ -1848,16 +1874,16 @@ export default function App() {
                               <span>{p.symbol}</span>
                               {isActive && <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></span>}
                             </div>
-                            <div className="text-[9px] sm:text-[10px] text-theme-text-muted truncate max-w-[110px] sm:max-w-[120px]">{p.name}</div>
+                            <div className="text-[10px] sm:text-xs text-theme-text-muted truncate max-w-[120px] sm:max-w-[140px]">{p.name}</div>
                           </div>
                         </div>
 
                         <div className="text-right shrink-0">
-                          <div className="font-mono font-black text-sm sm:text-base text-theme-text-heading [text-shadow:_0_1px_2px_rgba(0,0,0,0.5)]">
+                          <div className="font-mono font-semibold text-sm sm:text-base text-theme-text-heading">
                             ${p.currentPrice.toFixed(2)}
                           </div>
                           <div className="mt-0.5">
-                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded-md font-bold font-mono text-[10px] sm:text-xs border shadow-2xs ${
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md font-semibold font-mono text-[10px] sm:text-xs border shadow-2xs ${
                               isPnLPositive
                                 ? isUpRed ? "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40" : "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40"
                                 : isUpRed ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40" : "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40"
@@ -1870,13 +1896,13 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="flex justify-between items-center text-[10px] sm:text-[11px] text-theme-text-muted bg-theme-panel/60 p-1.5 px-2 rounded-lg border border-theme-border-muted/40">
+                      <div className="flex justify-between items-center text-[10px] sm:text-xs text-theme-text-muted bg-theme-panel/60 p-1.5 px-2 rounded-lg border border-theme-border-muted/40">
                         <div className="flex items-center gap-2 sm:gap-3">
                           <div>
-                            <span className="text-[9px] sm:text-[10px]">持仓: </span><span className="font-mono font-bold text-theme-text-primary">{p.quantity}</span>
+                            <span className="text-[10px] sm:text-xs">持仓: </span><span className="font-mono font-semibold text-theme-text-primary">{p.quantity}</span>
                           </div>
                           <div>
-                            <span className="text-[9px] sm:text-[10px]">均价: </span><span className="font-mono font-bold text-theme-text-primary">${p.buyPrice.toFixed(2)}</span>
+                            <span className="text-[10px] sm:text-xs">均价: </span><span className="font-mono font-semibold text-theme-text-primary">${p.buyPrice.toFixed(2)}</span>
                           </div>
                         </div>
                         <div className="flex items-center gap-0.5">
@@ -1885,7 +1911,7 @@ export default function App() {
                               e.stopPropagation();
                               setShowAlertDialog(p.symbol);
                             }}
-                            className={`p-1 rounded-md transition text-[10px] hover:bg-theme-bg-hover ${alerts.some(a => a.symbol === p.symbol && a.isActive) ? 'text-indigo-400' : 'text-theme-text-muted'} hover:text-indigo-400`}
+                            className={`p-1 rounded-md transition text-xs hover:bg-theme-bg-hover ${alerts.some(a => a.symbol === p.symbol && a.isActive) ? 'text-indigo-400' : 'text-theme-text-muted'} hover:text-indigo-400`}
                             title="设置提醒"
                           >
                             <Bell size={13} />
@@ -1895,7 +1921,7 @@ export default function App() {
                               e.stopPropagation();
                               openEditModalFor(p);
                             }}
-                            className="p-1 rounded-md transition text-[10px] hover:bg-theme-bg-hover text-theme-text-muted hover:text-indigo-400"
+                            className="p-1 rounded-md transition text-xs hover:bg-theme-bg-hover text-theme-text-muted hover:text-indigo-400"
                             title="编辑此仓位"
                           >
                             <Edit2 size={13} />
@@ -1905,10 +1931,10 @@ export default function App() {
                               e.stopPropagation();
                               handleDeletePosition(p.symbol);
                             }}
-                            className={`p-1 rounded-md transition text-[10px] font-bold ${
+                            className={`p-1 rounded-md transition text-xs font-semibold ${
                               deleteConfirmSymbol === p.symbol
-                                 ? "bg-red-500/20 text-red-500 hover:bg-red-500/30 px-1.5"
-                                 : "hover:bg-theme-bg-hover text-theme-text-muted hover:text-red-400"
+                                ? "bg-red-500/20 text-red-500 hover:bg-red-500/30 px-1.5"
+                                : "hover:bg-theme-bg-hover text-theme-text-muted hover:text-red-400"
                             }`}
                             title="移除此仓位"
                           >
@@ -1941,6 +1967,7 @@ export default function App() {
                 onSelect={(sym) => handleSelectStock(sym, true)} 
                 activeSymbol={activeSymbol} 
                 isUpRed={isUpRed} 
+                isLoading={loadingStocks}
               />
             </div>
           )}
@@ -2241,13 +2268,13 @@ export default function App() {
                     >
                       <div className="min-w-0 pr-2">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-bold font-mono text-xs text-theme-text-heading">{s.symbol}</span>
+                          <span className="font-bold font-mono text-sm text-theme-text-heading">{s.symbol}</span>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleWatchlist(s.symbol);
                             }}
-                            className={`text-[11px] leading-none transition-transform active:scale-90 ${
+                            className={`text-xs leading-none transition-transform active:scale-90 ${
                               isWatchlisted ? "text-yellow-500" : "text-theme-text-muted group-hover:text-theme-text-secondary"
                             }`}
                             title={isWatchlisted ? "移出自选" : "加入自选"}
@@ -2259,21 +2286,21 @@ export default function App() {
                               e.stopPropagation();
                               setShowAlertDialog(s.symbol);
                             }}
-                            className={`text-[11px] leading-none transition-transform active:scale-90 flex items-center justify-center ${
+                            className={`text-xs leading-none transition-transform active:scale-90 flex items-center justify-center ${
                               alerts.some(a => a.symbol === s.symbol && a.isActive) ? "text-indigo-400" : "text-theme-text-muted group-hover:text-theme-text-secondary"
                             }`}
                             title="设置提醒"
                           >
-                            <Bell size={10} />
+                            <Bell size={11} />
                           </button>
                         </div>
-                        <div className="text-[10px] text-theme-text-muted truncate max-w-[120px] font-sans">{s.name}</div>
+                        <div className="text-xs text-theme-text-muted truncate max-w-[130px] font-sans">{s.name}</div>
                       </div>
 
                       <div className="text-right font-mono">
-                        <div className="text-sm font-black text-theme-text-heading [text-shadow:_0_1px_2px_rgba(0,0,0,0.5)]">${s.currentPrice.toFixed(2)}</div>
+                        <div className="text-sm md:text-base font-semibold text-theme-text-heading">${s.currentPrice.toFixed(2)}</div>
                         <div className="mt-0.5">
-                          <span className={`inline-block px-2 py-0.5 rounded-md font-black font-mono text-xs border shadow-2xs ${
+                          <span className={`inline-block px-2 py-0.5 rounded-md font-semibold font-mono text-xs border shadow-2xs ${
                             isPositive
                               ? isUpRed ? "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40" : "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40"
                               : isUpRed ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30 dark:bg-emerald-500/25 dark:text-emerald-400 dark:border-emerald-500/40" : "bg-red-500/15 text-red-500 border-red-500/30 dark:bg-red-500/25 dark:text-red-400 dark:border-red-500/40"
@@ -2470,7 +2497,7 @@ export default function App() {
 
       
       {/* ALERT NOTIFICATIONS */}
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+      <div className="fixed bottom-4 right-4 left-4 sm:left-auto sm:bottom-6 sm:right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
         <AnimatePresence>
           {activeAlerts.map(alert => (
             <motion.div
@@ -2478,7 +2505,7 @@ export default function App() {
               initial={{ opacity: 0, x: 50, scale: 0.9 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
-              className="bg-theme-card border-l-4 border-indigo-500 rounded-xl p-4 shadow-2xl flex items-start gap-4 max-w-sm text-theme-text-primary border-y border-r border-theme-border"
+              className="pointer-events-auto bg-theme-card border-l-4 border-indigo-500 rounded-xl p-4 shadow-2xl flex items-start gap-3 sm:gap-4 w-full sm:w-[384px] text-theme-text-primary border-y border-r border-theme-border"
             >
               <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
                 <BellRing size={20} className="animate-bounce" />

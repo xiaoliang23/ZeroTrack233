@@ -17,5 +17,8 @@ export default defineConfig(() => {
       hmr: false,
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
+    optimizeDeps: {
+      exclude: ['@google/genai', 'yahoo-finance2', 'better-sqlite3', 'jsonwebtoken', 'bcryptjs'],
+    },
   };
 });

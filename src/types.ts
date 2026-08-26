@@ -19,7 +19,8 @@ export interface Position {
   totalCost: number;
   currentValue: number;
   pnl: number; // Profit/Loss (currentValue - totalCost)
-  pnlPercent: number; // (pnl / totalCost) * 100
+  pnlPercent: number;
+  sector?: string; // (pnl / totalCost) * 100
   dividends?: number; // Total dividends received (USD)
   history?: number[];
 }

@@ -96,7 +96,7 @@ export const MarketIntelligenceModal: React.FC<MarketIntelligenceModalProps> = (
       });
       setSentimentAnalysis(res);
     } catch (e) {
-      console.error(e);
+      console.warn("AI Analysis failed:", e);
     } finally {
       setLoadingSentiment(false);
     }

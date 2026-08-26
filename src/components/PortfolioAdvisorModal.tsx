@@ -106,7 +106,7 @@ export const PortfolioAdvisorModal: React.FC<PortfolioAdvisorModalProps> = ({
       });
       setDiagnosticReport(res);
     } catch (e) {
-      console.error(e);
+      console.warn("AI Analysis failed:", e);
     } finally {
       setLoading(false);
     }

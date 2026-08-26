@@ -5,6 +5,31 @@ import './index.css';
 
 // Polyfill AbortSignal.timeout safely for mobile Safari < 16, Android WebViews, WeChat browser
 try {
+  if (typeof window !== 'undefined' && typeof window.fetch === 'function') {
+    const originalFetch = window.fetch.bind(window);
+    let activeFetch = originalFetch;
+    try {
+      Object.defineProperty(window, 'fetch', {
+        get() {
+          return activeFetch;
+        },
+        set(fn) {
+          if (typeof fn === 'function') {
+            activeFetch = fn;
+          }
+        },
+        configurable: true,
+        enumerable: true,
+      });
+    } catch {
+      // Ignore if window properties are sealed
+    }
+  }
+} catch {
+  // Ignore
+}
+
+try {
   if (typeof AbortSignal !== 'undefined' && !('timeout' in AbortSignal)) {
     Object.defineProperty(AbortSignal, 'timeout', {
       value: function(ms: number) {

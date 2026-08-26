@@ -185,7 +185,7 @@ export function safeTimeoutSignal(timeoutMs: number): AbortSignal {
 }
 
 // Fetch helper via CORS Proxy for browser environment
-async function fetchWithProxy(url: string, timeoutMs = 4500): Promise<any> {
+async function fetchWithProxy(url: string, timeoutMs = 15000): Promise<any> {
   const fetchWithTimeout = async (targetUrl: string) => {
     try {
       const res = await fetch(targetUrl, { signal: safeTimeoutSignal(timeoutMs) });
@@ -231,7 +231,7 @@ export async function fetchStockQuote(symbol: string): Promise<Stock | null> {
   const url = `https://query2.finance.yahoo.com/v8/finance/chart/${cleanSym}?range=1d&interval=1d`;
 
   try {
-    const data = await fetchWithProxy(url, 3500);
+    const data = await fetchWithProxy(url, 15000);
     const meta = data?.chart?.result?.[0]?.meta;
     if (meta && meta.regularMarketPrice) {
       const knownStock = DEFAULT_STOCKS.find(s => s.symbol === cleanSym);
@@ -269,7 +269,7 @@ export async function fetchStocksList(requestedSymbols: string[] = []): Promise<
       ...currentLocal.map(s => s.symbol),
       ...requestedSymbols
     ])).join(",");
-    const res = await fetch(`/api/stocks?symbols=${encodeURIComponent(querySymbols)}`, { signal: safeTimeoutSignal(4500) });
+    const res = await fetch(`/api/stocks?symbols=${encodeURIComponent(querySymbols)}`, { signal: safeTimeoutSignal(30000) });
     const serverStocks = await safeParseResponse(res);
     if (Array.isArray(serverStocks) && serverStocks.length > 0) {
       serverStocks.forEach((s: Stock) => {
@@ -347,7 +347,7 @@ export async function searchStocks(query: string): Promise<Stock[]> {
 
   // 2. Try Server API search route first (Fastest, direct Node fetch without CORS proxy limits)
   try {
-    const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`, { signal: safeTimeoutSignal(4000) });
+    const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`, { signal: safeTimeoutSignal(30000) });
     const serverResults = await safeParseResponse(res);
     if (Array.isArray(serverResults) && serverResults.length > 0) {
       serverResults.forEach((s: Stock) => map.set(s.symbol, s));
@@ -395,7 +395,7 @@ export async function searchStocks(query: string): Promise<Stock[]> {
   const searchUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10`;
 
   try {
-    const data = await fetchWithProxy(searchUrl, 3000);
+    const data = await fetchWithProxy(searchUrl, 15000);
     if (data?.quotes && Array.isArray(data.quotes)) {
       const remoteQuotes = data.quotes.filter((item: any) => item.symbol);
 
@@ -444,7 +444,7 @@ export async function fetchCandlesticks(symbol: string, range: string): Promise<
 
   // 1. Try server API candles endpoint first (Fetches live Yahoo Finance data on backend)
   try {
-    const res = await fetch(`/api/stocks/candles/${cleanSym}?range=${range}`, { signal: safeTimeoutSignal(4000) });
+    const res = await fetch(`/api/stocks/candles/${cleanSym}?range=${range}`, { signal: safeTimeoutSignal(30000) });
     const candles = await safeParseResponse(res);
     if (Array.isArray(candles) && candles.length > 0) {
       return candles;
@@ -482,7 +482,7 @@ export async function fetchCandlesticks(symbol: string, range: string): Promise<
   const chartUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${cleanSym}?period1=${p1}&period2=${p2}&interval=${interval}`;
 
   try {
-    const data = await fetchWithProxy(chartUrl, 4000);
+    const data = await fetchWithProxy(chartUrl, 15000);
     const result = data?.chart?.result?.[0];
     if (result && result.timestamp && result.indicators?.quote?.[0]) {
       const quotes = result.indicators.quote[0];
@@ -600,7 +600,7 @@ export async function fetchStockNews(query = "US Stocks"): Promise<NewsItem[]> {
   // 1. Try server-side enhanced endpoint first
   try {
     const res = await fetch(`/api/news?q=${encodeURIComponent(query)}`, {
-      signal: safeTimeoutSignal(3500)
+      signal: safeTimeoutSignal(30000)
     });
     const data = await safeParseResponse(res);
     if (Array.isArray(data) && data.length > 0) {
@@ -622,7 +622,7 @@ export async function fetchStockNews(query = "US Stocks"): Promise<NewsItem[]> {
   // 2. Try direct Yahoo Finance Search
   const newsUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=6`;
   try {
-    const data = await fetchWithProxy(newsUrl, 3000);
+    const data = await fetchWithProxy(newsUrl, 15000);
     if (data?.news && Array.isArray(data.news) && data.news.length > 0) {
       return data.news.slice(0, 6).map((item: any) => ({
         title: item.title,
@@ -844,7 +844,7 @@ export async function fetchCompanyFinancials(symbol: string): Promise<any> {
   const sym = symbol.toUpperCase().trim();
   try {
     const res = await fetch(`/api/market/intelligence/financials/${encodeURIComponent(sym)}`, {
-      signal: safeTimeoutSignal(3500)
+      signal: safeTimeoutSignal(30000)
     });
     const data = await safeParseResponse(res);
     if (data && data.symbol) {
@@ -896,7 +896,7 @@ export async function fetchCompanyFinancials(symbol: string): Promise<any> {
 export async function fetchSuperinvestors(): Promise<any[]> {
   try {
     const res = await fetch(`/api/market/intelligence/superinvestors`, {
-      signal: safeTimeoutSignal(3500)
+      signal: safeTimeoutSignal(30000)
     });
     const data = await safeParseResponse(res);
     if (Array.isArray(data) && data.length > 0) {
@@ -911,7 +911,7 @@ export async function fetchSuperinvestors(): Promise<any[]> {
 export async function fetchMacroMarketData(): Promise<any> {
   try {
     const res = await fetch(`/api/market/intelligence/macro`, {
-      signal: safeTimeoutSignal(3500)
+      signal: safeTimeoutSignal(30000)
     });
     const data = await safeParseResponse(res);
     if (data && data.fearAndGreed && Array.isArray(data.indicators) && data.indicators.length > 0) {
@@ -926,7 +926,7 @@ export async function fetchMacroMarketData(): Promise<any> {
 export async function fetchCategorizedNews(category = "ALL"): Promise<any[]> {
   try {
     const res = await fetch(`/api/market/intelligence/news?category=${encodeURIComponent(category)}`, {
-      signal: safeTimeoutSignal(3500)
+      signal: safeTimeoutSignal(30000)
     });
     const data = await safeParseResponse(res);
     if (Array.isArray(data) && data.length > 0) {
@@ -949,7 +949,7 @@ export async function fetchSentimentAnalysis(params: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(params),
-      signal: safeTimeoutSignal(18000)
+      signal: safeTimeoutSignal(60000)
     });
     const data = await safeParseResponse(res);
     if (data && data.analysis) return data.analysis;
@@ -970,7 +970,7 @@ export async function fetchPortfolioDiagnostic(params: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(params),
-      signal: safeTimeoutSignal(25000)
+      signal: safeTimeoutSignal(60000)
     });
     const data = await safeParseResponse(res);
     if (data && data.analysis) return data.analysis;

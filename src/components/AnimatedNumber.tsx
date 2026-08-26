@@ -56,14 +56,14 @@ const AnimatedNumber: React.FC<AnimatedNumberProps> = ({
 
   let flashClass = "";
   if (isFlashing === "up") {
-    flashClass = isUpRed ? "text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.9)] scale-105 font-black" : "text-emerald-500 drop-shadow-[0_0_10px_rgba(16,185,129,0.9)] scale-105 font-black";
+    flashClass = isUpRed ? "text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.7)] scale-[1.02] font-bold" : "text-emerald-500 drop-shadow-[0_0_8px_rgba(16,185,129,0.7)] scale-[1.02] font-bold";
   } else if (isFlashing === "down") {
-    flashClass = isUpRed ? "text-emerald-500 drop-shadow-[0_0_10px_rgba(16,185,129,0.9)] scale-105 font-black" : "text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.9)] scale-105 font-black";
+    flashClass = isUpRed ? "text-emerald-500 drop-shadow-[0_0_8px_rgba(16,185,129,0.7)] scale-[1.02] font-bold" : "text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.7)] scale-[1.02] font-bold";
   }
 
   return (
     <motion.span 
-      className={`inline-block font-black font-mono tracking-tight [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)] transition-all duration-300 ${flashClass} ${className}`}
+      className={`inline-block font-mono price-digit transition-all duration-300 ${flashClass} ${className}`}
     >
       {/* display is a MotionValue<string>. Framer Motion renders this natively. */}
       {display}

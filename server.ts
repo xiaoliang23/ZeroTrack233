@@ -439,7 +439,7 @@ setInterval(async () => {
       try {
         const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, {
           headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-          signal: AbortSignal.timeout(3000)
+          signal: AbortSignal.timeout(30000)
         });
         if (res.ok) {
           const data = await res.json();
@@ -484,7 +484,7 @@ app.get("/api/stocks", async (req, res) => {
         try {
           const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, { 
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-            signal: AbortSignal.timeout(4000)
+            signal: AbortSignal.timeout(30000)
           });
           if (res.ok) {
             const data = await res.json();
@@ -586,7 +586,7 @@ app.get("/api/stocks/search", async (req, res) => {
     try {
       const resYahoo = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=12`, { 
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-        signal: AbortSignal.timeout(3500)
+        signal: AbortSignal.timeout(30000)
       });
       if (resYahoo.ok) {
         const data = await resYahoo.json();
@@ -624,7 +624,7 @@ app.get("/api/stocks/search", async (req, res) => {
         try {
           const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, { 
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-            signal: AbortSignal.timeout(3500)
+            signal: AbortSignal.timeout(30000)
           });
           if (res.ok) {
             const data = await res.json();
@@ -690,7 +690,7 @@ app.get("/api/stocks/quote/:symbol", async (req, res) => {
     try {
       const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1d`, { 
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-        signal: AbortSignal.timeout(4000)
+        signal: AbortSignal.timeout(30000)
       });
       if (res.ok) {
         const data = await res.json();
@@ -781,7 +781,7 @@ app.get("/api/stocks/candles/:symbol", async (req, res) => {
 
     const resYahoo = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${Math.floor(period1.getTime()/1000)}&period2=${Math.floor(period2.getTime()/1000)}&interval=${interval}`, { 
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-      signal: AbortSignal.timeout(4000)
+      signal: AbortSignal.timeout(30000)
     });
     if (resYahoo.ok) {
       const data = await resYahoo.json();
@@ -880,7 +880,7 @@ app.get("/api/news", async (req, res) => {
   try {
     const resYahoo = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=6`, { 
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-      signal: AbortSignal.timeout(3000)
+      signal: AbortSignal.timeout(30000)
     });
     if (resYahoo.ok) {
       const data = await resYahoo.json();

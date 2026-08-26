@@ -385,7 +385,7 @@ export default function CloudSync({ data, onRemoteUpdate, onOpenAuthGuard }: Clo
         setGhHasPulledInitial(true);
       }
     } catch (e) {
-      console.error('Failed to parse saved github config', e);
+      console.warn('Failed to parse saved github config', e);
       setGhHasPulledInitial(true);
     }
   }, []);
@@ -487,7 +487,7 @@ export default function CloudSync({ data, onRemoteUpdate, onOpenAuthGuard }: Clo
         }
       }
     } catch (err: any) {
-      console.error("Auth error:", err);
+      console.warn("Auth error:", err);
       setError(err.message || '网络连接异常，请稍后重试');
     } finally {
       setLoading(false);

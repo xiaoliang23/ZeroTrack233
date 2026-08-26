@@ -388,6 +388,7 @@ export default function StockChart({
   const [startIndex, setStartIndex] = useState<number>(0);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [hoverY, setHoverY] = useState<number | null>(null);
 
   // Canvas Refs & Dimensions
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -452,8 +453,9 @@ export default function StockChart({
   const fullVolMa2 = useMemo(() => calculateVolumeSMA(effectiveCandles, volParams.ma2), [effectiveCandles, volParams.ma2]);
 
   // Ensure startIndex bounds stay valid
-  const safeStartIndex = Math.max(0, Math.min(startIndex, Math.max(0, effectiveCandles.length - 10)));
-  const safeEndIndex = Math.min(effectiveCandles.length, safeStartIndex + visibleCount);
+  const safeStartIndexFloat = Math.max(0, Math.min(startIndex, Math.max(0, effectiveCandles.length - 10)));
+  const safeStartIndex = Math.floor(safeStartIndexFloat);
+  const safeEndIndex = Math.min(effectiveCandles.length, safeStartIndex + visibleCount + 2);
   const displayedCandles = useMemo(() => effectiveCandles.slice(safeStartIndex, safeEndIndex), [effectiveCandles, safeStartIndex, safeEndIndex]);
 
   // Current active candle stats (hovered or latest)
@@ -577,8 +579,10 @@ export default function StockChart({
     }
 
     // --- 3. Render Candlesticks or Area Line ---
-    const count = displayedCandles.length;
-    const candleSlotWidth = chartWidth / count;
+    const baseCount = Math.min(effectiveCandles.length, visibleCount);
+    const loopCount = displayedCandles.length;
+    const offsetX = (safeStartIndexFloat - safeStartIndex) * (chartWidth / baseCount);
+    const candleSlotWidth = chartWidth / baseCount;
     // Increased padding percentage to make candles sleeker, preventing overly bulky bars
     const barPadding = Math.max(1.5, candleSlotWidth * 0.28);
     const barWidth = Math.max(1.5, candleSlotWidth - barPadding * 2);
@@ -590,7 +594,7 @@ export default function StockChart({
       // Area Chart
       ctx.beginPath();
       displayedCandles.forEach((c, idx) => {
-        const x = idx * candleSlotWidth + candleSlotWidth / 2;
+        const x = (idx * candleSlotWidth - offsetX) + candleSlotWidth / 2;
         const y = priceToY(c.close);
         if (idx === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
@@ -603,7 +607,7 @@ export default function StockChart({
       const gradient = ctx.createLinearGradient(0, 0, 0, mainHeight);
       gradient.addColorStop(0, isUpRed ? "rgba(239, 68, 68, 0.25)" : "rgba(16, 185, 129, 0.25)");
       gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
-      ctx.lineTo((count - 1) * candleSlotWidth + candleSlotWidth / 2, mainHeight);
+      ctx.lineTo((loopCount - 1) * candleSlotWidth - offsetX + candleSlotWidth / 2, mainHeight);
       ctx.lineTo(candleSlotWidth / 2, mainHeight);
       ctx.closePath();
       ctx.fillStyle = gradient;
@@ -611,7 +615,7 @@ export default function StockChart({
     } else {
       // Standard Professional Candlesticks (蜡烛图)
       displayedCandles.forEach((c, idx) => {
-        const slotX = idx * candleSlotWidth;
+        const slotX = (idx * candleSlotWidth - offsetX);
         const centerX = slotX + candleSlotWidth / 2;
         const isCandleUp = c.close >= c.open;
         const color = isCandleUp ? upColor : downColor;
@@ -672,11 +676,11 @@ export default function StockChart({
     const drawIndicatorLine = (lineData: (number | null)[], strokeColor: string, lineWidth = 1.2) => {
       ctx.beginPath();
       let started = false;
-      for (let idx = 0; idx < count; idx++) {
+      for (let idx = 0; idx < loopCount; idx++) {
         const origIdx = safeStartIndex + idx;
         const val = lineData[origIdx];
         if (val !== null && !isNaN(val)) {
-          const x = idx * candleSlotWidth + candleSlotWidth / 2;
+          const x = (idx * candleSlotWidth - offsetX) + candleSlotWidth / 2;
           const y = priceToY(val);
           if (!started) {
             ctx.moveTo(x, y);
@@ -730,7 +734,7 @@ export default function StockChart({
     // --- 5. Render Sub-Charts ---
     let currentSubTop = mainHeight;
 
-    // Sub-chart 1: VOL
+    // Sub-chart 1: VOL (Volume Bars with real-time price change synchronization)
     if (showVolume) {
       const subH = subChartHeight;
       const subBottom = currentSubTop + subH;
@@ -745,38 +749,78 @@ export default function StockChart({
       ctx.lineTo(chartWidth, currentSubTop);
       ctx.stroke();
 
-      // Label
-      ctx.fillStyle = textColor;
-      ctx.font = "10px monospace";
-      ctx.textAlign = "left";
-      ctx.fillText("VOL(成交量)", 6, currentSubTop + 12);
-
       const visVols = displayedCandles.map((c) => c.volume);
       const maxVol = Math.max(...visVols) || 1;
 
+      // Active / hovered candle volume info
+      const activeIdxInView = hoverIndex !== null ? hoverIndex - safeStartIndex : loopCount - 1;
+      const currentVol = (activeIdxInView >= 0 && activeIdxInView < loopCount) ? displayedCandles[activeIdxInView]?.volume : (displayedCandles[loopCount - 1]?.volume || 0);
+      const currentVolMa1 = fullVolMa1[activeCandleIndex];
+      const currentVolMa2 = fullVolMa2[activeCandleIndex];
+
+      // Volume Title & Real-time Indicator Legend
+      ctx.font = "bold 10px monospace";
+      ctx.textAlign = "left";
+      
+      let legendX = 6;
+      ctx.fillStyle = textColor;
+      ctx.fillText("VOL", legendX, currentSubTop + 13);
+      legendX += 30;
+
+      ctx.fillStyle = textColor;
+      ctx.fillText(`量:${((currentVol || 0) / 10000).toFixed(2)}万`, legendX, currentSubTop + 13);
+      legendX += 76;
+
+      if (currentVolMa1 !== null && currentVolMa1 !== undefined) {
+        ctx.fillStyle = "#F59E0B";
+        ctx.fillText(`MA${volParams.ma1}:${(currentVolMa1 / 10000).toFixed(2)}万`, legendX, currentSubTop + 13);
+        legendX += 82;
+      }
+
+      if (currentVolMa2 !== null && currentVolMa2 !== undefined) {
+        ctx.fillStyle = "#38BDF8";
+        ctx.fillText(`MA${volParams.ma2}:${(currentVolMa2 / 10000).toFixed(2)}万`, legendX, currentSubTop + 13);
+      }
+
+      // Draw Y-Axis Volume Scale Label on right margin
+      ctx.fillStyle = textColor;
+      ctx.font = "10px monospace";
+      ctx.textAlign = "left";
+      ctx.fillText(`${(maxVol / 10000).toFixed(1)}万`, chartWidth + 6, currentSubTop + 14);
+      ctx.fillText("0", chartWidth + 6, subBottom - 3);
+
+      // Render Synchronized Volume Bars
       displayedCandles.forEach((c, idx) => {
-        const slotX = idx * candleSlotWidth;
-        const isCandleUp = c.close >= c.open;
+        const slotX = (idx * candleSlotWidth - offsetX);
+        // Compare with open or previous close to determine candle direction precisely
+        const prevCandleClose = idx > 0 ? displayedCandles[idx - 1].close : (safeStartIndex > 0 ? effectiveCandles[safeStartIndex - 1]?.close : c.open);
+        const isCandleUp = c.close > c.open ? true : c.close < c.open ? false : (c.close >= (prevCandleClose ?? c.open));
         const color = isCandleUp ? upColor : downColor;
 
-        const volH = (c.volume / maxVol) * (subH - 20);
+        const volH = Math.max(1, (c.volume / maxVol) * (subH - 22));
         const barTop = subBottom - volH;
         const bodyLeft = slotX + (candleSlotWidth - barWidth) / 2;
 
-        ctx.fillStyle = color;
-        ctx.fillRect(bodyLeft, barTop, barWidth, volH);
+        if (localChartType === "hollow" && isCandleUp) {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(bodyLeft, barTop, barWidth, volH);
+        } else {
+          ctx.fillStyle = color;
+          ctx.fillRect(bodyLeft, barTop, barWidth, volH);
+        }
       });
 
-      // Volume MA Lines
+      // Volume MA Lines (MA5 & MA10)
       const drawVolMALine = (volMaData: (number | null)[], strokeColor: string) => {
         ctx.beginPath();
         let started = false;
-        for (let idx = 0; idx < count; idx++) {
+        for (let idx = 0; idx < loopCount; idx++) {
           const origIdx = safeStartIndex + idx;
           const val = volMaData[origIdx];
           if (val !== null && !isNaN(val)) {
-            const x = idx * candleSlotWidth + candleSlotWidth / 2;
-            const y = subBottom - (val / maxVol) * (subH - 20);
+            const x = (idx * candleSlotWidth - offsetX) + candleSlotWidth / 2;
+            const y = subBottom - (val / maxVol) * (subH - 22);
             if (!started) {
               ctx.moveTo(x, y);
               started = true;
@@ -786,12 +830,12 @@ export default function StockChart({
           }
         }
         ctx.strokeStyle = strokeColor;
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.2;
         ctx.stroke();
       };
 
       drawVolMALine(fullVolMa1, "#F59E0B");
-      drawVolMALine(fullVolMa2, "#EC4899");
+      drawVolMALine(fullVolMa2, "#38BDF8");
 
       currentSubTop += subH;
     }
@@ -829,11 +873,11 @@ export default function StockChart({
       const drawSubLine = (dataArr: (number | null)[], color: string) => {
         ctx.beginPath();
         let started = false;
-        for (let idx = 0; idx < count; idx++) {
+        for (let idx = 0; idx < loopCount; idx++) {
           const origIdx = safeStartIndex + idx;
           const val = dataArr[origIdx];
           if (val !== null && !isNaN(val)) {
-            const x = idx * candleSlotWidth + candleSlotWidth / 2;
+            const x = (idx * candleSlotWidth - offsetX) + candleSlotWidth / 2;
             const y = currentSubTop + subH - (val / 100) * (subH - 15);
             if (!started) { ctx.moveTo(x, y); started = true; }
             else { ctx.lineTo(x, y); }
@@ -871,11 +915,11 @@ export default function StockChart({
       const drawKdjLine = (key: "k" | "d" | "j", color: string) => {
         ctx.beginPath();
         let started = false;
-        for (let idx = 0; idx < count; idx++) {
+        for (let idx = 0; idx < loopCount; idx++) {
           const origIdx = safeStartIndex + idx;
           const val = fullKdj[origIdx]?.[key];
           if (val !== null && val !== undefined && !isNaN(val)) {
-            const x = idx * candleSlotWidth + candleSlotWidth / 2;
+            const x = (idx * candleSlotWidth - offsetX) + candleSlotWidth / 2;
             const y = currentSubTop + subH - (val / 100) * (subH - 15);
             if (!started) { ctx.moveTo(x, y); started = true; }
             else { ctx.lineTo(x, y); }
@@ -927,7 +971,7 @@ export default function StockChart({
         const origIdx = safeStartIndex + idx;
         const val = fullMacd.macdBar[origIdx];
         if (val !== null && !isNaN(val)) {
-          const slotX = idx * candleSlotWidth;
+          const slotX = (idx * candleSlotWidth - offsetX);
           const barLeft = slotX + (candleSlotWidth - barWidth) / 2;
           const barH = (Math.abs(val) / maxMacd) * (subH / 2 - 10);
           const barTop = val >= 0 ? subMid - barH : subMid;
@@ -941,11 +985,11 @@ export default function StockChart({
       const drawMacdLine = (dataArr: (number | null)[], color: string) => {
         ctx.beginPath();
         let started = false;
-        for (let idx = 0; idx < count; idx++) {
+        for (let idx = 0; idx < loopCount; idx++) {
           const origIdx = safeStartIndex + idx;
           const val = dataArr[origIdx];
           if (val !== null && !isNaN(val)) {
-            const x = idx * candleSlotWidth + candleSlotWidth / 2;
+            const x = (idx * candleSlotWidth - offsetX) + candleSlotWidth / 2;
             const y = subMid - (val / maxMacd) * (subH / 2 - 10);
             if (!started) { ctx.moveTo(x, y); started = true; }
             else { ctx.lineTo(x, y); }
@@ -967,11 +1011,11 @@ export default function StockChart({
     ctx.font = "bold 11px system-ui, -apple-system, BlinkMacSystemFont, monospace";
     ctx.textAlign = "center";
 
-    const dateStep = Math.max(1, Math.floor(count / 6));
-    for (let idx = 0; idx < count; idx += dateStep) {
+    const dateStep = Math.max(1, Math.floor(baseCount / 6));
+    for (let idx = 0; idx < loopCount; idx += dateStep) {
       const c = displayedCandles[idx];
       if (c && c.time) {
-        const x = idx * candleSlotWidth + candleSlotWidth / 2;
+        const x = (idx * candleSlotWidth - offsetX) + candleSlotWidth / 2;
         ctx.fillText(c.time, x, totalHeight + 18);
       }
     }
@@ -979,28 +1023,98 @@ export default function StockChart({
     // --- 7. Interactive Crosshair Lines (十字光标) ---
     if (hoverIndex !== null) {
       const localIdx = hoverIndex - safeStartIndex;
-      if (localIdx >= 0 && localIdx < count) {
-        const hoverX = localIdx * candleSlotWidth + candleSlotWidth / 2;
+      if (localIdx >= 0 && localIdx < loopCount) {
+        const hoverX = localIdx * candleSlotWidth - offsetX + candleSlotWidth / 2;
+        const targetCandle = effectiveCandles[hoverIndex];
 
-        // Vertical crosshair line
-        ctx.strokeStyle = isDark ? "#94A3B8" : "#475569";
-        ctx.lineWidth = 0.8;
-        ctx.setLineDash([3, 3]);
-        ctx.beginPath();
-        ctx.moveTo(hoverX, 0);
-        ctx.lineTo(hoverX, totalHeight);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        if (targetCandle) {
+          // Calculate crosshair price & Y position
+          let activeY = priceToY(targetCandle.close);
+          let displayPrice = targetCandle.close;
 
-        // Hover Time Box at Bottom X-Axis
-        const hoverTimeStr = candles[hoverIndex]?.time || "";
-        if (hoverTimeStr) {
-          ctx.fillStyle = isDark ? "#334155" : "#0F172A";
-          ctx.fillRect(hoverX - 42, totalHeight + 3, 84, 20);
+          if (hoverY !== null && hoverY >= 0 && hoverY <= mainHeight) {
+            activeY = hoverY;
+            displayPrice = paddedMax - (hoverY / mainHeight) * paddedRange;
+          }
+
+          // 7.1 Vertical crosshair line (Cuts through main chart and all sub-charts)
+          ctx.strokeStyle = isDark ? "rgba(148, 163, 184, 0.75)" : "rgba(71, 85, 105, 0.75)";
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(hoverX, 0);
+          ctx.lineTo(hoverX, totalHeight);
+          ctx.stroke();
+
+          // 7.2 Horizontal crosshair line (Across the chart width)
+          ctx.beginPath();
+          ctx.moveTo(0, activeY);
+          ctx.lineTo(chartWidth, activeY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // 7.3 Intersecting Price Point Indicator on Candle
+          const candleCloseY = priceToY(targetCandle.close);
+          const isCandleUp = targetCandle.close >= targetCandle.open;
+          const dotColor = isCandleUp ? upColor : downColor;
+
+          ctx.fillStyle = dotColor;
+          ctx.beginPath();
+          ctx.arc(hoverX, candleCloseY, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = "#FFFFFF";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // 7.4 Price Tag on Right Y-Axis
+          const priceStr = `$${displayPrice.toFixed(2)}`;
+          const tagW = 66;
+          const tagH = 20;
+          const tagX = chartWidth + 2;
+          const tagY = Math.max(2, Math.min(totalHeight - tagH - 2, activeY - tagH / 2));
+
+          // Pointer triangle
+          ctx.fillStyle = isDark ? "#1E293B" : "#0F172A";
+          ctx.beginPath();
+          ctx.moveTo(chartWidth, activeY);
+          ctx.lineTo(chartWidth + 5, activeY - 4);
+          ctx.lineTo(chartWidth + 5, activeY + 4);
+          ctx.closePath();
+          ctx.fill();
+
+          // Badge background
+          ctx.fillStyle = isDark ? "#1E293B" : "#0F172A";
+          ctx.fillRect(tagX + 4, tagY, tagW, tagH);
+          ctx.strokeStyle = isCandleUp ? upColor : downColor;
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(tagX + 4, tagY, tagW, tagH);
+
+          // Badge text
           ctx.fillStyle = "#FFFFFF";
-          ctx.font = "bold 11px system-ui, -apple-system, monospace";
+          ctx.font = "bold 11px ui-monospace, SFMono-Regular, Menlo, monospace";
           ctx.textAlign = "center";
-          ctx.fillText(hoverTimeStr, hoverX, totalHeight + 17);
+          ctx.fillText(priceStr, tagX + 4 + tagW / 2, tagY + 14);
+
+          // 7.5 Date/Time Badge at Bottom X-Axis
+          const hoverTimeStr = targetCandle.time || "";
+          if (hoverTimeStr) {
+            const timeTagW = 88;
+            const timeTagH = 20;
+            const timeTagX = Math.max(2, Math.min(chartWidth - timeTagW - 2, hoverX - timeTagW / 2));
+            const timeTagY = totalHeight + 4;
+
+            ctx.fillStyle = isDark ? "#1E293B" : "#0F172A";
+            ctx.fillRect(timeTagX, timeTagY, timeTagW, timeTagH);
+            ctx.strokeStyle = "rgba(99, 102, 241, 0.6)";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(timeTagX, timeTagY, timeTagW, timeTagH);
+
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "bold 11px ui-monospace, SFMono-Regular, Menlo, monospace";
+            ctx.textAlign = "center";
+            ctx.fillText(hoverTimeStr, timeTagX + timeTagW / 2, timeTagY + 14);
+          }
         }
       }
     }
@@ -1011,7 +1125,7 @@ export default function StockChart({
     showBoll, showBBI, activeMAs, showVolume, showPSY, showKDJ, showMACD,
     fullMa1, fullMa2, fullMa3, fullMa4, fullMa5, fullBoll, fullBBI,
     fullVolMa1, fullVolMa2, fullPsy, fullKdj, fullMacd,
-    safeStartIndex, safeEndIndex, hoverIndex, candles
+    safeStartIndex, safeEndIndex, hoverIndex, hoverY, effectiveCandles
   ]);
 
   // RequestAnimationFrame Render Loop for butter-smooth rendering
@@ -1042,32 +1156,36 @@ export default function StockChart({
 
     const rect = container.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
     const chartWidth = rect.width - 70;
 
     if (rafMoveId.current) cancelAnimationFrame(rafMoveId.current);
 
     rafMoveId.current = requestAnimationFrame(() => {
-      const count = displayedCandles.length;
+      const count = Math.min(effectiveCandles.length, visibleCount);
       if (count > 0 && mouseX >= 0 && mouseX <= chartWidth) {
         const slotW = chartWidth / count;
-        const idxInDisplayed = Math.floor(mouseX / slotW);
+        const offset = (safeStartIndexFloat - safeStartIndex) * slotW;
+        const idxInDisplayed = Math.floor((mouseX + offset) / slotW);
         const targetIndex = safeStartIndex + idxInDisplayed;
 
         if (targetIndex >= 0 && targetIndex < effectiveCandles.length) {
           setHoverIndex(targetIndex);
+          setHoverY(mouseY);
         }
       } else {
         setHoverIndex(null);
+        setHoverY(null);
       }
 
       if (isDragging && visibleCount > 0) {
         const deltaX = e.clientX - dragStartX.current;
         const candleSlotW = chartWidth / visibleCount;
         if (candleSlotW > 0) {
-          const deltaCandles = Math.trunc(deltaX / candleSlotW);
+          const deltaCandles = deltaX / candleSlotW;
           if (deltaCandles !== 0) {
             setStartIndex((prev) => Math.max(0, Math.min(effectiveCandles.length - visibleCount, prev - deltaCandles)));
-            dragStartX.current += deltaCandles * candleSlotW;
+            dragStartX.current = e.clientX;
           }
         }
       }
@@ -1078,6 +1196,7 @@ export default function StockChart({
   const handleMouseLeave = () => {
     setIsDragging(false);
     setHoverIndex(null);
+    setHoverY(null);
   };
 
   // Mobile Touch Handlers
@@ -1087,14 +1206,17 @@ export default function StockChart({
       if (container) {
         const rect = container.getBoundingClientRect();
         const touchX = e.touches[0].clientX - rect.left;
+        const touchY = e.touches[0].clientY - rect.top;
         const chartWidth = rect.width - 70;
-        const count = displayedCandles.length;
+        const count = Math.min(effectiveCandles.length, visibleCount);
         if (count > 0 && touchX >= 0 && touchX <= chartWidth) {
           const slotW = chartWidth / count;
-          const idxInDisplayed = Math.floor(touchX / slotW);
+          const offset = (safeStartIndexFloat - safeStartIndex) * slotW;
+          const idxInDisplayed = Math.floor((touchX + offset) / slotW);
           const targetIndex = safeStartIndex + idxInDisplayed;
           if (targetIndex >= 0 && targetIndex < effectiveCandles.length) {
             setHoverIndex(targetIndex);
+            setHoverY(touchY);
           }
         }
       }
@@ -1118,25 +1240,28 @@ export default function StockChart({
       const rect = container.getBoundingClientRect();
       const chartWidth = rect.width - 70;
       const touchX = e.touches[0].clientX - rect.left;
+      const touchY = e.touches[0].clientY - rect.top;
 
       if (touchMode === "crosshair") {
-        const count = displayedCandles.length;
+        const count = Math.min(effectiveCandles.length, visibleCount);
         if (count > 0 && touchX >= 0 && touchX <= chartWidth) {
           const slotW = chartWidth / count;
-          const idxInDisplayed = Math.floor(touchX / slotW);
+          const offset = (safeStartIndexFloat - safeStartIndex) * slotW;
+          const idxInDisplayed = Math.floor((touchX + offset) / slotW);
           const targetIndex = safeStartIndex + idxInDisplayed;
           if (targetIndex >= 0 && targetIndex < effectiveCandles.length) {
             setHoverIndex(targetIndex);
+            setHoverY(touchY);
           }
         }
       } else if (isDragging && visibleCount > 0) {
         const deltaX = e.touches[0].clientX - dragStartX.current;
         const candleSlotW = chartWidth / visibleCount;
         if (candleSlotW > 0) {
-          const deltaCandles = Math.trunc(deltaX / candleSlotW);
+          const deltaCandles = deltaX / candleSlotW;
           if (deltaCandles !== 0) {
             setStartIndex((prev) => Math.max(0, Math.min(effectiveCandles.length - visibleCount, prev - deltaCandles)));
-            dragStartX.current += deltaCandles * candleSlotW;
+            dragStartX.current = e.touches[0].clientX;
           }
         }
       }
@@ -1167,14 +1292,23 @@ export default function StockChart({
   // Wheel Zoom
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    if (e.deltaY < 0) {
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+      const container = canvasContainerRef.current;
+      if (!container) return;
+      const chartWidth = container.getBoundingClientRect().width - 70;
+      const candleSlotW = chartWidth / visibleCount;
+      if (candleSlotW > 0) {
+        const deltaCandles = e.deltaX / candleSlotW;
+        setStartIndex((prev) => Math.max(0, Math.min(effectiveCandles.length - visibleCount, prev + deltaCandles)));
+      }
+    } else if (e.deltaY < 0) {
       // Zoom In
       setVisibleCount((prev) => {
         const next = Math.max(15, Math.floor(prev * 0.85));
         setStartIndex((s) => Math.min(effectiveCandles.length - next, s + Math.floor((prev - next) / 2)));
         return next;
       });
-    } else {
+    } else if (e.deltaY > 0) {
       // Zoom Out
       setVisibleCount((prev) => {
         const next = Math.min(effectiveCandles.length, Math.floor(prev * 1.18));
@@ -1419,29 +1553,55 @@ export default function StockChart({
       </div>
 
       {/* 2. Live Candle Real-Time Metrics & Indicators Legend Banner */}
-      <div className="bg-theme-panel/80 p-3 rounded-xl border border-theme-border mb-2 font-mono text-xs md:text-sm leading-relaxed text-theme-text-primary select-none shadow-2xs">
-        {/* Row 1: OHLC Data */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 font-black">
-          <span><strong className="text-theme-text-muted font-normal">时间:</strong> {currentCandle.time || "--"}</span>
-          <span><strong className="text-theme-text-muted font-normal">开:</strong> <span className="font-mono font-black text-theme-text-heading">${currentCandle.open?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-theme-text-muted font-normal">高:</strong> <span className="text-red-500 font-black font-mono [text-shadow:_0_1px_2px_rgba(0,0,0,0.3)]">${currentCandle.high?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-theme-text-muted font-normal">低:</strong> <span className="text-emerald-500 font-black font-mono [text-shadow:_0_1px_2px_rgba(0,0,0,0.3)]">${currentCandle.low?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-theme-text-muted font-normal">收:</strong> <span className={isUp ? "text-red-500 font-black font-mono text-sm [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)]" : "text-emerald-500 font-black font-mono text-sm [text-shadow:_0_1px_2px_rgba(0,0,0,0.4)]"}>${currentCandle.close?.toFixed(2) || "--"}</span></span>
+      <div className="bg-theme-panel/80 p-2.5 sm:p-3 rounded-xl border border-theme-border mb-2 font-mono text-xs md:text-sm leading-relaxed text-theme-text-primary select-none shadow-2xs">
+        {/* Row 1: OHLC & Volume Data */}
+        <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1.5 font-semibold">
+          {hoverIndex !== null && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 text-[11px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+              <span>光标定位</span>
+            </span>
+          )}
+          <span><strong className="text-theme-text-muted font-normal text-xs">时间:</strong> <span className="price-digit text-theme-text-heading">{currentCandle.time || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal text-xs">开:</strong> <span className="price-digit text-theme-text-heading">${currentCandle.open?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal text-xs">高:</strong> <span className="price-digit text-red-500">${currentCandle.high?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal text-xs">低:</strong> <span className="price-digit text-emerald-500">${currentCandle.low?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal text-xs">收:</strong> <span className={`price-digit ${isUp ? (isUpRed ? "text-red-500" : "text-emerald-500") : (isUpRed ? "text-emerald-500" : "text-red-500")}`}>${currentCandle.close?.toFixed(2) || "--"}</span></span>
+          
           <span className="flex items-center gap-1">
-            <strong className="text-theme-text-muted font-normal">涨跌:</strong> 
-            <span className={`inline-flex items-center px-2 py-0.5 rounded border font-black font-mono text-xs md:text-sm shadow-2xs ${
+            <strong className="text-theme-text-muted font-normal text-xs">涨跌:</strong> 
+            <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded border font-semibold price-digit text-xs shadow-2xs ${
               currentChangePercent >= 0 
-                ? isUpRed ? "bg-red-500/20 text-red-500 border-red-500/40" : "bg-emerald-500/20 text-emerald-500 border-emerald-500/40"
-                : isUpRed ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/40" : "bg-red-500/20 text-red-500 border-red-500/40"
+                ? isUpRed ? "bg-red-500/15 text-red-500 border-red-500/30" : "bg-emerald-500/15 text-emerald-500 border-emerald-500/30"
+                : isUpRed ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30" : "bg-red-500/15 text-red-500 border-red-500/30"
             }`}>
-              {currentChangePercent >= 0 ? "+" : ""}{currentChangePercent.toFixed(2)}%
+              {currentChange >= 0 ? "+" : ""}${currentChange.toFixed(2)} ({currentChangePercent >= 0 ? "+" : ""}{currentChangePercent.toFixed(2)}%)
             </span>
           </span>
-          <span><strong className="text-theme-text-muted font-normal">成交量:</strong> <span className="font-mono font-black text-theme-text-heading">{((currentCandle.volume || 0) / 10000).toFixed(2)}万</span></span>
+
+          <span>
+            <strong className="text-theme-text-muted font-normal text-xs">振幅:</strong> 
+            <span className="price-digit text-theme-text-heading ml-1">
+              {currentCandle.open > 0 ? (((currentCandle.high - currentCandle.low) / currentCandle.open) * 100).toFixed(2) : "0.00"}%
+            </span>
+          </span>
+
+          <span><strong className="text-theme-text-muted font-normal text-xs">成交量:</strong> <span className="price-digit text-theme-text-heading">{((currentCandle.volume || 0) / 10000).toFixed(2)}万</span></span>
         </div>
 
-        {/* Row 2: Overlay Indicator Values */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 pt-1.5 border-t border-theme-border/60 text-[10px]">
+        {/* Row 2: Overlay & Sub-chart Indicator Values */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 pt-1.5 border-t border-theme-border/60 text-[11px]">
+          {showVolume && (
+            <>
+              <span className="text-theme-text-secondary font-medium">VOL: <span className="price-digit text-theme-text-heading">{((currentCandle.volume || 0) / 10000).toFixed(2)}万</span></span>
+              {fullVolMa1[activeCandleIndex] !== null && fullVolMa1[activeCandleIndex] !== undefined && (
+                <span className="text-amber-500 font-medium">量MA{volParams.ma1}: <span className="price-digit">{(Number(fullVolMa1[activeCandleIndex]) / 10000).toFixed(2)}万</span></span>
+              )}
+              {fullVolMa2[activeCandleIndex] !== null && fullVolMa2[activeCandleIndex] !== undefined && (
+                <span className="text-sky-500 font-medium">量MA{volParams.ma2}: <span className="price-digit">{(Number(fullVolMa2[activeCandleIndex]) / 10000).toFixed(2)}万</span></span>
+              )}
+            </>
+          )}
           {showBoll && (
             <span className="text-orange-500 font-medium">
               BOLL({bollParams.n},{bollParams.k}) UP: {fullBoll.upper[activeCandleIndex]?.toFixed(2) || "-"} MID: {fullBoll.mid[activeCandleIndex]?.toFixed(2) || "-"} DN: {fullBoll.lower[activeCandleIndex]?.toFixed(2) || "-"}
@@ -1452,9 +1612,24 @@ export default function StockChart({
               BBI: {fullBBI[activeCandleIndex]?.toFixed(2) || "-"}
             </span>
           )}
-          {activeMAs.ma1 && <span className="text-amber-500">MA{maParams.p1}: {fullMa1[activeCandleIndex]?.toFixed(2) || "-"}</span>}
-          {activeMAs.ma2 && <span className="text-pink-500">MA{maParams.p2}: {fullMa2[activeCandleIndex]?.toFixed(2) || "-"}</span>}
-          {activeMAs.ma3 && <span className="text-blue-500">MA{maParams.p3}: {fullMa3[activeCandleIndex]?.toFixed(2) || "-"}</span>}
+          {activeMAs.ma1 && <span className="text-amber-500 font-medium">MA{maParams.p1}: {fullMa1[activeCandleIndex]?.toFixed(2) || "-"}</span>}
+          {activeMAs.ma2 && <span className="text-pink-500 font-medium">MA{maParams.p2}: {fullMa2[activeCandleIndex]?.toFixed(2) || "-"}</span>}
+          {activeMAs.ma3 && <span className="text-blue-500 font-medium">MA{maParams.p3}: {fullMa3[activeCandleIndex]?.toFixed(2) || "-"}</span>}
+          {showPSY && fullPsy.psy[activeCandleIndex] !== null && (
+            <span className="text-orange-400 font-medium">
+              PSY: {fullPsy.psy[activeCandleIndex]?.toFixed(1) || "-"} (MA: {fullPsy.maPsy[activeCandleIndex]?.toFixed(1) || "-"})
+            </span>
+          )}
+          {showKDJ && fullKdj[activeCandleIndex]?.k !== null && fullKdj[activeCandleIndex]?.k !== undefined && (
+            <span className="text-indigo-400 font-medium">
+              KDJ K:{fullKdj[activeCandleIndex]?.k?.toFixed(1)} D:{fullKdj[activeCandleIndex]?.d?.toFixed(1)} J:{fullKdj[activeCandleIndex]?.j?.toFixed(1)}
+            </span>
+          )}
+          {showMACD && fullMacd.dif[activeCandleIndex] !== null && fullMacd.dif[activeCandleIndex] !== undefined && (
+            <span className="text-sky-400 font-medium">
+              MACD DIF:{fullMacd.dif[activeCandleIndex]?.toFixed(2)} DEA:{fullMacd.dea[activeCandleIndex]?.toFixed(2)} BAR:{fullMacd.macdBar[activeCandleIndex]?.toFixed(2)}
+            </span>
+          )}
         </div>
       </div>
 
