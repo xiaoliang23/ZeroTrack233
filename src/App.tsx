@@ -705,10 +705,10 @@ export default function App() {
   }, [searchQuery, modalSearchQuery, showAddModal]);
 
   // --- Fetch Available Stocks (Client-Side) ---
-  const fetchStocks = useCallback(async (isSilent = false, requestedSymbols: string[] = []) => {
+  const fetchStocks = useCallback(async (isSilent = false, requestedSymbols: string[] = [], onlyRequested = false) => {
     if (!isSilent) setLoadingStocks(true);
     try {
-      const data = await fetchStocksList(requestedSymbols);
+      const data = await fetchStocksList(requestedSymbols, onlyRequested);
       if (Array.isArray(data) && data.length > 0) {
         setStocks(prev => {
           if (!prev || prev.length === 0) return data;
@@ -732,9 +732,11 @@ export default function App() {
         setStocksError(null);
       }
     } catch (err: any) {
-      console.warn("Stock fetch warning:", err?.message || err);
-      if (!isSilent) {
-        setStocksError("网络连接暂时不稳定，正在重试...");
+      if (err?.name !== "AbortError" && !err?.message?.toLowerCase().includes("aborted")) {
+        console.warn("Stock fetch warning:", err?.message || err);
+        if (!isSilent) {
+          setStocksError("网络连接暂时不稳定，正在重试...");
+        }
       }
     } finally {
       if (!isSilent) setLoadingStocks(false);
@@ -765,15 +767,33 @@ export default function App() {
     return list.sort().join(",");
   }, [rawPositions, activeSymbol]);
 
-  // Setup live updates polling (every 5 seconds for smooth performance)
+  // Setup live updates polling with tiered precision
   useEffect(() => {
     const symbolsToTrack = symbolsTrackingKey ? symbolsTrackingKey.split(",") : [];
-    fetchStocks(false, symbolsToTrack);
-    const interval = setInterval(() => {
+    
+    // Initial fetch for the new tracking list
+    fetchStocks(stocks.length > 0, symbolsToTrack); // Use true for silent to prevent flicker when activeSymbol changes
+    
+    // Fast polling (every 4s) purely for active view / modal focus to ensure real-time ticker feel
+    const fastInterval = setInterval(() => {
+      const activeTargets: string[] = [];
+      if (activeSymbol) activeTargets.push(activeSymbol);
+      if (showAddModal && modalSymbol) activeTargets.push(modalSymbol);
+      if (activeTargets.length > 0) {
+        fetchStocks(true, Array.from(new Set(activeTargets)), true);
+      }
+    }, 4000);
+
+    // Standard polling (every 15s) for the rest of the portfolio
+    const slowInterval = setInterval(() => {
       fetchStocks(true, symbolsToTrack);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [fetchStocks, symbolsTrackingKey]);
+    }, 15000);
+
+    return () => {
+      clearInterval(fastInterval);
+      clearInterval(slowInterval);
+    };
+  }, [fetchStocks, symbolsTrackingKey, activeSymbol, showAddModal, modalSymbol]);
 
   const fetchNews = useCallback(async (query: string) => {
     setLoadingNews(true);
@@ -1998,22 +2018,22 @@ export default function App() {
         )}
 
         {/* Standalone Section: K-Line Chart, Technical Analysis & Watchlist */}
-        <div className="col-span-12 bg-theme-card border border-theme-border rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 flex flex-col shadow-md md:shadow-xl">
-          <div ref={stockChartRef} id="kline-chart-section" className="scroll-mt-6">
+        <div className="col-span-12 bg-theme-card border border-theme-border rounded-xl md:rounded-2xl p-4 sm:p-5 md:p-6 flex flex-col shadow-sm">
+          <div ref={stockChartRef} id="kline-chart-section" className="scroll-mt-6 flex flex-col h-full w-full">
             {/* Toolbar row inside Bento chart cell */}
-            <div className="flex flex-wrap items-center justify-between pb-4 border-b border-theme-border-muted mb-5 gap-3">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between pb-4 border-b border-theme-border-muted mb-6 gap-4">
+              <div className="flex items-center gap-3">
                 <span className="text-[11px] uppercase tracking-wider font-extrabold text-theme-text-muted">时间跨度:</span>
-                <div className="flex bg-theme-panel p-1 rounded-xl border border-theme-border-muted gap-0.5">
-                  {(["1D", "1W", "1M", "1Y"] as TimeRange[]).map((r) => (
+                <div className="flex bg-theme-panel/50 p-1 rounded-xl border border-theme-border-muted/50 gap-1 backdrop-blur-sm shadow-sm overflow-x-auto max-w-full scrollbar-none">
+                  {(["5M", "60M", "1D", "1W", "1M", "1Y"] as TimeRange[]).map((r) => (
                     <button
                       key={r}
                       onClick={() => setActiveRange(r)}
-                      className={`px-3 py-1 rounded-lg text-[10px] font-mono font-bold transition ${
-                        activeRange === r ? "bg-indigo-600 text-white" : "text-theme-text-secondary hover:text-theme-text-primary"
+                      className={`px-2.5 py-1.5 rounded-lg text-[11px] font-mono font-semibold transition-all duration-200 whitespace-nowrap cursor-pointer ${
+                        activeRange === r ? "bg-theme-bg-active text-theme-text-primary shadow-sm ring-1 ring-theme-border" : "text-theme-text-secondary hover:text-theme-text-primary hover:bg-theme-bg-hover"
                       }`}
                     >
-                      {r}
+                      {r === "5M" ? "5分" : r === "60M" ? "时K" : r === "1D" ? "日K" : r === "1W" ? "周K" : r === "1M" ? "月K" : "年K"}
                     </button>
                   ))}
                 </div>
@@ -2023,16 +2043,16 @@ export default function App() {
                 {/* Quick Transaction Trigger */}
                 <button
                   onClick={() => openAddModalFor(activeSymbol)}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-theme-bg-hover hover:bg-theme-bg-active text-theme-text-primary hover:text-theme-text-heading border border-theme-border rounded-xl text-[11px] font-bold transition cursor-pointer"
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-theme-bg-hover hover:bg-theme-bg-active text-theme-text-primary hover:text-theme-text-heading border border-theme-border rounded-xl text-[11px] font-bold transition-all shadow-sm cursor-pointer"
                 >
-                  <Plus size={12} />
+                  <Plus size={14} />
                   <span>以此标的建仓</span>
                 </button>
               </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-6">
-              <div className="flex-1 min-w-0">
+            <div className="flex flex-col xl:flex-row gap-6 xl:gap-8 h-full">
+              <div className="flex-1 min-w-0 relative h-full">
                 {/* Interactive chart display with smooth transition */}
                 <AnimatePresence mode="wait">
                   {loadingCandles ? (
@@ -2042,10 +2062,10 @@ export default function App() {
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0, scale: 0.98 }}
                       transition={{ duration: 0.2 }}
-                      className="min-h-[380px] sm:min-h-[480px] md:min-h-[580px] flex flex-col items-center justify-center text-slate-500 gap-2 bg-theme-card rounded-3xl border border-theme-border"
+                      className="min-h-[380px] sm:min-h-[480px] md:min-h-[580px] flex flex-col items-center justify-center text-theme-text-muted gap-3 bg-theme-panel/30 rounded-3xl border border-theme-border/50"
                     >
-                      <RefreshCw size={28} className="animate-spin text-indigo-500" />
-                      <span className="text-sm font-semibold">正在渲染多周期专业K线走势...</span>
+                      <RefreshCw size={24} className="animate-spin text-theme-text-secondary" />
+                      <span className="text-xs font-medium tracking-wide">正在渲染专业 K 线走势...</span>
                     </motion.div>
                   ) : activeStock ? (
                     <motion.div
@@ -2054,6 +2074,7 @@ export default function App() {
                       animate={{ opacity: 1, scale: 1, y: 0 }}
                       exit={{ opacity: 0, scale: 0.99 }}
                       transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+                      className="h-full w-full relative z-10"
                     >
                       <StockChart
                         candles={candles}
@@ -2078,7 +2099,7 @@ export default function App() {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      className="min-h-[380px] sm:min-h-[480px] md:min-h-[580px] flex items-center justify-center text-slate-500 text-sm bg-theme-card rounded-3xl border border-theme-border"
+                      className="min-h-[380px] sm:min-h-[480px] md:min-h-[580px] flex items-center justify-center text-theme-text-secondary text-sm font-medium bg-theme-panel/30 rounded-3xl border border-theme-border/50"
                     >
                       请在上方选择股票以加载实时走势图
                     </motion.div>
@@ -2086,98 +2107,101 @@ export default function App() {
                 </AnimatePresence>
               </div>
               
-              <div className="w-full lg:w-80 lg:shrink-0 flex flex-col justify-between bg-theme-panel/70 border border-theme-border-muted rounded-2xl md:rounded-3xl p-4 sm:p-5 shadow-sm">
+              <div className="w-full xl:w-80 shrink-0 flex flex-col justify-between bg-theme-panel/50 backdrop-blur-sm border border-theme-border-muted rounded-2xl md:rounded-[24px] p-5 shadow-sm relative overflow-hidden">
+                {/* Decorative background flare */}
+                <div className="absolute -top-16 -right-16 w-32 h-32 bg-indigo-500/10 blur-[40px] rounded-full pointer-events-none"></div>
 
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-2.5 h-2.5 rounded-full bg-orange-400 animate-pulse"></div>
-              <h3 className="text-xs font-bold uppercase text-theme-text-muted tracking-wider">
-                技术指标信号 • Technical Signal
-              </h3>
-            </div>
-
-            {activeStock ? (
-              <div className="space-y-4">
-                {/* RSI meter */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-theme-text-muted font-medium">相对强弱指数 RSI (14)</span>
-                    <span className="text-theme-text-heading font-mono font-bold">
-                      {activeStock.currentPrice > activeStock.basePrice * 1.02 ? "72.4 (Overbought)" : activeStock.currentPrice < activeStock.basePrice * 0.98 ? "31.8 (Oversold)" : "54.6 (Neutral)"}
-                    </span>
+                <div>
+                  <div className="flex items-center gap-2 mb-5">
+                    <div className="w-2 h-2 rounded-full bg-orange-400 animate-pulse ring-4 ring-orange-400/20"></div>
+                    <h3 className="text-[11px] font-black uppercase text-theme-text-secondary tracking-widest">
+                      技术指标信号 • Technical Signal
+                    </h3>
                   </div>
-                  <div className="w-full bg-theme-panel h-2 rounded-full border border-theme-border-muted overflow-hidden">
-                    <div 
-                      className="bg-indigo-500 h-full rounded-full transition-all duration-500" 
-                      style={{ width: activeStock.currentPrice > activeStock.basePrice * 1.02 ? "72%" : activeStock.currentPrice < activeStock.basePrice * 0.98 ? "32%" : "55%" }}
-                    ></div>
-                  </div>
+
+                  {activeStock ? (
+                    <div className="space-y-5">
+                      {/* RSI meter */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-theme-text-muted font-medium">相对强弱指数 RSI (14)</span>
+                          <span className="text-theme-text-heading font-mono font-bold tracking-tight">
+                            {activeStock.currentPrice > activeStock.basePrice * 1.02 ? "72.4 (Overbought)" : activeStock.currentPrice < activeStock.basePrice * 0.98 ? "31.8 (Oversold)" : "54.6 (Neutral)"}
+                          </span>
+                        </div>
+                        <div className="w-full bg-theme-border-muted h-1.5 rounded-full overflow-hidden shadow-inner">
+                          <div 
+                            className="bg-gradient-to-r from-indigo-500 to-indigo-400 h-full rounded-full transition-all duration-700 ease-out" 
+                            style={{ width: activeStock.currentPrice > activeStock.basePrice * 1.02 ? "72%" : activeStock.currentPrice < activeStock.basePrice * 0.98 ? "32%" : "55%" }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      {/* MACD indicator status */}
+                      <div className="flex justify-between items-center text-xs border-t border-theme-border-muted/60 pt-4">
+                        <span className="text-theme-text-muted font-medium">指数平滑异同移动平均线 MACD</span>
+                        <span className={`font-mono font-bold tracking-tight ${activeStock.currentPrice >= activeStock.prevClose ? "text-emerald-500 dark:text-emerald-400" : "text-orange-500 dark:text-orange-400"}`}>
+                          {activeStock.currentPrice >= activeStock.prevClose ? "Bullish Crossover" : "Bearish Divergence"}
+                        </span>
+                      </div>
+
+                      {/* Moving averages support level */}
+                      <div className="flex justify-between items-center text-xs border-t border-theme-border-muted/60 pt-4">
+                        <span className="text-theme-text-muted font-medium">EMA(20) 强支撑位参考</span>
+                        <span className="text-theme-text-primary font-mono font-bold tracking-tight">
+                          ${(activeStock.currentPrice * 0.978).toFixed(2)}
+                        </span>
+                      </div>
+
+                      {/* Bollinger Bands gap */}
+                      <div className="flex justify-between items-center text-xs border-t border-theme-border-muted/60 pt-4">
+                        <span className="text-theme-text-muted font-medium">布林轨道线 BB宽度</span>
+                        <span className="text-theme-text-secondary font-mono tracking-tight">
+                          ${(activeStock.currentPrice * 0.94).toFixed(2)} - ${(activeStock.currentPrice * 1.04).toFixed(2)}
+                        </span>
+                      </div>
+
+                      {/* Direct Fundamental Intelligence Jump */}
+                      <button
+                        onClick={() => {
+                          setIntelligenceStock(activeStock);
+                          setShowIntelligenceModal(true);
+                        }}
+                        className="w-full mt-4 py-2.5 px-4 rounded-[14px] bg-theme-bg-hover hover:bg-theme-bg-active border border-theme-border text-theme-text-primary text-[11px] font-bold transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] shadow-sm"
+                      >
+                        <BarChart3 size={14} className="text-indigo-500" />
+                        <span>查看 {activeStock.symbol} 深度研报</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 px-4 text-xs text-theme-text-muted border border-dashed border-theme-border-muted rounded-xl bg-theme-panel/30">
+                      选择某一股票可查看特定量化支撑分析
+                    </div>
+                  )}
                 </div>
 
-                {/* MACD indicator status */}
-                <div className="flex justify-between items-center text-xs border-t border-theme-border-muted pt-3">
-                  <span className="text-theme-text-muted font-medium">指数平滑异同移动平均线 MACD</span>
-                  <span className={`font-mono font-bold ${activeStock.currentPrice >= activeStock.prevClose ? "text-emerald-400" : "text-amber-400"}`}>
-                    {activeStock.currentPrice >= activeStock.prevClose ? "Bullish Crossover" : "Bearish Divergence"}
-                  </span>
+                <div className="mt-6 pt-4 border-t border-theme-border-muted/60">
+                  <p className="text-[10px] text-theme-text-muted/80 leading-relaxed font-medium">
+                    *技术信号基于最新收盘价和昨日波动方差进行随机游走动力学模型测算。仅作智能看板量化参考，不构成投资要约。
+                  </p>
                 </div>
-
-                {/* Moving averages support level */}
-                <div className="flex justify-between items-center text-xs border-t border-theme-border-muted pt-3">
-                  <span className="text-theme-text-muted font-medium">EMA(20) 强支撑位参考</span>
-                  <span className="text-theme-text-primary font-mono font-bold">
-                    ${(activeStock.currentPrice * 0.978).toFixed(2)}
-                  </span>
-                </div>
-
-                {/* Bollinger Bands gap */}
-                <div className="flex justify-between items-center text-xs border-t border-theme-border-muted pt-3">
-                  <span className="text-theme-text-muted font-medium">布林轨道线 BB宽度</span>
-                  <span className="text-theme-text-muted font-mono">
-                    ${(activeStock.currentPrice * 0.94).toFixed(2)} - ${(activeStock.currentPrice * 1.04).toFixed(2)}
-                  </span>
-                </div>
-
-                {/* Direct Fundamental Intelligence Jump */}
-                <button
-                  onClick={() => {
-                    setIntelligenceStock(activeStock);
-                    setShowIntelligenceModal(true);
-                  }}
-                  className="w-full mt-2 py-2 px-3 rounded-xl bg-indigo-600/15 hover:bg-indigo-600/25 border border-indigo-500/30 text-indigo-400 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs active:scale-98"
-                >
-                  <BarChart3 size={13} />
-                  <span>查看 {activeStock.symbol} 财报与基本面</span>
-                </button>
-              </div>
-            ) : (
-              <div className="text-center py-6 text-xs text-theme-text-muted">选择某一股票可查看特定量化支撑分析</div>
-            )}
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-theme-border-muted">
-            <p className="text-[10px] text-theme-text-muted leading-relaxed">
-              *技术信号基于最新收盘价和昨日波动方差进行随机游走动力学模型测算。仅作为智能看板仓位管理参考，不构成直接要约投资。
-            </p>
-          </div>
-        
               </div>
             </div>
 
             {/* K-Line real website references */}
             {activeStock && (
-              <div className="mt-5 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-3" id="external-stock-links">
+              <div className="mt-6 pt-5 border-t border-theme-border flex flex-wrap items-center justify-between text-[11px] text-theme-text-secondary gap-4" id="external-stock-links">
                 <span className="flex items-center gap-1.5">
-                  <Info size={13} className="text-slate-500" />
-                  <span>对接 K 线源: 前往主流专业图表站查看 {activeStock.symbol} 深度技术图表:</span>
+                  <Info size={14} className="text-theme-text-muted" />
+                  <span className="font-medium">对接 K 线源: 前往主流专业图表站查看 {activeStock.symbol} 深度技术图表:</span>
                 </span>
                 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <a
                     href={`https://www.tradingview.com/symbols/${activeStock.symbol.replace(".HK", "")}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-1 text-indigo-400 hover:text-indigo-300 hover:underline font-bold transition"
+                    className="flex items-center gap-1 text-indigo-500 hover:text-indigo-400 hover:underline font-bold transition-colors"
                   >
                     <span>TradingView</span>
                     <ExternalLink size={10} />

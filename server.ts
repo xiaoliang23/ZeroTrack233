@@ -353,13 +353,60 @@ function ensureStockExists(symbolStr: string): Stock {
 // Generate historical candlesticks based on a seed as fallback
 function generateCandles(symbol: string, range: string, currentPrice: number) {
   const stock = STOCKS.find(s => s.symbol === symbol) || STOCKS[0];
+
+  // Specific synthetic generation for Year K-line (年K: 15-20 annual candles)
+  if (range === "1Y" || range === "YEAR") {
+    const data = [];
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - 15;
+    let base = (stock.prevClose && stock.prevClose > 0) ? stock.prevClose : (currentPrice || 100);
+    // Backtrack to approximate price 15 years ago
+    let runningPrice = Math.max(10, base * 0.28);
+
+    for (let yr = startYear; yr <= currentYear; yr++) {
+      const isCurrentYear = yr === currentYear;
+      // Annual drift with market volatility
+      const annualReturn = (Math.random() - 0.38) * 0.35;
+      const open = Number(runningPrice.toFixed(2));
+      let close = isCurrentYear 
+        ? (currentPrice || Number((runningPrice * (1 + annualReturn)).toFixed(2)))
+        : Number(Math.max(5, runningPrice * (1 + annualReturn)).toFixed(2));
+      
+      const maxVal = Math.max(open, close);
+      const minVal = Math.min(open, close);
+      const high = Number((maxVal * (1 + Math.random() * 0.22)).toFixed(2));
+      const low = Number((Math.max(1, minVal * (1 - Math.random() * 0.18))).toFixed(2));
+      const annualVolume = Math.floor((stock.volume || 1000000) * (200 + Math.random() * 80));
+
+      runningPrice = close;
+
+      data.push({
+        time: `${yr}年`,
+        open,
+        high: Math.max(high, open, close),
+        low: Math.min(low, open, close),
+        close,
+        volume: annualVolume
+      });
+    }
+
+    // Ensure the final candle matches current price
+    if (data.length > 0 && currentPrice > 0) {
+      const last = data[data.length - 1];
+      last.close = currentPrice;
+      if (currentPrice > last.high) last.high = currentPrice;
+      if (currentPrice < last.low && last.low > 0) last.low = currentPrice;
+    }
+
+    return data;
+  }
+
   let days = 30;
   if (range === "5M") days = 1;
   else if (range === "60M") days = 5;
   else if (range === "1D") days = 1;
   else if (range === "1W") days = 7;
   else if (range === "1M") days = 30;
-  else if (range === "1Y") days = 250;
 
   const data = [];
   let price = (stock.prevClose && stock.prevClose > 0) ? stock.prevClose : (currentPrice || 100);
@@ -439,7 +486,7 @@ setInterval(async () => {
       try {
         const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, {
           headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-          signal: AbortSignal.timeout(30000)
+          signal: AbortSignal.timeout(5000)
         });
         if (res.ok) {
           const data = await res.json();
@@ -484,7 +531,7 @@ app.get("/api/stocks", async (req, res) => {
         try {
           const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, { 
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-            signal: AbortSignal.timeout(30000)
+            signal: AbortSignal.timeout(5000)
           });
           if (res.ok) {
             const data = await res.json();
@@ -586,7 +633,7 @@ app.get("/api/stocks/search", async (req, res) => {
     try {
       const resYahoo = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=12`, { 
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-        signal: AbortSignal.timeout(30000)
+        signal: AbortSignal.timeout(5000)
       });
       if (resYahoo.ok) {
         const data = await resYahoo.json();
@@ -624,7 +671,7 @@ app.get("/api/stocks/search", async (req, res) => {
         try {
           const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, { 
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-            signal: AbortSignal.timeout(30000)
+            signal: AbortSignal.timeout(5000)
           });
           if (res.ok) {
             const data = await res.json();
@@ -690,7 +737,7 @@ app.get("/api/stocks/quote/:symbol", async (req, res) => {
     try {
       const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1d`, { 
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-        signal: AbortSignal.timeout(30000)
+        signal: AbortSignal.timeout(5000)
       });
       if (res.ok) {
         const data = await res.json();
@@ -774,14 +821,15 @@ app.get("/api/stocks/candles/:symbol", async (req, res) => {
     } else if (range === "1M") {
       period1.setMonth(period1.getMonth() - 1);
       interval = "1d";
-    } else if (range === "1Y") {
-      period1.setFullYear(period1.getFullYear() - 1);
-      interval = "1d";
+    } else if (range === "1Y" || range === "YEAR") {
+      // For Year K-line (年K), fetch 20 years of monthly data to aggregate into annual candles
+      period1.setFullYear(period1.getFullYear() - 20);
+      interval = "1mo";
     }
 
     const resYahoo = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${Math.floor(period1.getTime()/1000)}&period2=${Math.floor(period2.getTime()/1000)}&interval=${interval}`, { 
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-      signal: AbortSignal.timeout(30000)
+      signal: AbortSignal.timeout(5000)
     });
     if (resYahoo.ok) {
       const data = await resYahoo.json();
@@ -791,6 +839,53 @@ app.get("/api/stocks/candles/:symbol", async (req, res) => {
         const timestamps = result.timestamp;
         const stock = STOCKS.find(s => s.symbol === symbol);
         let lastClose = stock?.currentPrice || 100;
+
+        // If Year K-line (年K), aggregate monthly quotes into annual candles
+        if (range === "1Y" || range === "YEAR") {
+          const yearMap = new Map<number, { time: string; open: number; high: number; low: number; close: number; volume: number }>();
+          for (let i = 0; i < timestamps.length; i++) {
+            const t = timestamps[i];
+            const yr = new Date(t * 1000).getFullYear();
+            let c = quotes.close?.[i];
+            let o = quotes.open?.[i];
+            let h = quotes.high?.[i];
+            let l = quotes.low?.[i];
+            let v = quotes.volume?.[i] || 0;
+
+            if (c === null || c === undefined || isNaN(c) || c <= 0) continue;
+            const openVal = (o !== null && o !== undefined && !isNaN(o) && o > 0) ? o : c;
+            const highVal = (h !== null && h !== undefined && !isNaN(h) && h > 0) ? Math.max(h, openVal, c) : Math.max(openVal, c);
+            const lowVal = (l !== null && l !== undefined && !isNaN(l) && l > 0) ? Math.min(l, openVal, c) : Math.min(openVal, c);
+
+            if (!yearMap.has(yr)) {
+              yearMap.set(yr, {
+                time: `${yr}年`,
+                open: Number(openVal.toFixed(2)),
+                high: Number(highVal.toFixed(2)),
+                low: Number(lowVal.toFixed(2)),
+                close: Number(c.toFixed(2)),
+                volume: Math.round(v)
+              });
+            } else {
+              const existing = yearMap.get(yr)!;
+              existing.high = Number(Math.max(existing.high, highVal).toFixed(2));
+              existing.low = Number(Math.min(existing.low, lowVal).toFixed(2));
+              existing.close = Number(c.toFixed(2));
+              existing.volume += Math.round(v);
+            }
+          }
+
+          const annualCandles = Array.from(yearMap.values());
+          if (annualCandles.length > 0) {
+            if (stock && stock.currentPrice > 0) {
+              const lastIdx = annualCandles.length - 1;
+              annualCandles[lastIdx].close = stock.currentPrice;
+              if (stock.currentPrice > annualCandles[lastIdx].high) annualCandles[lastIdx].high = stock.currentPrice;
+              if (stock.currentPrice < annualCandles[lastIdx].low && annualCandles[lastIdx].low > 0) annualCandles[lastIdx].low = stock.currentPrice;
+            }
+            return res.json(annualCandles);
+          }
+        }
 
         const candles = [];
         for (let i = 0; i < timestamps.length; i++) {
@@ -823,8 +918,6 @@ app.get("/api/stocks/candles/:symbol", async (req, res) => {
           let dateStr = "";
           if (range === "1D" || range === "5M" || range === "60M") {
             dateStr = time.toLocaleTimeString("zh-CN", { hour: '2-digit', minute: '2-digit', hour12: false });
-          } else if (range === "1Y") {
-            dateStr = time.toLocaleDateString("zh-CN", { year: '2-digit', month: '2-digit', day: '2-digit' });
           } else {
             dateStr = time.toLocaleDateString("zh-CN", { month: '2-digit', day: '2-digit' });
           }
@@ -880,7 +973,7 @@ app.get("/api/news", async (req, res) => {
   try {
     const resYahoo = await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=6`, { 
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
-      signal: AbortSignal.timeout(30000)
+      signal: AbortSignal.timeout(5000)
     });
     if (resYahoo.ok) {
       const data = await resYahoo.json();

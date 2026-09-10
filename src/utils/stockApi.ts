@@ -50,12 +50,12 @@ export const DEFAULT_STOCKS: Stock[] = [
   { symbol: "SPY", name: "SPDR S&P 500 ETF Trust (标普500 ETF)", basePrice: 770.0, currentPrice: 772.49, prevClose: 770.0, high: 775.0, low: 768.0, volume: 65000000, history: [770.0, 771.2, 772.0, 772.49] },
   { symbol: "QQQ", name: "Invesco QQQ Trust (纳斯达克100 ETF)", basePrice: 720.0, currentPrice: 723.7, prevClose: 720.0, high: 726.0, low: 718.0, volume: 45000000, history: [720.0, 721.5, 722.8, 723.7] },
   { symbol: "INTC", name: "Intel Corp. (英特尔晶圆)", basePrice: 30.0, currentPrice: 29.8, prevClose: 30.5, high: 31.0, low: 29.5, volume: 41000000, history: [30.5, 30.2, 30.0, 29.8] },
-  { symbol: "AVGO", name: "Broadcom Inc. (博通芯片)", basePrice: 410.0, currentPrice: 416.05, prevClose: 410.0, high: 420.0, low: 408.0, volume: 15000000, history: [410.0, 412.0, 414.5, 416.05] },
+  { symbol: "AVGO", name: "Broadcom Inc. (博通芯片)", basePrice: 410.0, currentPrice: 416.05, prevClose: 410.0, high: 420.0, low: 408.0, volume: 8000000, history: [410.0, 412.0, 414.5, 416.05] },
   { symbol: "QCOM", name: "Qualcomm Inc. (高通)", basePrice: 170.0, currentPrice: 171.2, prevClose: 169.0, high: 173.0, low: 168.5, volume: 11000000, history: [169.0, 170.1, 170.8, 171.2] },
-  { symbol: "TSM", name: "TSMC (台积电 ADR)", basePrice: 140.0, currentPrice: 140.8, prevClose: 139.2, high: 142.0, low: 138.5, volume: 15000000, history: [139.2, 139.8, 140.2, 140.8] },
+  { symbol: "TSM", name: "TSMC (台积电 ADR)", basePrice: 140.0, currentPrice: 140.8, prevClose: 139.2, high: 142.0, low: 138.5, volume: 8000000, history: [139.2, 139.8, 140.2, 140.8] },
   { symbol: "PLTR", name: "Palantir Technologies (帕兰提尔 AI)", basePrice: 170.0, currentPrice: 171.04, prevClose: 170.0, high: 175.0, low: 168.3, volume: 35000000, history: [170.0, 170.5, 171.0, 171.04] },
   { symbol: "JNJ", name: "Johnson & Johnson (强生)", basePrice: 160.0, currentPrice: 161.2, prevClose: 159.5, high: 162.0, low: 159.0, volume: 7500000, history: [159.5, 160.2, 160.8, 161.2] },
-  { symbol: "WMT", name: "Walmart Inc. (沃尔玛)", basePrice: 73.0, currentPrice: 74.2, prevClose: 72.8, high: 74.8, low: 72.5, volume: 15000000, history: [72.8, 73.2, 73.8, 74.2] },
+  { symbol: "WMT", name: "Walmart Inc. (沃尔玛)", basePrice: 73.0, currentPrice: 74.2, prevClose: 72.8, high: 74.8, low: 72.5, volume: 8000000, history: [72.8, 73.2, 73.8, 74.2] },
   { symbol: "COST", name: "Costco Wholesale (开市客)", basePrice: 880.0, currentPrice: 888.5, prevClose: 875.0, high: 892.0, low: 872.0, volume: 2800000, history: [875.0, 880.2, 884.5, 888.5] },
   { symbol: "PG", name: "Procter & Gamble (宝洁)", basePrice: 168.0, currentPrice: 169.5, prevClose: 167.2, high: 170.2, low: 167.0, volume: 6100000, history: [167.2, 168.0, 168.8, 169.5] },
   { symbol: "JPM", name: "JPMorgan Chase & Co. (摩根大通)", basePrice: 215.0, currentPrice: 217.2, prevClose: 213.8, high: 218.5, low: 213.5, volume: 9200000, history: [213.8, 215.0, 216.1, 217.2] },
@@ -185,7 +185,7 @@ export function safeTimeoutSignal(timeoutMs: number): AbortSignal {
 }
 
 // Fetch helper via CORS Proxy for browser environment
-async function fetchWithProxy(url: string, timeoutMs = 15000): Promise<any> {
+async function fetchWithProxy(url: string, timeoutMs = 8000): Promise<any> {
   const fetchWithTimeout = async (targetUrl: string) => {
     try {
       const res = await fetch(targetUrl, { signal: safeTimeoutSignal(timeoutMs) });
@@ -228,10 +228,10 @@ async function fetchWithProxy(url: string, timeoutMs = 15000): Promise<any> {
  */
 export async function fetchStockQuote(symbol: string): Promise<Stock | null> {
   const cleanSym = symbol.trim().toUpperCase();
-  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${cleanSym}?range=1d&interval=1d`;
+  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${cleanSym}?range=1d&interval=1d&_t=${Date.now()}`;
 
   try {
-    const data = await fetchWithProxy(url, 15000);
+    const data = await fetchWithProxy(url, 8000);
     const meta = data?.chart?.result?.[0]?.meta;
     if (meta && meta.regularMarketPrice) {
       const knownStock = DEFAULT_STOCKS.find(s => s.symbol === cleanSym);
@@ -258,18 +258,19 @@ export async function fetchStockQuote(symbol: string): Promise<Stock | null> {
 /**
  * Fetch stocks list & update quotes
  */
-export async function fetchStocksList(requestedSymbols: string[] = []): Promise<Stock[]> {
+export async function fetchStocksList(requestedSymbols: string[] = [], fetchOnlyRequested = false): Promise<Stock[]> {
   const currentLocal = loadStoredStocks();
   const localMap = new Map<string, Stock>();
   currentLocal.forEach(s => localMap.set(s.symbol, s));
 
   // Try fetching from Server API first (direct server Node fetch to Yahoo)
   try {
-    const querySymbols = Array.from(new Set([
-      ...currentLocal.map(s => s.symbol),
-      ...requestedSymbols
-    ])).join(",");
-    const res = await fetch(`/api/stocks?symbols=${encodeURIComponent(querySymbols)}`, { signal: safeTimeoutSignal(30000) });
+    const symbolsToFetch = fetchOnlyRequested 
+      ? requestedSymbols 
+      : Array.from(new Set([...currentLocal.map(s => s.symbol), ...requestedSymbols]));
+      
+    const querySymbols = symbolsToFetch.join(",");
+    const res = await fetch(`/api/stocks?symbols=${encodeURIComponent(querySymbols)}`, { signal: safeTimeoutSignal(8000) });
     const serverStocks = await safeParseResponse(res);
     if (Array.isArray(serverStocks) && serverStocks.length > 0) {
       serverStocks.forEach((s: Stock) => {
@@ -293,10 +294,12 @@ export async function fetchStocksList(requestedSymbols: string[] = []): Promise<
   }
 
   // Symbols to update via CORS proxy fallback
-  const targetSymbols = Array.from(new Set([
-    ...currentLocal.map(s => s.symbol), // 移除 slice(0, 10) 限制，确保所有标的都能被刷新
-    ...requestedSymbols
-  ]));
+  const targetSymbols = fetchOnlyRequested 
+    ? requestedSymbols
+    : Array.from(new Set([
+        ...currentLocal.map(s => s.symbol),
+        ...requestedSymbols
+      ]));
 
   // Try updating live quotes
   await Promise.allSettled(
@@ -347,7 +350,7 @@ export async function searchStocks(query: string): Promise<Stock[]> {
 
   // 2. Try Server API search route first (Fastest, direct Node fetch without CORS proxy limits)
   try {
-    const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`, { signal: safeTimeoutSignal(30000) });
+    const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`, { signal: safeTimeoutSignal(8000) });
     const serverResults = await safeParseResponse(res);
     if (Array.isArray(serverResults) && serverResults.length > 0) {
       serverResults.forEach((s: Stock) => map.set(s.symbol, s));
@@ -395,7 +398,7 @@ export async function searchStocks(query: string): Promise<Stock[]> {
   const searchUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10`;
 
   try {
-    const data = await fetchWithProxy(searchUrl, 15000);
+    const data = await fetchWithProxy(searchUrl, 8000);
     if (data?.quotes && Array.isArray(data.quotes)) {
       const remoteQuotes = data.quotes.filter((item: any) => item.symbol);
 
@@ -444,7 +447,7 @@ export async function fetchCandlesticks(symbol: string, range: string): Promise<
 
   // 1. Try server API candles endpoint first (Fetches live Yahoo Finance data on backend)
   try {
-    const res = await fetch(`/api/stocks/candles/${cleanSym}?range=${range}`, { signal: safeTimeoutSignal(30000) });
+    const res = await fetch(`/api/stocks/candles/${cleanSym}?range=${range}`, { signal: safeTimeoutSignal(8000) });
     const candles = await safeParseResponse(res);
     if (Array.isArray(candles) && candles.length > 0) {
       return candles;
@@ -472,9 +475,10 @@ export async function fetchCandlesticks(symbol: string, range: string): Promise<
   } else if (range === "1M") {
     period1.setMonth(period1.getMonth() - 1);
     interval = "1d";
-  } else if (range === "1Y") {
-    period1.setFullYear(period1.getFullYear() - 1);
-    interval = "1d";
+  } else if (range === "1Y" || range === "YEAR") {
+    // For Year K-line (年K), fetch 20 years of monthly data to aggregate into annual candles
+    period1.setFullYear(period1.getFullYear() - 20);
+    interval = "1mo";
   }
 
   const p1 = Math.floor(period1.getTime() / 1000);
@@ -482,12 +486,53 @@ export async function fetchCandlesticks(symbol: string, range: string): Promise<
   const chartUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${cleanSym}?period1=${p1}&period2=${p2}&interval=${interval}`;
 
   try {
-    const data = await fetchWithProxy(chartUrl, 15000);
+    const data = await fetchWithProxy(chartUrl, 8000);
     const result = data?.chart?.result?.[0];
     if (result && result.timestamp && result.indicators?.quote?.[0]) {
       const quotes = result.indicators.quote[0];
       const timestamps = result.timestamp;
       let lastClose = 100;
+
+      // If Year K-line (年K), aggregate monthly quotes into annual candles
+      if (range === "1Y" || range === "YEAR") {
+        const yearMap = new Map<number, { time: string; open: number; high: number; low: number; close: number; volume: number }>();
+        for (let i = 0; i < timestamps.length; i++) {
+          const t = timestamps[i];
+          const yr = new Date(t * 1000).getFullYear();
+          let c = quotes.close?.[i];
+          let o = quotes.open?.[i];
+          let h = quotes.high?.[i];
+          let l = quotes.low?.[i];
+          let v = quotes.volume?.[i] || 0;
+
+          if (c === null || c === undefined || isNaN(c) || c <= 0) continue;
+          const openVal = (o !== null && o !== undefined && !isNaN(o) && o > 0) ? o : c;
+          const highVal = (h !== null && h !== undefined && !isNaN(h) && h > 0) ? Math.max(h, openVal, c) : Math.max(openVal, c);
+          const lowVal = (l !== null && l !== undefined && !isNaN(l) && l > 0) ? Math.min(l, openVal, c) : Math.min(openVal, c);
+
+          if (!yearMap.has(yr)) {
+            yearMap.set(yr, {
+              time: `${yr}年`,
+              open: Number(openVal.toFixed(2)),
+              high: Number(highVal.toFixed(2)),
+              low: Number(lowVal.toFixed(2)),
+              close: Number(c.toFixed(2)),
+              volume: Math.round(v)
+            });
+          } else {
+            const existing = yearMap.get(yr)!;
+            existing.high = Number(Math.max(existing.high, highVal).toFixed(2));
+            existing.low = Number(Math.min(existing.low, lowVal).toFixed(2));
+            existing.close = Number(c.toFixed(2));
+            existing.volume += Math.round(v);
+          }
+        }
+
+        const annualCandles = Array.from(yearMap.values());
+        if (annualCandles.length > 0) {
+          return annualCandles;
+        }
+      }
 
       const candles: Candle[] = [];
       for (let i = 0; i < timestamps.length; i++) {
@@ -520,8 +565,6 @@ export async function fetchCandlesticks(symbol: string, range: string): Promise<
         let dateStr = "";
         if (range === "1D" || range === "5M" || range === "60M") {
           dateStr = time.toLocaleTimeString("zh-CN", { hour: '2-digit', minute: '2-digit', hour12: false });
-        } else if (range === "1Y") {
-          dateStr = time.toLocaleDateString("zh-CN", { year: '2-digit', month: '2-digit', day: '2-digit' });
         } else {
           dateStr = time.toLocaleDateString("zh-CN", { month: '2-digit', day: '2-digit' });
         }
@@ -551,11 +594,55 @@ export async function fetchCandlesticks(symbol: string, range: string): Promise<
 function generateMockCandles(symbol: string, range: string): Candle[] {
   const stocks = loadStoredStocks();
   const stock = stocks.find(s => s.symbol === symbol) || stocks[0] || DEFAULT_STOCKS[0];
+
+  // Specific synthetic generation for Year K-line (年K: 16 annual candles)
+  if (range === "1Y" || range === "YEAR") {
+    const data: Candle[] = [];
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - 15;
+    let base = stock.currentPrice || 100;
+    let runningPrice = Math.max(10, base * 0.28);
+
+    for (let yr = startYear; yr <= currentYear; yr++) {
+      const isCurrentYear = yr === currentYear;
+      const annualReturn = (Math.random() - 0.38) * 0.35;
+      const open = Number(runningPrice.toFixed(2));
+      let close = isCurrentYear 
+        ? (stock.currentPrice || Number((runningPrice * (1 + annualReturn)).toFixed(2)))
+        : Number(Math.max(5, runningPrice * (1 + annualReturn)).toFixed(2));
+
+      const maxVal = Math.max(open, close);
+      const minVal = Math.min(open, close);
+      const high = Number((maxVal * (1 + Math.random() * 0.22)).toFixed(2));
+      const low = Number((Math.max(1, minVal * (1 - Math.random() * 0.18))).toFixed(2));
+      const annualVolume = Math.floor((stock.volume || 1000000) * (200 + Math.random() * 80));
+
+      runningPrice = close;
+
+      data.push({
+        time: `${yr}年`,
+        open,
+        high: Math.max(high, open, close),
+        low: Math.min(low, open, close),
+        close,
+        volume: annualVolume
+      });
+    }
+
+    if (data.length > 0 && stock.currentPrice > 0) {
+      const last = data[data.length - 1];
+      last.close = stock.currentPrice;
+      if (stock.currentPrice > last.high) last.high = stock.currentPrice;
+      if (stock.currentPrice < last.low && last.low > 0) last.low = stock.currentPrice;
+    }
+
+    return data;
+  }
+
   let days = 30;
   if (range === "5M" || range === "1D") days = 1;
   else if (range === "60M") days = 5;
   else if (range === "1W") days = 7;
-  else if (range === "1Y") days = 250;
 
   const data: Candle[] = [];
   let price = stock.currentPrice || 100;
@@ -600,7 +687,7 @@ export async function fetchStockNews(query = "US Stocks"): Promise<NewsItem[]> {
   // 1. Try server-side enhanced endpoint first
   try {
     const res = await fetch(`/api/news?q=${encodeURIComponent(query)}`, {
-      signal: safeTimeoutSignal(30000)
+      signal: safeTimeoutSignal(8000)
     });
     const data = await safeParseResponse(res);
     if (Array.isArray(data) && data.length > 0) {
@@ -622,7 +709,7 @@ export async function fetchStockNews(query = "US Stocks"): Promise<NewsItem[]> {
   // 2. Try direct Yahoo Finance Search
   const newsUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&newsCount=6`;
   try {
-    const data = await fetchWithProxy(newsUrl, 15000);
+    const data = await fetchWithProxy(newsUrl, 8000);
     if (data?.news && Array.isArray(data.news) && data.news.length > 0) {
       return data.news.slice(0, 6).map((item: any) => ({
         title: item.title,
@@ -844,7 +931,7 @@ export async function fetchCompanyFinancials(symbol: string): Promise<any> {
   const sym = symbol.toUpperCase().trim();
   try {
     const res = await fetch(`/api/market/intelligence/financials/${encodeURIComponent(sym)}`, {
-      signal: safeTimeoutSignal(30000)
+      signal: safeTimeoutSignal(8000)
     });
     const data = await safeParseResponse(res);
     if (data && data.symbol) {
@@ -896,7 +983,7 @@ export async function fetchCompanyFinancials(symbol: string): Promise<any> {
 export async function fetchSuperinvestors(): Promise<any[]> {
   try {
     const res = await fetch(`/api/market/intelligence/superinvestors`, {
-      signal: safeTimeoutSignal(30000)
+      signal: safeTimeoutSignal(8000)
     });
     const data = await safeParseResponse(res);
     if (Array.isArray(data) && data.length > 0) {
@@ -911,7 +998,7 @@ export async function fetchSuperinvestors(): Promise<any[]> {
 export async function fetchMacroMarketData(): Promise<any> {
   try {
     const res = await fetch(`/api/market/intelligence/macro`, {
-      signal: safeTimeoutSignal(30000)
+      signal: safeTimeoutSignal(8000)
     });
     const data = await safeParseResponse(res);
     if (data && data.fearAndGreed && Array.isArray(data.indicators) && data.indicators.length > 0) {
@@ -926,7 +1013,7 @@ export async function fetchMacroMarketData(): Promise<any> {
 export async function fetchCategorizedNews(category = "ALL"): Promise<any[]> {
   try {
     const res = await fetch(`/api/market/intelligence/news?category=${encodeURIComponent(category)}`, {
-      signal: safeTimeoutSignal(30000)
+      signal: safeTimeoutSignal(8000)
     });
     const data = await safeParseResponse(res);
     if (Array.isArray(data) && data.length > 0) {

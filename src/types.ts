@@ -37,7 +37,7 @@ export interface Candle {
 
 export type ChartType = "candlestick" | "area" | "hollow" | "ohlc";
 
-export type TimeRange = "1D" | "1W" | "1M" | "1Y";
+export type TimeRange = "5M" | "60M" | "1D" | "1W" | "1M" | "1Y";
 
 export interface AIAnalysisResult {
   analysis: string;
