@@ -374,6 +374,8 @@ function StockChart({
 
   const [volParams, setVolParams] = useState({ ma1: 5, ma2: 10 });
   const [showVolume, setShowVolume] = useState(true);
+  const [volDisplayMode, setVolDisplayMode] = useState<"both" | "line" | "bars">("both");
+  const [showVolMaArea, setShowVolMaArea] = useState(true);
 
   const [macdParams, setMacdParams] = useState({ short: 12, long: 26, signal: 9 });
   const [showMACD, setShowMACD] = useState(false);
@@ -556,12 +558,37 @@ function StockChart({
   const displayedCandles = useMemo(() => activeCandles.slice(safeStartIndex, safeEndIndex), [activeCandles, safeStartIndex, safeEndIndex]);
 
   // Current active candle stats (hovered or latest)
-  const activeCandleIndex = hoverIndex !== null ? hoverIndex : Math.max(0, safeEndIndex - 1);
+  const isHovering = hoverIndex !== null;
+  const activeCandleIndex = isHovering ? hoverIndex : Math.max(0, activeCandles.length - 1);
   const fallbackCandle: Candle = { open: 0, close: 0, high: 0, low: 0, volume: 0, time: "" };
-  const currentCandle: Candle = activeCandles[activeCandleIndex] || activeCandles[activeCandles.length - 1] || fallbackCandle;
-  const currentChange = currentCandle.close - currentCandle.open;
-  const currentChangePercent = currentCandle.open > 0 ? (currentChange / currentCandle.open) * 100 : 0;
-  const isUp = currentCandle.close >= currentCandle.open;
+  const currentCandle: Candle = activeCandles[activeCandleIndex] || fallbackCandle;
+
+  // Real-time synchronization: When not hovering over historical candles,
+  // align display price and change directly with the active stock's live market quotes
+  const displayPrice = (!isHovering && activeStock && activeStock.currentPrice > 0)
+    ? activeStock.currentPrice
+    : currentCandle.close;
+
+  const displayHigh = (!isHovering && activeStock && activeStock.high > 0)
+    ? activeStock.high
+    : currentCandle.high;
+
+  const displayLow = (!isHovering && activeStock && activeStock.low > 0)
+    ? activeStock.low
+    : currentCandle.low;
+
+  // Real daily change (relative to previous close) when viewing latest, or intra-candle change when hovering
+  const displayChange = (!isHovering && activeStock && activeStock.prevClose > 0)
+    ? (activeStock.currentPrice - activeStock.prevClose)
+    : (currentCandle.close - currentCandle.open);
+
+  const displayChangePercent = (!isHovering && activeStock && activeStock.prevClose > 0)
+    ? ((displayChange / activeStock.prevClose) * 100)
+    : (currentCandle.open > 0 ? (displayChange / currentCandle.open) * 100 : 0);
+
+  const isUp = (!isHovering && activeStock && activeStock.prevClose > 0)
+    ? (activeStock.currentPrice >= activeStock.prevClose)
+    : (currentCandle.close >= currentCandle.open);
 
   // Chart Layout Metrics: dynamically adapted to normal and full-screen viewports
   const rightMargin = isExpanded ? Math.max(76, Math.min(96, Math.floor(dimensions.width * 0.065))) : 72;
@@ -722,13 +749,14 @@ function StockChart({
     return Math.max(...vols, 1);
   }, [displayedCandles]);
 
+  // Unified volume Y-scale with 18% headroom so bars and MA lines never collide with legend
   const volYScale = useMemo(() => {
     return d3.scaleLinear()
-      .domain([0, maxVolume])
-      .range([volChartHeight - 6, 20]);
+      .domain([0, maxVolume * 1.18])
+      .range([volChartHeight - 4, 22]);
   }, [maxVolume, volChartHeight]);
 
-  // Volume MA Lines with D3
+  // Volume MA Lines with D3 Monotone Spline (Smoothed financial curve)
   const generateVolMAPath = useCallback((volMaData: (number | null)[], volTop: number) => {
     if (!showVolume || volChartHeight <= 0) return "";
     const points: { val: number; idx: number }[] = [];
@@ -743,9 +771,58 @@ function StockChart({
       .defined(d => d.val !== null && !isNaN(d.val))
       .x(d => getCenterX(d.idx))
       .y(d => volTop + volYScale(d.val))
-      .curve(d3.curveLinear);
+      .curve(d3.curveMonotoneX);
     return lineGen(points) || "";
   }, [showVolume, volChartHeight, displayedCandles.length, safeStartIndex, getCenterX, volYScale]);
+
+  // Volume MA Soft Gradient Area Under Curve
+  const generateVolMAAreaPath = useCallback((volMaData: (number | null)[], volTop: number) => {
+    if (!showVolume || volChartHeight <= 0) return "";
+    const points: { val: number; idx: number }[] = [];
+    for (let i = 0; i < displayedCandles.length; i++) {
+      const origIdx = safeStartIndex + i;
+      const val = volMaData[origIdx];
+      if (val !== null && val !== undefined && !isNaN(val)) {
+        points.push({ val, idx: i });
+      }
+    }
+    const areaGen = d3.area<{ val: number; idx: number }>()
+      .defined(d => d.val !== null && !isNaN(d.val))
+      .x(d => getCenterX(d.idx))
+      .y0(volTop + volChartHeight - 4)
+      .y1(d => volTop + volYScale(d.val))
+      .curve(d3.curveMonotoneX);
+    return areaGen(points) || "";
+  }, [showVolume, volChartHeight, displayedCandles.length, safeStartIndex, getCenterX, volYScale]);
+
+  // Pure Volume Line Path (Daily volume smoothed spline)
+  const generateVolLinePath = useCallback((volTop: number) => {
+    if (!showVolume || volChartHeight <= 0) return "";
+    const points: { val: number; idx: number }[] = [];
+    for (let i = 0; i < displayedCandles.length; i++) {
+      points.push({ val: displayedCandles[i].volume || 0, idx: i });
+    }
+    const lineGen = d3.line<{ val: number; idx: number }>()
+      .x(d => getCenterX(d.idx))
+      .y(d => volTop + volYScale(d.val))
+      .curve(d3.curveMonotoneX);
+    return lineGen(points) || "";
+  }, [showVolume, volChartHeight, displayedCandles, getCenterX, volYScale]);
+
+  // Pure Volume Area Path (Daily volume gradient filled area)
+  const generateVolAreaPath = useCallback((volTop: number) => {
+    if (!showVolume || volChartHeight <= 0) return "";
+    const points: { val: number; idx: number }[] = [];
+    for (let i = 0; i < displayedCandles.length; i++) {
+      points.push({ val: displayedCandles[i].volume || 0, idx: i });
+    }
+    const areaGen = d3.area<{ val: number; idx: number }>()
+      .x(d => getCenterX(d.idx))
+      .y0(volTop + volChartHeight - 4)
+      .y1(d => volTop + volYScale(d.val))
+      .curve(d3.curveMonotoneX);
+    return areaGen(points) || "";
+  }, [showVolume, volChartHeight, displayedCandles, getCenterX, volYScale]);
 
   // Mouse & Touch Drag / Hover Handlers with requestAnimationFrame
   const [isDragging, setIsDragging] = useState(false);
@@ -1182,10 +1259,8 @@ function StockChart({
         lowY,
       };
     } else if (showVolume && hoverY !== null && hoverY > mainHeight && hoverY <= mainHeight + volChartHeight) {
-      // 2. Pointer is in the independent Volume sub-chart area: snap directly to the volume bar top
-      const plotH = volChartHeight - 24;
-      const volBarH = Math.max(1.5, ((hoveredCandle.volume || 0) / maxVolume) * plotH);
-      const volBarTop = mainHeight + volChartHeight - volBarH - 2;
+      // 2. Pointer is in the independent Volume sub-chart area: snap directly to the volume bar top / line curve
+      const volBarTop = mainHeight + volYScale(hoveredCandle.volume || 0);
 
       return {
         x: hoveredX,
@@ -1537,20 +1612,20 @@ function StockChart({
               <span>{snappedCrosshair?.pointLabel && crosshairSnapMode !== "free" ? `准星吸附 · ${snappedCrosshair.pointLabel}` : "准星定位"}</span>
             </span>
           )}
-          <span><strong className="text-theme-text-muted font-normal text-xs">时间:</strong> <span className="price-digit text-theme-text-heading">{currentCandle.time || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal text-xs">{isHovering ? "时间:" : "最新:"}</strong> <span className="price-digit text-theme-text-heading">{currentCandle.time || "--"}</span></span>
           <span><strong className="text-theme-text-muted font-normal text-xs">开:</strong> <span className="price-digit text-theme-text-heading">${currentCandle.open?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-theme-text-muted font-normal text-xs">高:</strong> <span className="price-digit text-red-500">${currentCandle.high?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-theme-text-muted font-normal text-xs">低:</strong> <span className="price-digit text-emerald-500">${currentCandle.low?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-theme-text-muted font-normal text-xs">收:</strong> <span className={`price-digit ${isUp ? (isUpRed ? "text-red-500" : "text-emerald-500") : (isUpRed ? "text-emerald-500" : "text-red-500")}`}>${currentCandle.close?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal text-xs">高:</strong> <span className="price-digit text-red-500">${displayHigh?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal text-xs">低:</strong> <span className="price-digit text-emerald-500">${displayLow?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal text-xs">{isHovering ? "收:" : "现价:"}</strong> <span className={`price-digit font-bold ${isUp ? (isUpRed ? "text-red-500" : "text-emerald-500") : (isUpRed ? "text-emerald-500" : "text-red-500")}`}>${displayPrice?.toFixed(2) || "--"}</span></span>
           
           <span className="flex items-center gap-1">
-            <strong className="text-theme-text-muted font-normal text-xs">涨跌:</strong> 
+            <strong className="text-theme-text-muted font-normal text-xs">{isHovering ? "K线涨跌:" : "涨跌(较昨收):"}</strong> 
             <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded border font-semibold price-digit text-xs shadow-2xs ${
-              currentChangePercent >= 0 
+              displayChangePercent >= 0 
                 ? isUpRed ? "bg-red-500/15 text-red-500 border-red-500/30" : "bg-emerald-500/15 text-emerald-500 border-emerald-500/30"
                 : isUpRed ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30" : "bg-red-500/15 text-red-500 border-red-500/30"
             }`}>
-              {currentChange >= 0 ? "+" : ""}${currentChange.toFixed(2)} ({currentChangePercent >= 0 ? "+" : ""}{currentChangePercent.toFixed(2)}%)
+              {displayChange >= 0 ? "+" : ""}${displayChange.toFixed(2)} ({displayChangePercent >= 0 ? "+" : ""}{displayChangePercent.toFixed(2)}%)
             </span>
           </span>
 
@@ -1642,6 +1717,15 @@ function StockChart({
             <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={isUpRed ? "#EF4444" : "#10B981"} stopOpacity="0.28" />
               <stop offset="100%" stopColor={isUpRed ? "#EF4444" : "#10B981"} stopOpacity="0.0" />
+            </linearGradient>
+            <linearGradient id="volMaGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.20" />
+              <stop offset="100%" stopColor="#F59E0B" stopOpacity="0.01" />
+            </linearGradient>
+            <linearGradient id="volAreaGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#818CF8" stopOpacity="0.35" />
+              <stop offset="60%" stopColor="#818CF8" stopOpacity="0.12" />
+              <stop offset="100%" stopColor="#818CF8" stopOpacity="0.01" />
             </linearGradient>
             <clipPath id="mainChartClip">
               <rect x="0" y="0" width={chartWidth} height={mainHeight} />
@@ -1928,7 +2012,13 @@ function StockChart({
                 {showVolume && (() => {
                   const volTop = runningSubTop;
                   runningSubTop += volChartHeight;
-                  const plotH = Math.max(20, volChartHeight - 24);
+                  const currentMa1 = fullVolMa1[activeCandleIndex];
+                  const currentMa2 = fullVolMa2[activeCandleIndex];
+                  const currentVol = currentCandle.volume || 0;
+                  const volRatio = currentMa1 && currentMa1 > 0 ? currentVol / currentMa1 : null;
+                  const isHoveredInVol = hoverIndex !== null;
+                  const hoverMa1 = isHoveredInVol && hoverIndex !== null ? fullVolMa1[hoverIndex] : null;
+                  const hoverMa2 = isHoveredInVol && hoverIndex !== null ? fullVolMa2[hoverIndex] : null;
 
                   return (
                     <g key="subchart-volume" className="subchart-volume">
@@ -1938,7 +2028,7 @@ function StockChart({
                         y={volTop}
                         width={chartWidth}
                         height={volChartHeight}
-                        fill="rgba(15, 23, 42, 0.35)"
+                        fill="rgba(15, 23, 42, 0.45)"
                       />
 
                       {/* Top Separator Line from Main K-line Chart */}
@@ -1949,6 +2039,18 @@ function StockChart({
                         y2={volTop}
                         stroke="#334155"
                         strokeWidth={1.2}
+                        shapeRendering="crispEdges"
+                      />
+
+                      {/* 100% Volume Ceiling Reference Line */}
+                      <line
+                        x1={0}
+                        y1={volTop + volYScale(maxVolume)}
+                        x2={chartWidth}
+                        y2={volTop + volYScale(maxVolume)}
+                        stroke="#1E293B"
+                        strokeWidth={1}
+                        strokeDasharray="2 2"
                         shapeRendering="crispEdges"
                       />
 
@@ -1967,32 +2069,48 @@ function StockChart({
                       {/* Sub-Chart Title & Dynamic Legend Header */}
                       <g className="volume-legend">
                         <text x={6} y={volTop + 14} fill="#818CF8" fontSize={11} fontWeight="bold" fontFamily="monospace">
-                          成交量 VOL
+                          VOL
                         </text>
-                        <text x={84} y={volTop + 14} fill="#E2E8F0" fontSize={10} fontFamily="monospace">
-                          量: <tspan fontWeight="bold">{((currentCandle.volume || 0) / 10000).toFixed(2)}万</tspan>
+                        <text x={38} y={volTop + 14} fill="#94A3B8" fontSize={10} fontFamily="monospace">
+                          量: <tspan fill="#F8FAFC" fontWeight="bold">{(currentVol / 10000).toFixed(2)}万</tspan>
                         </text>
-                        {fullVolMa1[activeCandleIndex] !== null && fullVolMa1[activeCandleIndex] !== undefined && (
-                          <text x={180} y={volTop + 14} fill="#F59E0B" fontSize={10} fontFamily="monospace">
-                            MA{volParams.ma1}: {(Number(fullVolMa1[activeCandleIndex]) / 10000).toFixed(2)}万
+                        {currentMa1 !== null && currentMa1 !== undefined && (
+                          <text x={126} y={volTop + 14} fill="#F59E0B" fontSize={10} fontFamily="monospace" fontWeight="semibold">
+                            MA{volParams.ma1}: {(Number(currentMa1) / 10000).toFixed(2)}万
                           </text>
                         )}
-                        {fullVolMa2[activeCandleIndex] !== null && fullVolMa2[activeCandleIndex] !== undefined && (
-                          <text x={280} y={volTop + 14} fill="#38BDF8" fontSize={10} fontFamily="monospace">
-                            MA{volParams.ma2}: {(Number(fullVolMa2[activeCandleIndex]) / 10000).toFixed(2)}万
+                        {currentMa2 !== null && currentMa2 !== undefined && (
+                          <text x={226} y={volTop + 14} fill="#38BDF8" fontSize={10} fontFamily="monospace" fontWeight="semibold">
+                            MA{volParams.ma2}: {(Number(currentMa2) / 10000).toFixed(2)}万
                           </text>
                         )}
-                        {fullVolMa1[activeCandleIndex] !== null && fullVolMa1[activeCandleIndex] !== undefined && (
-                          <text
-                            x={380}
-                            y={volTop + 14}
-                            fill={(currentCandle.volume || 0) >= (fullVolMa1[activeCandleIndex] as number) ? (isUpRed ? "#F87171" : "#34D399") : "#94A3B8"}
-                            fontSize={9}
-                            fontWeight="bold"
-                            fontFamily="monospace"
-                          >
-                            {(currentCandle.volume || 0) >= (fullVolMa1[activeCandleIndex] as number) ? "▲ 放量" : "▼ 缩量"}
-                          </text>
+                        {volRatio !== null && (
+                          <g transform={`translate(${Math.min(chartWidth - 110, 326)}, ${volTop + 3})`}>
+                            <rect
+                              x={0}
+                              y={0}
+                              width={volRatio >= 2.0 ? 84 : 74}
+                              height={15}
+                              rx={3}
+                              fill={volRatio >= 1.0 ? (isUpRed ? "rgba(239, 68, 68, 0.18)" : "rgba(16, 185, 129, 0.18)") : "rgba(148, 163, 184, 0.14)"}
+                              stroke={volRatio >= 1.0 ? (isUpRed ? "#EF4444" : "#10B981") : "#64748B"}
+                              strokeWidth={0.7}
+                            />
+                            <text
+                              x={4}
+                              y={11}
+                              fill={volRatio >= 1.0 ? (isUpRed ? "#F87171" : "#34D399") : "#94A3B8"}
+                              fontSize={9}
+                              fontWeight="bold"
+                              fontFamily="monospace"
+                            >
+                              {volRatio >= 2.0
+                                ? `★ 巨量 ${volRatio.toFixed(1)}x`
+                                : volRatio >= 1.0
+                                  ? `▲ 放量 ${volRatio.toFixed(2)}x`
+                                  : `▼ 缩量 ${volRatio.toFixed(2)}x`}
+                            </text>
+                          </g>
                         )}
                       </g>
 
@@ -2001,9 +2119,9 @@ function StockChart({
                         {/* Max volume tick */}
                         <text
                           x={chartWidth + 6}
-                          y={volTop + 14}
+                          y={volTop + volYScale(maxVolume) + 3}
                           fill="#94A3B8"
-                          fontSize={10}
+                          fontSize={9}
                           fontWeight="bold"
                           fontFamily="monospace"
                         >
@@ -2031,17 +2149,44 @@ function StockChart({
                         </text>
                       </g>
 
-                      {/* Daily Volume Rectangles (Color-synchronized with K-line, linked to zoom & pan) */}
-                      <g className="volume-bars" clipPath="url(#volumeChartClip)">
-                        {displayedCandles.map((c, idx) => {
+                      {/* Volume Chart Graphics Layer (Clipped to Sub-Chart Viewport) */}
+                      <g className="volume-graphics" clipPath="url(#volumeChartClip)">
+                        {/* Mode: Area / Spline Gradient Fill (When "line" or "both" with area enabled) */}
+                        {volDisplayMode === "line" && (
+                          <>
+                            <path
+                              d={generateVolAreaPath(volTop)}
+                              fill="url(#volAreaGradient)"
+                            />
+                            <path
+                              d={generateVolLinePath(volTop)}
+                              fill="none"
+                              stroke="#818CF8"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </>
+                        )}
+
+                        {/* Soft Ambient Area Glow under Primary Volume MA5 Curve */}
+                        {showVolMaArea && volDisplayMode !== "bars" && (
+                          <path
+                            d={generateVolMAAreaPath(fullVolMa1, volTop)}
+                            fill="url(#volMaGradient)"
+                          />
+                        )}
+
+                        {/* Daily Volume Candlestick Bars (Color-synchronized with K-lines) */}
+                        {volDisplayMode !== "line" && displayedCandles.map((c, idx) => {
                           const centerX = getCenterX(idx);
                           if (centerX < -candleSlotWidth || centerX > chartWidth + candleSlotWidth) return null;
 
                           const origIdx = safeStartIndex + idx;
                           const isHovered = hoverIndex === origIdx;
                           const color = getCandleColor(c, idx);
-                          const volBarH = Math.max(1.5, ((c.volume || 0) / maxVolume) * plotH);
-                          const barTop = volTop + volChartHeight - volBarH - 2;
+                          const barH = Math.max(1.5, (volChartHeight - 4) - volYScale(c.volume || 0));
+                          const barTop = volTop + volYScale(c.volume || 0);
                           const barLeft = centerX - candleBarWidth / 2;
 
                           return (
@@ -2050,19 +2195,80 @@ function StockChart({
                               x={barLeft}
                               y={barTop}
                               width={candleBarWidth}
-                              height={volBarH}
+                              height={barH}
+                              rx={Math.min(1.5, candleBarWidth / 4)}
+                              ry={Math.min(1.5, candleBarWidth / 4)}
                               fill={color}
-                              fillOpacity={isHovered ? 1 : 0.88}
+                              fillOpacity={isHovered ? 1 : 0.86}
                               stroke={isHovered ? "#FFFFFF" : color}
                               strokeWidth={isHovered ? 1.2 : 0}
-                              shapeRendering="crispEdges"
+                              shapeRendering="geometricPrecision"
                             />
                           );
                         })}
 
-                        {/* Volume Moving Average Lines */}
-                        <path d={generateVolMAPath(fullVolMa1, volTop)} fill="none" stroke="#F59E0B" strokeWidth={1.2} />
-                        <path d={generateVolMAPath(fullVolMa2, volTop)} fill="none" stroke="#38BDF8" strokeWidth={1.2} />
+                        {/* Volume Moving Average Line 1 (Smoothed MA5 Spline Curve) */}
+                        <path
+                          d={generateVolMAPath(fullVolMa1, volTop)}
+                          fill="none"
+                          stroke="#F59E0B"
+                          strokeWidth={1.7}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+
+                        {/* Volume Moving Average Line 2 (Smoothed MA10 Spline Curve) */}
+                        <path
+                          d={generateVolMAPath(fullVolMa2, volTop)}
+                          fill="none"
+                          stroke="#38BDF8"
+                          strokeWidth={1.4}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+
+                        {/* Interactive Snapped Cursor Dots on Volume MA Lines */}
+                        {hoverIndex !== null && hoverIndex >= safeStartIndex && hoverIndex < safeStartIndex + displayedCandles.length && (() => {
+                          const hIdx = hoverIndex - safeStartIndex;
+                          const hX = getCenterX(hIdx);
+                          return (
+                            <g className="volume-cursor-anchors">
+                              {/* MA1 Anchor Dot */}
+                              {hoverMa1 !== null && hoverMa1 !== undefined && !isNaN(hoverMa1) && (
+                                <circle
+                                  cx={hX}
+                                  cy={volTop + volYScale(hoverMa1)}
+                                  r={4}
+                                  fill="#F59E0B"
+                                  stroke="#FFFFFF"
+                                  strokeWidth={1.5}
+                                />
+                              )}
+                              {/* MA2 Anchor Dot */}
+                              {hoverMa2 !== null && hoverMa2 !== undefined && !isNaN(hoverMa2) && (
+                                <circle
+                                  cx={hX}
+                                  cy={volTop + volYScale(hoverMa2)}
+                                  r={3.2}
+                                  fill="#38BDF8"
+                                  stroke="#FFFFFF"
+                                  strokeWidth={1.5}
+                                />
+                              )}
+                              {/* Volume Curve Anchor Dot (in Line Mode) */}
+                              {volDisplayMode === "line" && (
+                                <circle
+                                  cx={hX}
+                                  cy={volTop + volYScale(displayedCandles[hIdx]?.volume || 0)}
+                                  r={4.5}
+                                  fill="#818CF8"
+                                  stroke="#FFFFFF"
+                                  strokeWidth={1.8}
+                                />
+                              )}
+                            </g>
+                          );
+                        })()}
                       </g>
                     </g>
                   );
@@ -2850,8 +3056,62 @@ function StockChart({
               )}
 
               {activeSettingsTab === "VOL" && (
-                <div className="space-y-3">
-                  <p className="text-theme-text-muted mb-2 font-medium">配置成交量均线 (VOL MA) 参数:</p>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-theme-text-muted mb-2 font-medium">成交量图表形态 (Line & Bar Mode):</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setVolDisplayMode("both")}
+                        className={`p-2 rounded-lg border text-center font-semibold transition cursor-pointer ${
+                          volDisplayMode === "both"
+                            ? "bg-indigo-600/15 border-indigo-500/50 text-indigo-400"
+                            : "bg-theme-panel border-theme-border text-theme-text-muted hover:text-theme-text-primary"
+                        }`}
+                      >
+                        <div className="font-bold">柱 + 均线</div>
+                        <div className="text-[10px] opacity-75 mt-0.5">柱状图与平滑双均线</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVolDisplayMode("line")}
+                        className={`p-2 rounded-lg border text-center font-semibold transition cursor-pointer ${
+                          volDisplayMode === "line"
+                            ? "bg-indigo-600/15 border-indigo-500/50 text-indigo-400"
+                            : "bg-theme-panel border-theme-border text-theme-text-muted hover:text-theme-text-primary"
+                        }`}
+                      >
+                        <div className="font-bold">平滑折线</div>
+                        <div className="text-[10px] opacity-75 mt-0.5">渐变面积曲线图</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVolDisplayMode("bars")}
+                        className={`p-2 rounded-lg border text-center font-semibold transition cursor-pointer ${
+                          volDisplayMode === "bars"
+                            ? "bg-indigo-600/15 border-indigo-500/50 text-indigo-400"
+                            : "bg-theme-panel border-theme-border text-theme-text-muted hover:text-theme-text-primary"
+                        }`}
+                      >
+                        <div className="font-bold">纯柱状图</div>
+                        <div className="text-[10px] opacity-75 mt-0.5">经典量能矩形柱</div>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between bg-theme-panel p-2.5 rounded-lg border border-theme-border">
+                    <label className="flex items-center gap-2 cursor-pointer font-medium">
+                      <input
+                        type="checkbox"
+                        checked={showVolMaArea}
+                        onChange={(e) => setShowVolMaArea(e.target.checked)}
+                        className="rounded text-indigo-600"
+                      />
+                      <span>显示均线下方渐变光晕 (Soft Area Glow)</span>
+                    </label>
+                  </div>
+
+                  <p className="text-theme-text-muted mb-1 font-medium">配置成交量移动均线 (VOL MA) 参数:</p>
                   <div className="space-y-2.5">
                     <div className="flex items-center justify-between bg-theme-panel p-2.5 rounded-lg border border-theme-border">
                       <span className="font-bold text-amber-500">VOL MA 1 周期:</span>

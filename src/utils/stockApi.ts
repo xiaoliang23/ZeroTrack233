@@ -184,73 +184,46 @@ export function safeTimeoutSignal(timeoutMs: number): AbortSignal {
   return controller.signal;
 }
 
-// Fetch helper via CORS Proxy for browser environment
+// Fetch helper via safe server-side proxy
 async function fetchWithProxy(url: string, timeoutMs = 8000): Promise<any> {
-  const fetchWithTimeout = async (targetUrl: string) => {
-    try {
-      const res = await fetch(targetUrl, { signal: safeTimeoutSignal(timeoutMs) });
-      if (res.ok) {
-        const text = await res.text();
-        if (text && text.trim()) {
-          return JSON.parse(text);
-        }
-      }
-    } catch {
-      // Ignore network / abort / timeout errors silently
+  try {
+    const proxyUrl = `/api/stocks/proxy?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl, { signal: safeTimeoutSignal(timeoutMs) });
+    if (res.ok) {
+      const data = await safeParseResponse(res);
+      if (data) return data;
     }
-    return null;
-  };
-
-  // 1. Attempt direct fetch
-  const directData = await fetchWithTimeout(url);
-  if (directData) return directData;
-
-  // 2. Try corsproxy.io
-  const proxyUrl1 = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-  const proxyData1 = await fetchWithTimeout(proxyUrl1);
-  if (proxyData1) return proxyData1;
-
-  // 3. Try AllOrigins CORS proxy
-  const proxyUrl2 = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&_t=${Date.now()}`;
-  const proxyData2 = await fetchWithTimeout(proxyUrl2);
-  if (proxyData2) return proxyData2;
-
-  // 4. Try CodeTabs CORS proxy
-  const proxyUrl3 = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`;
-  const proxyData3 = await fetchWithTimeout(proxyUrl3);
-  if (proxyData3) return proxyData3;
-
+  } catch {
+    // Ignore proxy error safely
+  }
   return null;
 }
 
 /**
- * Fetch stock quote directly in browser
+ * Fetch stock quote safely via server API
  */
 export async function fetchStockQuote(symbol: string): Promise<Stock | null> {
   const cleanSym = symbol.trim().toUpperCase();
-  const url = `https://query2.finance.yahoo.com/v8/finance/chart/${cleanSym}?range=1d&interval=1d&_t=${Date.now()}`;
-
+  // 1. Try server API quote endpoint first
   try {
-    const data = await fetchWithProxy(url, 8000);
-    const meta = data?.chart?.result?.[0]?.meta;
-    if (meta && meta.regularMarketPrice) {
-      const knownStock = DEFAULT_STOCKS.find(s => s.symbol === cleanSym);
-      const companyName = knownStock?.name || meta.longName || meta.shortName || cleanSym;
-      return {
-        symbol: cleanSym,
-        name: companyName,
-        basePrice: meta.previousClose || meta.regularMarketPrice,
-        currentPrice: meta.regularMarketPrice,
-        prevClose: meta.previousClose || meta.regularMarketPrice,
-        high: meta.regularMarketDayHigh || meta.regularMarketPrice,
-        low: meta.regularMarketDayLow || meta.regularMarketPrice,
-        volume: meta.regularMarketVolume || 1000000,
-        history: [meta.previousClose, meta.regularMarketPrice]
-      };
+    const res = await fetch(`/api/stocks/quote/${encodeURIComponent(cleanSym)}`, {
+      signal: safeTimeoutSignal(8000)
+    });
+    const quote = await safeParseResponse(res);
+    if (quote && quote.symbol && quote.currentPrice > 0) {
+      return quote;
     }
   } catch {
-    // Return null on failure to allow local cache fallback
+    // Continue to fallback
   }
+
+  // 2. Fallback to known stock directory or local stored stocks
+  const knownStock = DEFAULT_STOCKS.find(s => s.symbol === cleanSym);
+  if (knownStock) return { ...knownStock };
+
+  const localStocks = loadStoredStocks();
+  const localMatch = localStocks.find(s => s.symbol === cleanSym);
+  if (localMatch) return { ...localMatch };
 
   return null;
 }
@@ -270,7 +243,7 @@ export async function fetchStocksList(requestedSymbols: string[] = [], fetchOnly
       : Array.from(new Set([...currentLocal.map(s => s.symbol), ...requestedSymbols]));
       
     const querySymbols = symbolsToFetch.join(",");
-    const res = await fetch(`/api/stocks?symbols=${encodeURIComponent(querySymbols)}`, { signal: safeTimeoutSignal(8000) });
+    const res = await fetch(`/api/stocks?symbols=${encodeURIComponent(querySymbols)}`, { signal: safeTimeoutSignal(15000) });
     const serverStocks = await safeParseResponse(res);
     if (Array.isArray(serverStocks) && serverStocks.length > 0) {
       serverStocks.forEach((s: Stock) => {
@@ -290,45 +263,14 @@ export async function fetchStocksList(requestedSymbols: string[] = [], fetchOnly
       return updatedList;
     }
   } catch {
-    // Fallback to client-side CORS proxy
+    // Fallback smoothly to local cached data
   }
 
-  // Symbols to update via CORS proxy fallback
-  const targetSymbols = fetchOnlyRequested 
-    ? requestedSymbols
-    : Array.from(new Set([
-        ...currentLocal.map(s => s.symbol),
-        ...requestedSymbols
-      ]));
-
-  // Try updating live quotes
-  await Promise.allSettled(
-    targetSymbols.map(async (sym) => {
-      const updated = await fetchStockQuote(sym);
-      if (updated) {
-        const existing = localMap.get(sym);
-        if (existing) {
-          const history = existing.history || [];
-          history.push(updated.currentPrice);
-          if (history.length > 15) history.shift();
-          localMap.set(sym, {
-            ...existing,
-            currentPrice: updated.currentPrice,
-            high: Math.max(existing.high, updated.high),
-            low: Math.min(existing.low || updated.low, updated.low),
-            volume: updated.volume,
-            history
-          });
-        } else {
-          localMap.set(sym, updated);
-        }
-      }
-    })
-  );
-
   const updatedList = Array.from(localMap.values());
-  saveStoredStocks(updatedList);
-  return updatedList;
+  if (updatedList.length > 0) {
+    return updatedList;
+  }
+  return DEFAULT_STOCKS;
 }
 
 /**
@@ -348,9 +290,16 @@ export async function searchStocks(query: string): Promise<Stock[]> {
     }
   });
 
+  // Also check DEFAULT_STOCKS
+  DEFAULT_STOCKS.forEach(s => {
+    if (s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)) {
+      if (!map.has(s.symbol)) map.set(s.symbol, s);
+    }
+  });
+
   // 2. Try Server API search route first (Fastest, direct Node fetch without CORS proxy limits)
   try {
-    const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`, { signal: safeTimeoutSignal(8000) });
+    const res = await fetch(`/api/stocks/search?q=${encodeURIComponent(query)}`, { signal: safeTimeoutSignal(10000) });
     const serverResults = await safeParseResponse(res);
     if (Array.isArray(serverResults) && serverResults.length > 0) {
       serverResults.forEach((s: Stock) => map.set(s.symbol, s));
@@ -359,7 +308,7 @@ export async function searchStocks(query: string): Promise<Stock[]> {
       return resultList.slice(0, 30);
     }
   } catch {
-    // Fallback to client-side CORS proxy search
+    // Fallback to local matches
   }
 
   const cleanSym = query.trim().toUpperCase();
@@ -394,46 +343,6 @@ export async function searchStocks(query: string): Promise<Stock[]> {
     }
   }
 
-  // 4. Try Yahoo Finance remote search API via CORS Proxy
-  const searchUrl = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10`;
-
-  try {
-    const data = await fetchWithProxy(searchUrl, 8000);
-    if (data?.quotes && Array.isArray(data.quotes)) {
-      const remoteQuotes = data.quotes.filter((item: any) => item.symbol);
-
-      await Promise.allSettled(
-        remoteQuotes.map(async (item: any) => {
-          const sym = item.symbol.toUpperCase();
-          if (!map.has(sym)) {
-            const quote = await fetchStockQuote(sym);
-            if (quote) {
-              map.set(sym, quote);
-            } else {
-              const knownDefault = DEFAULT_STOCKS.find(ds => ds.symbol === sym);
-              if (knownDefault) {
-                map.set(sym, { ...knownDefault });
-              } else {
-                map.set(sym, {
-                  symbol: sym,
-                  name: item.longname || item.shortname || item.dispName || sym,
-                  basePrice: 50.0,
-                  currentPrice: 50.0,
-                  prevClose: 50.0,
-                  high: 51.0,
-                  low: 49.0,
-                  volume: 1000000
-                });
-              }
-            }
-          }
-        })
-      );
-    }
-  } catch {
-    // Fallback to local map
-  }
-
   const resultList = Array.from(map.values());
   saveStoredStocks(resultList);
   return resultList.slice(0, 30);
@@ -447,144 +356,13 @@ export async function fetchCandlesticks(symbol: string, range: string): Promise<
 
   // 1. Try server API candles endpoint first (Fetches live Yahoo Finance data on backend)
   try {
-    const res = await fetch(`/api/stocks/candles/${cleanSym}?range=${range}`, { signal: safeTimeoutSignal(8000) });
+    const res = await fetch(`/api/stocks/candles/${cleanSym}?range=${range}`, { signal: safeTimeoutSignal(15000) });
     const candles = await safeParseResponse(res);
     if (Array.isArray(candles) && candles.length > 0) {
       return candles;
     }
   } catch {
-    // Fallback to client-side CORS proxy
-  }
-
-  const period1 = new Date();
-  const period2 = new Date();
-  let interval: string = "1d";
-
-  if (range === "5M") {
-    period1.setDate(period1.getDate() - 1);
-    interval = "5m";
-  } else if (range === "60M") {
-    period1.setDate(period1.getDate() - 5);
-    interval = "60m";
-  } else if (range === "1D") {
-    period1.setDate(period1.getDate() - 2);
-    interval = "5m";
-  } else if (range === "1W") {
-    period1.setDate(period1.getDate() - 7);
-    interval = "1h";
-  } else if (range === "1M") {
-    period1.setMonth(period1.getMonth() - 1);
-    interval = "1d";
-  } else if (range === "1Y" || range === "YEAR") {
-    // For Year K-line (年K), fetch 20 years of monthly data to aggregate into annual candles
-    period1.setFullYear(period1.getFullYear() - 20);
-    interval = "1mo";
-  }
-
-  const p1 = Math.floor(period1.getTime() / 1000);
-  const p2 = Math.floor(period2.getTime() / 1000);
-  const chartUrl = `https://query2.finance.yahoo.com/v8/finance/chart/${cleanSym}?period1=${p1}&period2=${p2}&interval=${interval}`;
-
-  try {
-    const data = await fetchWithProxy(chartUrl, 8000);
-    const result = data?.chart?.result?.[0];
-    if (result && result.timestamp && result.indicators?.quote?.[0]) {
-      const quotes = result.indicators.quote[0];
-      const timestamps = result.timestamp;
-      let lastClose = 100;
-
-      // If Year K-line (年K), aggregate monthly quotes into annual candles
-      if (range === "1Y" || range === "YEAR") {
-        const yearMap = new Map<number, { time: string; open: number; high: number; low: number; close: number; volume: number }>();
-        for (let i = 0; i < timestamps.length; i++) {
-          const t = timestamps[i];
-          const yr = new Date(t * 1000).getFullYear();
-          let c = quotes.close?.[i];
-          let o = quotes.open?.[i];
-          let h = quotes.high?.[i];
-          let l = quotes.low?.[i];
-          let v = quotes.volume?.[i] || 0;
-
-          if (c === null || c === undefined || isNaN(c) || c <= 0) continue;
-          const openVal = (o !== null && o !== undefined && !isNaN(o) && o > 0) ? o : c;
-          const highVal = (h !== null && h !== undefined && !isNaN(h) && h > 0) ? Math.max(h, openVal, c) : Math.max(openVal, c);
-          const lowVal = (l !== null && l !== undefined && !isNaN(l) && l > 0) ? Math.min(l, openVal, c) : Math.min(openVal, c);
-
-          if (!yearMap.has(yr)) {
-            yearMap.set(yr, {
-              time: `${yr}年`,
-              open: Number(openVal.toFixed(2)),
-              high: Number(highVal.toFixed(2)),
-              low: Number(lowVal.toFixed(2)),
-              close: Number(c.toFixed(2)),
-              volume: Math.round(v)
-            });
-          } else {
-            const existing = yearMap.get(yr)!;
-            existing.high = Number(Math.max(existing.high, highVal).toFixed(2));
-            existing.low = Number(Math.min(existing.low, lowVal).toFixed(2));
-            existing.close = Number(c.toFixed(2));
-            existing.volume += Math.round(v);
-          }
-        }
-
-        const annualCandles = Array.from(yearMap.values());
-        if (annualCandles.length > 0) {
-          return annualCandles;
-        }
-      }
-
-      const candles: Candle[] = [];
-      for (let i = 0; i < timestamps.length; i++) {
-        const t = timestamps[i];
-        let closeVal = quotes.close?.[i];
-        let openVal = quotes.open?.[i];
-        let highVal = quotes.high?.[i];
-        let lowVal = quotes.low?.[i];
-        let volVal = quotes.volume?.[i] || 0;
-
-        if (closeVal === null || closeVal === undefined || isNaN(closeVal) || closeVal <= 0) {
-          closeVal = lastClose;
-        } else {
-          lastClose = closeVal;
-        }
-
-        if (openVal === null || openVal === undefined || isNaN(openVal) || openVal <= 0) {
-          openVal = closeVal;
-        }
-
-        if (highVal === null || highVal === undefined || isNaN(highVal) || highVal < Math.max(openVal, closeVal)) {
-          highVal = Math.max(openVal, closeVal);
-        }
-
-        if (lowVal === null || lowVal === undefined || isNaN(lowVal) || lowVal <= 0 || lowVal > Math.min(openVal, closeVal)) {
-          lowVal = Math.min(openVal, closeVal);
-        }
-
-        const time = new Date(t * 1000);
-        let dateStr = "";
-        if (range === "1D" || range === "5M" || range === "60M") {
-          dateStr = time.toLocaleTimeString("zh-CN", { hour: '2-digit', minute: '2-digit', hour12: false });
-        } else {
-          dateStr = time.toLocaleDateString("zh-CN", { month: '2-digit', day: '2-digit' });
-        }
-
-        candles.push({
-          time: dateStr,
-          open: Number(openVal.toFixed(2)),
-          high: Number(highVal.toFixed(2)),
-          low: Number(lowVal.toFixed(2)),
-          close: Number(closeVal.toFixed(2)),
-          volume: Math.round(volVal)
-        });
-      }
-
-      if (candles.length > 0) {
-        return candles;
-      }
-    }
-  } catch {
-    // Generate fallback mock candles
+    // Fallback to client mock candles generator directly
   }
 
   // Fallback synthetic candle generator
@@ -669,6 +447,14 @@ function generateMockCandles(symbol: string, range: string): Candle[] {
     }
 
     data.push({ time: dateStr, open, high, low, close, volume });
+  }
+
+  // Guarantee that the latest candle's close price strictly matches current stock price
+  if (data.length > 0 && stock.currentPrice > 0) {
+    const last = data[data.length - 1];
+    last.close = stock.currentPrice;
+    if (stock.currentPrice > last.high) last.high = stock.currentPrice;
+    if (stock.currentPrice < last.low && last.low > 0) last.low = stock.currentPrice;
   }
 
   return data;

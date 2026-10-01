@@ -510,77 +510,74 @@ setInterval(async () => {
   } catch {}
 }, 20000);
 
+const symbolLastUpdated = new Map<string, number>();
+
+async function syncStockQuotes(symbols: string[]): Promise<void> {
+  const now = Date.now();
+  // Filter symbols needing refresh (older than 3 seconds)
+  const targets = symbols
+    .map(s => s.trim().toUpperCase())
+    .filter(s => s && (now - (symbolLastUpdated.get(s) || 0) > 3000))
+    .slice(0, 20);
+
+  if (targets.length === 0) return;
+
+  await Promise.allSettled(targets.map(async (sym) => {
+    try {
+      symbolLastUpdated.set(sym, now);
+      const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
+        signal: AbortSignal.timeout(3500)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const meta = data?.chart?.result?.[0]?.meta;
+        if (meta && meta.regularMarketPrice > 0) {
+          const stock = STOCKS.find(s => s.symbol === sym);
+          if (stock) {
+            stock.currentPrice = meta.regularMarketPrice;
+            stock.prevClose = meta.previousClose || meta.chartPreviousClose || stock.prevClose;
+            stock.high = meta.regularMarketDayHigh || meta.regularMarketPrice;
+            stock.low = meta.regularMarketDayLow || meta.regularMarketPrice;
+            stock.volume = meta.regularMarketVolume || stock.volume;
+            if (!stock.history) stock.history = [];
+            stock.history.push(stock.currentPrice);
+            if (stock.history.length > 20) stock.history.shift();
+          } else {
+            STOCKS.push({
+              symbol: sym,
+              name: meta.longName || meta.shortName || sym,
+              basePrice: meta.previousClose || meta.regularMarketPrice || 0,
+              currentPrice: meta.regularMarketPrice || 0,
+              prevClose: meta.previousClose || meta.regularMarketPrice || 0,
+              high: meta.regularMarketDayHigh || meta.regularMarketPrice || 0,
+              low: meta.regularMarketDayLow || meta.regularMarketPrice || 0,
+              volume: meta.regularMarketVolume || 0,
+              history: Array(15).fill(meta.regularMarketPrice || 0)
+            });
+          }
+        }
+      }
+    } catch {}
+  }));
+}
+
 // 1. API: List Stocks
 app.get("/api/stocks", async (req, res) => {
   try {
-    // Only fetch real quotes for a subset to avoid hitting rate limits instantly on load
-    const topSymbols = STOCKS.slice(0, 15).map(s => s.symbol);
-    
-    // Also fetch symbols that the user explicitly requests (like their portfolio)
+    // Parse requested symbols (e.g. from user portfolio and active watchlist)
     let requestedSymbols: string[] = [];
     if (req.query.symbols) {
       const parsed = String(req.query.symbols).split(",").map(s => s.trim().toUpperCase());
       requestedSymbols = parsed.filter(s => !!s);
     }
     
-    const symbolsToFetch = Array.from(new Set([...topSymbols, ...requestedSymbols]));
-    
-    if (symbolsToFetch.length > 0) {
-      // Fetch directly to bypass some 429 errors from the module
-      const quotes: any[] = await Promise.all(symbolsToFetch.map(async (sym) => {
-        try {
-          const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, { 
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-            signal: AbortSignal.timeout(5000)
-          });
-          if (res.ok) {
-            const data = await res.json();
-            const meta = data?.chart?.result?.[0]?.meta;
-            if (meta) {
-              return {
-                symbol: sym,
-                regularMarketPrice: meta.regularMarketPrice,
-                regularMarketPreviousClose: meta.previousClose,
-                regularMarketDayHigh: meta.regularMarketDayHigh || meta.regularMarketPrice,
-                regularMarketDayLow: meta.regularMarketDayLow || meta.regularMarketPrice,
-                regularMarketVolume: meta.regularMarketVolume || 0
-              };
-            }
-          }
-        } catch (e) {}
-        return null;
-      })).then(res => res.filter(Boolean));
-      quotes.forEach(quote => {
-        const stock = STOCKS.find(s => s.symbol === quote.symbol);
-        if (stock) {
-          stock.currentPrice = quote.regularMarketPrice || stock.currentPrice;
-          stock.prevClose = quote.regularMarketPreviousClose || stock.prevClose;
-          if (stock.history) {
-            stock.history.push(stock.currentPrice);
-            if (stock.history.length > 15) stock.history.shift();
-          }
-          stock.high = quote.regularMarketDayHigh || stock.high;
-          stock.low = quote.regularMarketDayLow || stock.low;
-          stock.volume = quote.regularMarketVolume || stock.volume;
-        } else if (requestedSymbols.includes(quote.symbol)) {
-          // If a requested symbol wasn't in our local cache, add it
-          STOCKS.push({
-            symbol: quote.symbol,
-            name: quote.longName || quote.shortName || quote.symbol,
-            basePrice: quote.regularMarketPreviousClose || 0,
-            currentPrice: quote.regularMarketPrice || quote.postMarketPrice || 0,
-            prevClose: quote.regularMarketPreviousClose || 0,
-            high: quote.regularMarketDayHigh || 0,
-            low: quote.regularMarketDayLow || 0,
-            volume: quote.regularMarketVolume || 0,
-            history: Array(15).fill(quote.regularMarketPrice || quote.postMarketPrice || 0)
-          });
-        }
-      });
+    if (requestedSymbols.length > 0) {
+      await syncStockQuotes(requestedSymbols);
     }
   } catch (err: any) {
     if (!isExpectedFetchFallback(err)) {
-      console.warn("Notice: Using mock data for initial quotes due to:", err?.message || err);
+      console.warn("Notice: /api/stocks fallback notice:", err?.message || err);
     }
   }
   res.json(STOCKS);
@@ -793,6 +790,34 @@ app.get("/api/stocks/quote/:symbol", async (req, res) => {
     }
     const stock = ensureStockExists(symbol);
     res.json(stock);
+  }
+});
+
+// 3.5 API: Safe Stock API Proxy (bypasses browser CORS & timeout failures)
+app.get("/api/stocks/proxy", async (req, res) => {
+  const targetUrl = String(req.query.url || "");
+  if (!targetUrl || !targetUrl.startsWith("https://")) {
+    return res.status(400).json({ error: "Invalid target URL" });
+  }
+  try {
+    const parsed = new URL(targetUrl);
+    const allowed = ["finance.yahoo.com", "query1.finance.yahoo.com", "query2.finance.yahoo.com"];
+    if (!allowed.includes(parsed.hostname)) {
+      return res.status(403).json({ error: "Host not permitted" });
+    }
+    const response = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      signal: AbortSignal.timeout(6000)
+    });
+    if (!response.ok) {
+      return res.status(response.status).json({ error: "Upstream response error" });
+    }
+    const data = await response.json();
+    return res.json(data);
+  } catch (err: any) {
+    return res.status(502).json({ error: "Proxy fetch failed", message: err?.message || String(err) });
   }
 });
 

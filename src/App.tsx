@@ -29,7 +29,8 @@ import {
   GripVertical,
   Loader2, PieChart, Bell, BellRing, BellOff,
   AlertTriangle, ShieldAlert, Sliders, Newspaper,
-  Compass, BarChart3, Bot, BrainCircuit, Copy
+  Compass, BarChart3, Bot, BrainCircuit, Copy,
+  Calendar as CalendarIcon, Coins
 } from "lucide-react";
 import Markdown from "react-markdown";
 import { Stock, Position, Candle, ChartType, TimeRange, AIAnalysisResult, PriceAlert } from "./types";
@@ -40,7 +41,9 @@ import StockChart from "./components/StockChart";
 import AIAnalyst from "./components/AIAnalyst";
 import PortfolioHeatmap from "./components/PortfolioHeatmap";
 import PortfolioAllocationChart from "./components/PortfolioAllocationChart";
+import PortfolioCorrelationMatrix from "./components/PortfolioCorrelationMatrix";
 import PortfolioTrendChart from "./components/PortfolioTrendChart";
+import DividendCalendar from "./components/DividendCalendar";
 import CloudSync from "./components/CloudSync";
 import AuthGuard from "./components/AuthGuard";
 import { getStoredUser, loadUserPortfolio, saveUserPortfolio, CloudUser, UserPortfolioData, USER_DATA_PREFIX, CLEAN_DEFAULT_PORTFOLIO } from "./utils/authEngine";
@@ -163,25 +166,31 @@ const AnimatedSparkline = ({ history, isPnLPositive, isUpRed }: { history: numbe
   );
 };
 
-const PriceTicker = ({ price }: { price: number }) => {
+const PriceTicker = ({ price, isUpRed = true }: { price: number; isUpRed?: boolean }) => {
   const [prevPrice, setPrevPrice] = useState(price);
   const [flashClass, setFlashClass] = useState("");
 
   useEffect(() => {
     if (price > prevPrice) {
-      setFlashClass("text-emerald-500 bg-emerald-500/20 px-1.5 rounded-md transition-none font-semibold ring-1 ring-emerald-500/40");
+      const upClass = isUpRed 
+        ? "text-red-500 bg-red-500/20 px-1.5 rounded-md transition-none font-semibold ring-1 ring-red-500/40"
+        : "text-emerald-500 bg-emerald-500/20 px-1.5 rounded-md transition-none font-semibold ring-1 ring-emerald-500/40";
+      setFlashClass(upClass);
     } else if (price < prevPrice) {
-      setFlashClass("text-red-500 bg-red-500/20 px-1.5 rounded-md transition-none font-semibold ring-1 ring-red-500/40");
+      const downClass = isUpRed
+        ? "text-emerald-500 bg-emerald-500/20 px-1.5 rounded-md transition-none font-semibold ring-1 ring-emerald-500/40"
+        : "text-red-500 bg-red-500/20 px-1.5 rounded-md transition-none font-semibold ring-1 ring-red-500/40";
+      setFlashClass(downClass);
     }
     
     setPrevPrice(price);
     
     const timer = setTimeout(() => {
       setFlashClass("transition-colors duration-500");
-    }, 300);
+    }, 400);
     
     return () => clearTimeout(timer);
-  }, [price]);
+  }, [price, isUpRed]);
 
   return (
     <span className={`font-semibold font-mono text-sm sm:text-base tracking-tight text-theme-text-heading ${flashClass}`}>
@@ -321,6 +330,7 @@ export default function App() {
   const stockChartRef = useRef<HTMLDivElement>(null);
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [activeSymbol, setActiveSymbol] = useState<string>("AAPL");
+  const [portfolioHeatmapMode, setPortfolioHeatmapMode] = useState<'value' | 'dividend'>('value');
 
   const handleSelectStock = useCallback((symbol: string, shouldScroll = true) => {
     setActiveSymbol(symbol);
@@ -718,7 +728,14 @@ export default function App() {
 
           for (const newS of data) {
             const oldS = prevMap.get(newS.symbol);
-            if (!oldS || oldS.currentPrice !== newS.currentPrice || oldS.prevClose !== newS.prevClose) {
+            if (
+              !oldS ||
+              oldS.currentPrice !== newS.currentPrice ||
+              oldS.prevClose !== newS.prevClose ||
+              oldS.high !== newS.high ||
+              oldS.low !== newS.low ||
+              oldS.volume !== newS.volume
+            ) {
               hasDiff = true;
               break;
             }
@@ -760,12 +777,12 @@ export default function App() {
 
   // Memoized tracking key for symbols to avoid recreating polling interval on every render
   const symbolsTrackingKey = useMemo(() => {
-    const list = rawPositions.map(p => p.symbol);
-    if (activeSymbol && !list.includes(activeSymbol)) {
-      list.push(activeSymbol);
-    }
-    return list.sort().join(",");
-  }, [rawPositions, activeSymbol]);
+    const set = new Set<string>();
+    rawPositions.forEach(p => set.add(p.symbol));
+    watchlist.forEach(w => set.add(w));
+    if (activeSymbol) set.add(activeSymbol);
+    return Array.from(set).sort().join(",");
+  }, [rawPositions, watchlist, activeSymbol]);
 
   // Setup live updates polling with tiered precision
   useEffect(() => {
@@ -913,6 +930,26 @@ export default function App() {
   const totalDividends = positions.reduce((sum, p) => sum + (p.dividends || 0), 0);
   const totalPnL = totalValue - totalCost + totalDividends;
   const totalPnLPercent = totalCost > 0 ? (totalPnL / totalCost) * 100 : 0;
+
+  // --- Daily PnL Calculations ---
+  const totalDailyPnL = positions.reduce((sum, p) => {
+    const stock = stocks.find(s => s.symbol === p.symbol);
+    if (stock && stock.prevClose > 0) {
+      return sum + (stock.currentPrice - stock.prevClose) * p.quantity;
+    }
+    return sum;
+  }, 0);
+
+  const totalPrevValue = positions.reduce((sum, p) => {
+    const stock = stocks.find(s => s.symbol === p.symbol);
+    if (stock && stock.prevClose > 0) {
+      return sum + (stock.prevClose * p.quantity);
+    }
+    // If we don't have prevClose, fallback to current value to avoid skewed percentage
+    return sum + p.currentValue;
+  }, 0);
+
+  const totalDailyPnLPercent = totalPrevValue > 0 ? (totalDailyPnL / totalPrevValue) * 100 : 0;
 
   // Portfolio PnL Loss Alert Trigger Status
   const isPnlLossAlertTriggered =
@@ -1507,7 +1544,7 @@ export default function App() {
       </motion.header>
 
       {/* PORTFOLIO STATS BENTO ROW (iOS Widget Compact Style on Mobile) */}
-      <section className="px-2.5 sm:px-4 md:px-5 pt-2 sm:pt-3 md:pt-4 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-1.5 sm:gap-2.5 md:gap-3.5" id="portfolio-bento-grid">
+      <section className="px-2.5 sm:px-4 md:px-5 pt-2 sm:pt-3 md:pt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5 sm:gap-2.5 md:gap-3.5" id="portfolio-bento-grid">
         {/* Card 1: Asset Value details */}
         <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
           <div className="flex items-center justify-between text-theme-text-secondary min-w-0 gap-1">
@@ -1589,7 +1626,40 @@ export default function App() {
           </div>
         </div>
 
-        {/* Card 4: Positions overview */}
+        {/* Card 4: Daily PnL */}
+        <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
+          <div className="flex items-center justify-between text-theme-text-secondary min-w-0 gap-1">
+            <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-theme-text-muted truncate">今日盈亏</span>
+            {totalDailyPnL >= 0 ? (
+              <TrendingUp size={14} className={`shrink-0 ${isUpRed ? "text-red-400" : "text-emerald-400"}`} />
+            ) : (
+              <TrendingDown size={14} className={`shrink-0 ${isUpRed ? "text-emerald-400" : "text-red-400"}`} />
+            )}
+          </div>
+          <div className="mt-1 sm:mt-2 md:mt-2.5 min-w-0">
+            <div
+              className={`text-sm sm:text-lg md:text-2xl font-bold font-mono tracking-tight truncate ${
+                totalDailyPnL >= 0
+                  ? isUpRed ? "text-red-500 dark:text-red-400" : "text-emerald-500 dark:text-emerald-400"
+                  : isUpRed ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
+              }`}
+            >
+              {totalDailyPnL >= 0 ? "+" : ""}$<AnimatedNumber value={totalDailyPnL} isUpRed={isUpRed} flashThreshold={0.5} formatter={(v) => v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
+            </div>
+            <div className="mt-0.5 sm:mt-1 flex items-center gap-1 sm:gap-1.5">
+              <span className="text-[10px] sm:text-xs text-theme-text-muted font-medium">较昨收:</span>
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md font-semibold font-mono text-xs sm:text-sm border shadow-2xs ${
+                totalDailyPnLPercent >= 0 
+                  ? isUpRed ? "bg-red-500/20 text-red-500 border-red-500/40 dark:bg-red-500/30 dark:text-red-400" : "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 dark:bg-emerald-500/30 dark:text-emerald-400"
+                  : isUpRed ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/40 dark:bg-emerald-500/30 dark:text-emerald-400" : "bg-red-500/20 text-red-500 border-red-500/40 dark:bg-red-500/30 dark:text-red-400"
+              }`}>
+                <AnimatedNumber value={totalDailyPnLPercent} isUpRed={isUpRed} isPercent={true} flashThreshold={0.01} formatter={(v) => (v >= 0 ? "+" : "") + v.toFixed(2) + "%"} />
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 5: Positions overview */}
         <div className="bg-theme-card/80 border border-theme-border/60 rounded-xl md:rounded-2xl p-2 sm:p-3 md:p-3.5 flex flex-col justify-between shadow-xs hover:shadow-md transition-all backdrop-blur-sm group hover:-translate-y-0.5 min-w-0">
           <div className="flex items-center justify-between text-theme-text-secondary min-w-0 gap-1">
             <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-theme-text-muted truncate">配置分散度</span>
@@ -1780,7 +1850,7 @@ export default function App() {
                         {/* Current Price & Trend */}
                         <td className="py-3.5 text-right font-mono text-theme-text-heading">
                           <div className="flex flex-col items-end gap-1">
-                            <PriceTicker price={p.currentPrice} />
+                            <PriceTicker price={p.currentPrice} isUpRed={isUpRed} />
                             <AnimatedSparkline history={p.history || []} isPnLPositive={isPnLPositive} isUpRed={isUpRed} />
                           </div>
                         </td>
@@ -1971,32 +2041,101 @@ export default function App() {
             )}
           </div>
           
-          {/* Portfolio Heatmap Visualization */}
+          {/* Portfolio Heatmap & Dividend Calendar Visualization */}
           {positions.length > 0 && (
             <div className="mt-6 border-t border-theme-border-muted pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-theme-text-heading flex items-center gap-2">
-                  <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
-                  </svg>
-                  持仓热力图 <span className="text-[10px] md:text-xs font-normal text-theme-text-muted ml-1 md:ml-2 tracking-normal hidden sm:inline">区块大小 = 仓位市值 • 颜色 = 浮动盈亏</span>
-                </h3>
+              <div className="flex flex-wrap items-center justify-between mb-4 gap-2">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <h3 className="text-base font-bold text-theme-text-heading flex items-center gap-2">
+                    <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                    </svg>
+                    <span>持仓分析全景</span>
+                  </h3>
+                  <div className="flex bg-theme-panel p-1 rounded-xl border border-theme-border shadow-2xs">
+                    <button
+                      onClick={() => setPortfolioHeatmapMode('value')}
+                      className={`px-3 py-1 rounded-lg font-bold text-xs transition cursor-pointer flex items-center gap-1.5 ${
+                        portfolioHeatmapMode === 'value'
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-theme-text-muted hover:text-theme-text-primary'
+                      }`}
+                    >
+                      <Layers size={13} />
+                      <span>市值热力图</span>
+                    </button>
+                    <button
+                      onClick={() => setPortfolioHeatmapMode('dividend')}
+                      className={`px-3 py-1 rounded-lg font-bold text-xs transition cursor-pointer flex items-center gap-1.5 ${
+                        portfolioHeatmapMode === 'dividend'
+                          ? 'bg-indigo-600 text-white shadow-xs'
+                          : 'text-theme-text-muted hover:text-theme-text-primary'
+                      }`}
+                    >
+                      <Coins size={13} />
+                      <span>股息日历 & 派息全景</span>
+                    </button>
+                  </div>
+                </div>
+
+                <span className="text-[10px] md:text-xs font-normal text-theme-text-muted tracking-normal hidden sm:inline">
+                  {portfolioHeatmapMode === 'value'
+                    ? '区块大小 = 仓位市值 • 颜色 = 浮动盈亏'
+                    : '解析持仓股息数据 • 月度派息时间表与热力图联动'}
+                </span>
               </div>
-              <PortfolioHeatmap 
-                positions={positions} 
-                onSelect={(sym) => handleSelectStock(sym, true)} 
-                activeSymbol={activeSymbol} 
-                isUpRed={isUpRed} 
-                isLoading={loadingStocks}
-              />
+
+              {portfolioHeatmapMode === 'value' ? (
+                <PortfolioHeatmap 
+                  positions={positions} 
+                  onSelect={(sym) => handleSelectStock(sym, true)} 
+                  activeSymbol={activeSymbol} 
+                  isUpRed={isUpRed} 
+                  isLoading={loadingStocks}
+                />
+              ) : (
+                <DividendCalendar
+                  positions={positions}
+                  stocks={stocks}
+                  activeSymbol={activeSymbol}
+                  onSelectStock={(sym) => handleSelectStock(sym, true)}
+                  isUpRed={isUpRed}
+                />
+              )}
             </div>
           )}
         </div>
+
+        {/* Portfolio Dividend Calendar & Heatmap (Standalone Section) */}
+        {positions.length > 0 && portfolioHeatmapMode === 'value' && (
+          <div className="col-span-12">
+            <DividendCalendar
+              positions={positions}
+              stocks={stocks}
+              activeSymbol={activeSymbol}
+              onSelectStock={(sym) => handleSelectStock(sym, true)}
+              isUpRed={isUpRed}
+            />
+          </div>
+        )}
 
         {/* Portfolio Allocation Weight & PnL Donut Chart (Standalone Section) */}
         {positions.length > 0 && (
           <div className="col-span-12">
             <PortfolioAllocationChart
+              positions={positions}
+              stocks={stocks}
+              onSelect={handleSelectStock}
+              activeSymbol={activeSymbol}
+              isUpRed={isUpRed}
+            />
+          </div>
+        )}
+
+        {/* Portfolio Sector & Asset Correlation Matrix Analysis (Standalone Section) */}
+        {positions.length > 0 && (
+          <div className="col-span-12">
+            <PortfolioCorrelationMatrix
               positions={positions}
               stocks={stocks}
               onSelect={handleSelectStock}

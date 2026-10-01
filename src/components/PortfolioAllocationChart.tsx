@@ -146,7 +146,7 @@ export const SECTOR_CONFIG: Record<string, SectorDefinition> = {
 };
 
 // Symbol to Sector Mapping
-const SYMBOL_SECTOR_MAP: Record<string, string> = {
+export const SYMBOL_SECTOR_MAP: Record<string, string> = {
   NVDA: "TECH_SEMI",
   AMD: "TECH_SEMI",
   TSM: "TECH_SEMI",
@@ -188,7 +188,7 @@ const SYMBOL_SECTOR_MAP: Record<string, string> = {
 };
 
 // Inter-Sector Standard Correlation Coefficients Base Matrix
-const INTER_SECTOR_CORRELATIONS: Record<string, Record<string, number>> = {
+export const INTER_SECTOR_CORRELATIONS: Record<string, Record<string, number>> = {
   TECH_SEMI: {
     TECH_SEMI: 1.00,
     CONSUMER_TECH: 0.78,
