@@ -89,79 +89,86 @@ interface Stock {
   high: number;
   low: number;
   volume: number;
+  open?: number;
+  change?: number;
+  changePercent?: number;
   history?: number[];
+  lastUpdated?: number;
 }
 
 const STOCKS: Stock[] = [
   // === INDEX ETFs ===
-  { symbol: "SPY", name: "SPDR S&P 500 ETF (标普500指数ETF)", basePrice: 550.0, currentPrice: 551.2, prevClose: 549.5, high: 552.5, low: 548.8, volume: 75000000 },
-  { symbol: "QQQ", name: "Invesco QQQ Trust (纳斯达克100 ETF)", basePrice: 490.0, currentPrice: 491.4, prevClose: 488.0, high: 493.0, low: 487.2, volume: 48000000 },
+  { symbol: "SPY", name: "SPDR S&P 500 ETF (标普500指数ETF)", basePrice: 762.63, currentPrice: 763.99, prevClose: 762.63, high: 766.12, low: 761.50, volume: 65000000 },
+  { symbol: "QQQ", name: "Invesco QQQ Trust (纳斯达克100 ETF)", basePrice: 739.77, currentPrice: 742.03, prevClose: 739.77, high: 744.50, low: 738.20, volume: 45000000 },
   { symbol: "IWM", name: "iShares Russell 2000 ETF (罗素2000小盘股)", basePrice: 225.0, currentPrice: 224.8, prevClose: 226.1, high: 227.5, low: 223.5, volume: 32000000 },
-  { symbol: "DIA", name: "SPDR Dow Jones Industrial ETF (道琼斯工业 ETF)", basePrice: 410.0, currentPrice: 411.2, prevClose: 409.0, high: 412.5, low: 408.2, volume: 15000000 },
-  { symbol: "GLD", name: "SPDR Gold Shares (黄金 ETF - 商品基金)", basePrice: 235.0, currentPrice: 236.5, prevClose: 234.2, high: 237.8, low: 233.9, volume: 8000000 },
+  { symbol: "DIA", name: "SPDR Dow Jones Industrial ETF (道琼斯工业 ETF)", basePrice: 508.55, currentPrice: 508.62, prevClose: 508.55, high: 511.20, low: 507.40, volume: 15000000 },
+  { symbol: "GLD", name: "SPDR Gold Shares (黄金 ETF - 商品基金)", basePrice: 380.84, currentPrice: 382.76, prevClose: 380.84, high: 384.10, low: 379.90, volume: 8000000 },
   { symbol: "USO", name: "United States Oil Fund (美国原油 ETF)", basePrice: 78.5, currentPrice: 78.2, prevClose: 79.0, high: 79.8, low: 77.5, volume: 12000000 },
 
   // === S&P 500 TECH & AI GIANTS ===
-  { symbol: "AAPL", name: "Apple Inc. (苹果公司)", basePrice: 300.0, currentPrice: 302.25, prevClose: 300.0, high: 304.5, low: 299.0, volume: 48000000 },
-  { symbol: "NVDA", name: "NVIDIA Corp. (英伟达)", basePrice: 220.0, currentPrice: 224.09, prevClose: 220.0, high: 225.1, low: 216.2, volume: 105000000 },
-  { symbol: "MSFT", name: "Microsoft Corp. (微软)", basePrice: 490.0, currentPrice: 492.43, prevClose: 490.0, high: 495.8, low: 488.0, volume: 25000000 },
-  { symbol: "TSLA", name: "Tesla, Inc. (特斯拉)", basePrice: 325.0, currentPrice: 327.51, prevClose: 325.0, high: 331.0, low: 322.0, volume: 68000000 },
-  { symbol: "AMZN", name: "Amazon.com, Inc. (亚马逊)", basePrice: 265.0, currentPrice: 267.28, prevClose: 265.0, high: 269.5, low: 264.0, volume: 32000000 },
-  { symbol: "GOOGL", name: "Alphabet Inc. (谷歌/Google)", basePrice: 343.8, currentPrice: 343.54, prevClose: 343.8, high: 346.48, low: 340.88, volume: 23850000 },
-  { symbol: "META", name: "Meta Platforms (脸书/元宇宙)", basePrice: 575.0, currentPrice: 578.85, prevClose: 575.0, high: 582.0, low: 572.0, volume: 19000000 },
+  { symbol: "AAPL", name: "Apple Inc. (苹果公司)", basePrice: 333.02, currentPrice: 330.32, prevClose: 333.02, high: 332.48, low: 325.81, volume: 36306346 },
+  { symbol: "NVDA", name: "NVIDIA Corp. (英伟达)", basePrice: 228.38, currentPrice: 230.86, prevClose: 228.38, high: 232.37, low: 228.17, volume: 118683065 },
+  { symbol: "MSFT", name: "Microsoft Corp. (微软)", basePrice: 512.90, currentPrice: 512.80, prevClose: 512.90, high: 522.85, low: 512.17, volume: 19731882 },
+  { symbol: "TSLA", name: "Tesla, Inc. (特斯拉)", basePrice: 354.81, currentPrice: 354.11, prevClose: 354.81, high: 359.79, low: 353.80, volume: 31080774 },
+  { symbol: "AMZN", name: "Amazon.com, Inc. (亚马逊)", basePrice: 249.15, currentPrice: 248.23, prevClose: 249.15, high: 251.83, low: 246.12, volume: 33243918 },
+  { symbol: "GOOGL", name: "Alphabet Inc. (谷歌/Google)", basePrice: 344.08, currentPrice: 338.24, prevClose: 344.08, high: 353.22, low: 335.51, volume: 33269338 },
+  { symbol: "META", name: "Meta Platforms (脸书/元宇宙)", basePrice: 725.18, currentPrice: 725.93, prevClose: 725.18, high: 735.88, low: 721.51, volume: 12408444 },
   { symbol: "AMD", name: "Advanced Micro Devices (超威半导体)", basePrice: 480.0, currentPrice: 482.93, prevClose: 480.0, high: 488.0, low: 476.0, volume: 38000000 },
   { symbol: "AVGO", name: "Broadcom Inc. (博通)", basePrice: 410.0, currentPrice: 416.05, prevClose: 410.0, high: 420.0, low: 408.0, volume: 15000000 },
-  { symbol: "NFLX", name: "Netflix Inc. (网飞/奈飞)", basePrice: 680.0, currentPrice: 682.8, prevClose: 675.0, high: 685.5, low: 670.0, volume: 4500000 },
+  { symbol: "NFLX", name: "Netflix Inc. (网飞/奈飞)", basePrice: 650.0, currentPrice: 658.0, prevClose: 645.0, high: 662.0, low: 644.0, volume: 4500000 },
   { symbol: "ADBE", name: "Adobe Inc. (奥多比)", basePrice: 535.0, currentPrice: 536.4, prevClose: 532.0, high: 542.0, low: 531.0, volume: 3800000 },
-  { symbol: "CRM", name: "Salesforce Inc. (赛富时)", basePrice: 290.0, currentPrice: 291.5, prevClose: 288.5, high: 294.0, low: 287.0, volume: 5500000 },
-  { symbol: "ORCL", name: "Oracle Corp. (甲骨文)", basePrice: 125.0, currentPrice: 126.1, prevClose: 124.8, high: 128.0, low: 124.0, volume: 9000000 },
-  { symbol: "QCOM", name: "Qualcomm Inc. (高通)", basePrice: 168.0, currentPrice: 169.3, prevClose: 167.0, high: 171.5, low: 166.0, volume: 11000000 },
-  { symbol: "INTC", name: "Intel Corp. (英特尔)", basePrice: 42.0, currentPrice: 41.8, prevClose: 42.5, high: 43.1, low: 41.5, volume: 35000000 },
+  { symbol: "CRM", name: "Salesforce Inc. (赛富时)", basePrice: 250.0, currentPrice: 253.2, prevClose: 248.5, high: 255.0, low: 248.0, volume: 5500000 },
+  { symbol: "ORCL", name: "Oracle Corp. (甲骨文)", basePrice: 140.0, currentPrice: 142.1, prevClose: 139.0, high: 143.5, low: 138.8, volume: 9000000 },
+  { symbol: "QCOM", name: "Qualcomm Inc. (高通)", basePrice: 170.0, currentPrice: 171.2, prevClose: 169.0, high: 173.0, low: 168.5, volume: 11000000 },
+  { symbol: "INTC", name: "Intel Corp. (英特尔)", basePrice: 30.0, currentPrice: 29.8, prevClose: 30.5, high: 31.0, low: 29.5, volume: 35000000 },
 
   // === S&P 500 FINANCIALS & HEALTH & VALUE ===
-  { symbol: "BRK.B", name: "Berkshire Hathaway (伯克希尔哈撒韦-B)", basePrice: 415.0, currentPrice: 416.2, prevClose: 414.0, high: 418.5, low: 413.0, volume: 6000000 },
-  { symbol: "JPM", name: "JPMorgan Chase & Co. (摩根大通)", basePrice: 195.0, currentPrice: 196.4, prevClose: 194.5, high: 198.0, low: 193.8, volume: 12000000 },
-  { symbol: "BAC", name: "Bank of America (美国银行)", basePrice: 37.0, currentPrice: 37.2, prevClose: 36.8, high: 37.6, low: 36.5, volume: 38000000 },
+  { symbol: "BRK.B", name: "Berkshire Hathaway (伯克希尔哈撒韦-B)", basePrice: 497.95, currentPrice: 500.50, prevClose: 497.95, high: 502.20, low: 496.80, volume: 6000000 },
+  { symbol: "JPM", name: "JPMorgan Chase & Co. (摩根大通)", basePrice: 215.0, currentPrice: 217.2, prevClose: 213.8, high: 218.5, low: 213.5, volume: 12000000 },
+  { symbol: "BAC", name: "Bank of America (美国银行)", basePrice: 40.0, currentPrice: 40.8, prevClose: 39.8, high: 41.2, low: 39.5, volume: 38000000 },
   { symbol: "GS", name: "Goldman Sachs Group (高盛集团)", basePrice: 410.0, currentPrice: 411.8, prevClose: 408.0, high: 415.0, low: 407.2, volume: 2800000 },
-  { symbol: "V", name: "Visa Inc. (维萨卡)", basePrice: 280.0, currentPrice: 281.3, prevClose: 279.0, high: 283.5, low: 278.2, volume: 6500000 },
-  { symbol: "MA", name: "Mastercard Inc. (万事达卡)", basePrice: 475.0, currentPrice: 476.9, prevClose: 473.5, high: 480.0, low: 472.0, volume: 3200000 },
-  { symbol: "XOM", name: "Exxon Mobil Corp. (埃克森美孚)", basePrice: 115.0, currentPrice: 115.8, prevClose: 114.2, high: 116.9, low: 113.8, volume: 18000000 },
-  { symbol: "CVX", name: "Chevron Corp. (雪佛龙)", basePrice: 158.0, currentPrice: 157.6, prevClose: 159.0, high: 161.0, low: 156.5, volume: 9500000 },
-  { symbol: "KO", name: "Coca-Cola Co. (可口可乐)", basePrice: 87.0, currentPrice: 87.02, prevClose: 86.48, high: 87.29, low: 85.68, volume: 14000000 },
-  { symbol: "PEP", name: "PepsiCo Inc. (百事公司)", basePrice: 168.0, currentPrice: 168.5, prevClose: 167.2, high: 170.0, low: 166.8, volume: 5500000 },
-  { symbol: "PG", name: "Procter & Gamble (宝洁公司)", basePrice: 162.0, currentPrice: 162.9, prevClose: 161.5, high: 164.0, low: 161.0, volume: 7000000 },
-  { symbol: "WMT", name: "Walmart Inc. (沃尔玛)", basePrice: 60.0, currentPrice: 60.3, prevClose: 59.8, high: 60.8, low: 59.5, volume: 18000000 },
-  { symbol: "COST", name: "Costco Wholesale (开市客)", basePrice: 725.0, currentPrice: 728.1, prevClose: 722.0, high: 733.0, low: 720.0, volume: 2500000 },
-  { symbol: "NKE", name: "NIKE Inc. (耐克)", basePrice: 100.0, currentPrice: 99.4, prevClose: 101.2, high: 102.5, low: 98.8, volume: 8000000 },
-  { symbol: "DIS", name: "Walt Disney Co. (华特迪士尼)", basePrice: 112.0, currentPrice: 112.5, prevClose: 111.0, high: 114.2, low: 110.5, volume: 9000000 },
-  { symbol: "LLY", name: "Eli Lilly & Co. (礼来制药)", basePrice: 760.0, currentPrice: 764.5, prevClose: 755.0, high: 775.0, low: 752.0, volume: 4000000 },
-  { symbol: "JNJ", name: "Johnson & Johnson (强生制药)", basePrice: 155.0, currentPrice: 155.4, prevClose: 154.8, high: 156.8, low: 154.0, volume: 8500000 },
-  { symbol: "UNH", name: "UnitedHealth Group (联合健康)", basePrice: 490.0, currentPrice: 488.5, prevClose: 492.1, high: 495.0, low: 485.5, volume: 3500000 },
-  { symbol: "VZ", name: "Verizon Communications Inc. (威瑞森电信)", basePrice: 40.5, currentPrice: 40.85, prevClose: 40.2, high: 41.2, low: 39.9, volume: 18500000 },
+  { symbol: "V", name: "Visa Inc. (维萨卡)", basePrice: 270.0, currentPrice: 272.5, prevClose: 268.5, high: 274.0, low: 268.0, volume: 6500000 },
+  { symbol: "MA", name: "Mastercard Inc. (万事达卡)", basePrice: 460.0, currentPrice: 464.8, prevClose: 458.0, high: 467.0, low: 457.5, volume: 3200000 },
+  { symbol: "XOM", name: "Exxon Mobil Corp. (埃克森美孚)", basePrice: 118.0, currentPrice: 119.2, prevClose: 117.5, high: 120.0, low: 117.2, volume: 18000000 },
+  { symbol: "CVX", name: "Chevron Corp. (雪佛龙)", basePrice: 145.0, currentPrice: 146.5, prevClose: 144.2, high: 147.2, low: 144.0, volume: 9500000 },
+  { symbol: "KO", name: "Coca-Cola Co. (可口可乐)", basePrice: 86.08, currentPrice: 86.10, prevClose: 86.08, high: 86.85, low: 85.90, volume: 14000000 },
+  { symbol: "PEP", name: "PepsiCo Inc. (百事公司)", basePrice: 172.0, currentPrice: 173.5, prevClose: 171.2, high: 174.8, low: 171.0, volume: 5500000 },
+  { symbol: "PG", name: "Procter & Gamble (宝洁公司)", basePrice: 168.0, currentPrice: 169.5, prevClose: 167.2, high: 170.2, low: 167.0, volume: 7000000 },
+  { symbol: "WMT", name: "Walmart Inc. (沃尔玛)", basePrice: 73.0, currentPrice: 74.2, prevClose: 72.8, high: 74.8, low: 72.5, volume: 18000000 },
+  { symbol: "COST", name: "Costco Wholesale (开市客)", basePrice: 880.0, currentPrice: 888.5, prevClose: 875.0, high: 892.0, low: 872.0, volume: 2500000 },
+  { symbol: "NKE", name: "NIKE Inc. (耐克)", basePrice: 80.0, currentPrice: 81.2, prevClose: 79.5, high: 82.0, low: 79.2, volume: 8000000 },
+  { symbol: "DIS", name: "Walt Disney Co. (华特迪士尼)", basePrice: 104.90, currentPrice: 101.33, prevClose: 104.90, high: 105.20, low: 100.80, volume: 9000000 },
+  { symbol: "LLY", name: "Eli Lilly & Co. (礼来制药)", basePrice: 920.0, currentPrice: 932.0, prevClose: 915.0, high: 938.0, low: 912.0, volume: 4000000 },
+  { symbol: "JNJ", name: "Johnson & Johnson (强生制药)", basePrice: 264.74, currentPrice: 258.66, prevClose: 264.74, high: 266.10, low: 257.50, volume: 8500000 },
+  { symbol: "UNH", name: "UnitedHealth Group (联合健康)", basePrice: 560.0, currentPrice: 565.0, prevClose: 558.0, high: 568.0, low: 556.0, volume: 3500000 },
+  { symbol: "VZ", name: "Verizon Communications Inc. (威瑞森电信)", basePrice: 45.87, currentPrice: 45.98, prevClose: 45.87, high: 46.20, low: 45.79, volume: 18500000 },
   { symbol: "T", name: "AT&T Inc. (美国电话电报)", basePrice: 18.8, currentPrice: 18.95, prevClose: 18.7, high: 19.2, low: 18.5, volume: 32000000 },
   { symbol: "TMUS", name: "T-Mobile US, Inc. (T-移动)", basePrice: 178.0, currentPrice: 179.2, prevClose: 177.5, high: 181.0, low: 176.8, volume: 4500000 },
 
   // === GLOBAL CHIPS & CARS ===
   { symbol: "TSM", name: "TSMC (台积电 ADR)", basePrice: 140.0, currentPrice: 140.8, prevClose: 139.2, high: 142.0, low: 138.5, volume: 15000000 },
   { symbol: "ASML", name: "ASML Holding (阿斯麦 ADR)", basePrice: 920.0, currentPrice: 924.5, prevClose: 915.0, high: 938.0, low: 912.0, volume: 1500000 },
-  { symbol: "F", name: "Ford Motor Co. (福特汽车)", basePrice: 12.2, currentPrice: 12.3, prevClose: 12.1, high: 12.5, low: 11.9, volume: 45000000 },
-  { symbol: "GM", name: "General Motors (通用汽车)", basePrice: 40.5, currentPrice: 40.9, prevClose: 40.1, high: 41.5, low: 39.8, volume: 12000000 },
+  { symbol: "F", name: "Ford Motor Co. (福特汽车)", basePrice: 12.2, currentPrice: 12.27, prevClose: 12.06, high: 12.29, low: 11.90, volume: 45000000 },
+  { symbol: "GM", name: "General Motors (通用汽车)", basePrice: 77.0, currentPrice: 79.31, prevClose: 77.0, high: 79.35, low: 76.44, volume: 12000000 },
 
   // === CHINA CONCEPT ADRs & HK & A-SHARES ===
-  { symbol: "BABA", name: "Alibaba Group (阿里巴巴 ADR)", basePrice: 72.0, currentPrice: 71.8, prevClose: 72.5, high: 73.2, low: 71.0, volume: 19000000 },
-  { symbol: "PDD", name: "PDD Holdings (拼多多 ADR)", basePrice: 120.0, currentPrice: 121.5, prevClose: 118.9, high: 124.0, low: 118.0, volume: 11000000 },
-  { symbol: "JD", name: "JD.com, Inc. (京东集团 ADR)", basePrice: 26.5, currentPrice: 26.2, prevClose: 26.9, high: 27.2, low: 25.9, volume: 14000000 },
-  { symbol: "LI", name: "Li Auto Inc. (理想汽车 ADR)", basePrice: 24.5, currentPrice: 24.8, prevClose: 24.1, high: 25.5, low: 23.8, volume: 15000000 },
-  { symbol: "NIO", name: "NIO Inc. (蔚来汽车 ADR)", basePrice: 4.8, currentPrice: 4.75, prevClose: 4.85, high: 5.0, low: 4.65, volume: 38000000 },
-  { symbol: "XPEV", name: "XPeng Inc. (小鹏汽车 ADR)", basePrice: 7.5, currentPrice: 7.42, prevClose: 7.6, high: 7.9, low: 7.3, volume: 22000000 },
-  { symbol: "0700.HK", name: "Tencent Holdings (腾讯控股)", basePrice: 380.0, currentPrice: 382.4, prevClose: 378.0, high: 385.0, low: 377.2, volume: 12000000 },
-  { symbol: "3690.HK", name: "Meituan (美团)", basePrice: 115.0, currentPrice: 116.3, prevClose: 114.2, high: 118.0, low: 113.5, volume: 21000000 },
-  { symbol: "1810.HK", name: "Xiaomi Group (小米集团)", basePrice: 18.5, currentPrice: 18.7, prevClose: 18.3, high: 19.1, low: 18.2, volume: 48000000 },
-  { symbol: "9988.HK", name: "Alibaba HK (阿里巴巴-SW)", basePrice: 73.0, currentPrice: 72.8, prevClose: 73.5, high: 74.2, low: 72.0, volume: 35000000 },
-  { symbol: "9618.HK", name: "JD HK (京东集团-SW)", basePrice: 104.0, currentPrice: 102.8, prevClose: 105.1, high: 106.5, low: 101.8, volume: 8000000 },
+  { symbol: "BABA", name: "Alibaba Group (阿里巴巴 ADR)", basePrice: 107.54, currentPrice: 107.45, prevClose: 107.54, high: 109.56, low: 106.70, volume: 19000000 },
+  { symbol: "PDD", name: "PDD Holdings (拼多多 ADR)", basePrice: 77.94, currentPrice: 76.50, prevClose: 77.94, high: 78.74, low: 76.31, volume: 11000000 },
+  { symbol: "JD", name: "JD.com, Inc. (京东集团 ADR)", basePrice: 26.60, currentPrice: 26.37, prevClose: 26.60, high: 26.86, low: 26.27, volume: 14000000 },
+  { symbol: "LI", name: "Li Auto Inc. (理想汽车 ADR)", basePrice: 11.36, currentPrice: 11.12, prevClose: 11.36, high: 11.48, low: 11.11, volume: 15000000 },
+  { symbol: "NIO", name: "NIO Inc. (蔚来汽车 ADR)", basePrice: 3.43, currentPrice: 3.40, prevClose: 3.43, high: 3.47, low: 3.38, volume: 38000000 },
+  { symbol: "XPEV", name: "XPeng Inc. (小鹏汽车 ADR)", basePrice: 9.56, currentPrice: 9.42, prevClose: 9.56, high: 9.67, low: 9.42, volume: 22000000 },
+  { symbol: "0700.HK", name: "Tencent Holdings (腾讯控股)", basePrice: 431.00, currentPrice: 421.20, prevClose: 431.00, high: 425.00, low: 419.80, volume: 19108045 },
+  { symbol: "3690.HK", name: "Meituan (美团)", basePrice: 115.0, currentPrice: 116.8, prevClose: 113.5, high: 118.0, low: 113.0, volume: 21000000 },
+  { symbol: "1810.HK", name: "Xiaomi Group (小米集团)", basePrice: 25.24, currentPrice: 24.24, prevClose: 25.24, high: 24.70, low: 23.74, volume: 48000000 },
+  { symbol: "9988.HK", name: "Alibaba HK (阿里巴巴-SW)", basePrice: 106.60, currentPrice: 104.40, prevClose: 106.60, high: 107.50, low: 103.80, volume: 35000000 },
+  { symbol: "9618.HK", name: "JD HK (京东集团-SW)", basePrice: 104.30, currentPrice: 102.90, prevClose: 104.30, high: 106.50, low: 100.40, volume: 8000000 },
   { symbol: "BYDDF", name: "BYD Company (比亚迪股份 ADR)", basePrice: 28.0, currentPrice: 28.3, prevClose: 27.9, high: 28.8, low: 27.6, volume: 5000000 },
-  { symbol: "600519.SH", name: "Kweichow Moutai (贵州茅台 A股)", basePrice: 1650.0, currentPrice: 1654.5, prevClose: 1642.0, high: 1670.0, low: 1640.0, volume: 1800000 },
-  { symbol: "000001.SZ", name: "Ping An Bank (平安银行 A股)", basePrice: 10.5, currentPrice: 10.55, prevClose: 10.48, high: 10.7, low: 10.4, volume: 85000000 }
+  { symbol: "600519.SH", name: "Kweichow Moutai (贵州茅台 A股)", basePrice: 1235.58, currentPrice: 1258.62, prevClose: 1235.58, high: 1268.00, low: 1236.05, volume: 3833100 },
+  { symbol: "000858.SZ", name: "Wuliangye (五粮液 A股)", basePrice: 68.77, currentPrice: 70.06, prevClose: 68.77, high: 70.47, low: 68.68, volume: 19488500 },
+  { symbol: "300750.SZ", name: "CATL (宁德时代 A股)", basePrice: 286.80, currentPrice: 291.11, prevClose: 286.80, high: 295.00, low: 285.20, volume: 14000000 },
+  { symbol: "000001.SZ", name: "Ping An Bank (平安银行 A股)", basePrice: 11.35, currentPrice: 11.57, prevClose: 11.35, high: 11.65, low: 11.33, volume: 85000000 },
+  { symbol: "PLTR", name: "Palantir Technologies (帕兰提尔 AI)", basePrice: 187.05, currentPrice: 190.04, prevClose: 187.05, high: 191.80, low: 186.60, volume: 17755532 }
 ];
 
 const GLOBAL_STOCK_DIRECTORY: Record<string, { name: string; basePrice: number }> = {
@@ -473,94 +480,219 @@ STOCKS.forEach(s => {
   }
 });
 
-// Background task: Periodically refresh real Yahoo Finance quotes every 20s in rotating batches
-let backgroundSyncOffset = 0;
-setInterval(async () => {
-  try {
-    const batchSize = 15;
-    const batch = STOCKS.slice(backgroundSyncOffset, backgroundSyncOffset + batchSize);
-    backgroundSyncOffset = (backgroundSyncOffset + batchSize) % STOCKS.length;
-    const symbols = batch.map(s => s.symbol);
+function toYahooSymbol(sym: string): string {
+  const s = sym.trim().toUpperCase();
+  if (s.endsWith(".SH")) {
+    return s.replace(".SH", ".SS");
+  }
+  if (s === "BRK.B" || s === "BRK/B") {
+    return "BRK-B";
+  }
+  if (s === "BF.B" || s === "BF/B") {
+    return "BF-B";
+  }
+  return s;
+}
 
-    await Promise.all(symbols.map(async (sym) => {
+function toTencentCode(sym: string): string {
+  const s = sym.trim().toUpperCase();
+  if (s.endsWith(".HK")) {
+    const num = s.replace(".HK", "").padStart(5, "0");
+    return "hk" + num;
+  }
+  if (s.endsWith(".SH") || s.endsWith(".SS") || (/^6[08]\d{4}/.test(s))) {
+    return "sh" + s.replace(/[^0-9]/g, "");
+  }
+  if (s.endsWith(".SZ") || (/^(00|30)\d{4}/.test(s))) {
+    return "sz" + s.replace(/[^0-9]/g, "");
+  }
+  const cleanUS = s.split(".")[0].replace(/[^A-Z]/g, "");
+  return "us" + cleanUS;
+}
+
+const symbolLastUpdated = new Map<string, number>();
+
+async function syncRealtimeQuotes(symbols: string[]): Promise<void> {
+  if (!symbols || symbols.length === 0) return;
+
+  const now = Date.now();
+  const validSymbols = Array.from(new Set(symbols.map(s => s.trim().toUpperCase()).filter(Boolean)));
+  const unupdated: string[] = [];
+
+  // 1. Primary Engine: Parallel Yahoo Finance queries in chunks of 10
+  const CHUNK_SIZE = 10;
+  for (let i = 0; i < validSymbols.length; i += CHUNK_SIZE) {
+    const chunk = validSymbols.slice(i, i + CHUNK_SIZE);
+    await Promise.allSettled(chunk.map(async (sym) => {
       try {
-        const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-          signal: AbortSignal.timeout(5000)
+        const yahooSym = toYahooSymbol(sym);
+        const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${yahooSym}?range=1d&interval=1d`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/122.0.0.0 Safari/537.36'
+          },
+          signal: AbortSignal.timeout(4000)
         });
         if (res.ok) {
           const data = await res.json();
           const meta = data?.chart?.result?.[0]?.meta;
-          if (meta && meta.regularMarketPrice > 0) {
+          const price = meta?.regularMarketPrice || meta?.fulldayPrice || meta?.postMarketPrice || 0;
+          if (meta && price > 0) {
+            symbolLastUpdated.set(sym, now);
+            const prevClose = meta.chartPreviousClose || meta.previousClose || meta.regularMarketPreviousClose || price;
+            const high = meta.regularMarketDayHigh || price;
+            const low = meta.regularMarketDayLow || price;
+            const open = meta.regularMarketDayOpen || meta.chartPreviousClose || price;
+            const volume = meta.regularMarketVolume || 0;
+            const name = meta.longName || meta.shortName;
+
             const stock = STOCKS.find(s => s.symbol === sym);
             if (stock) {
-              stock.currentPrice = meta.regularMarketPrice;
-              stock.prevClose = meta.previousClose || meta.chartPreviousClose || stock.prevClose;
-              stock.high = meta.regularMarketDayHigh || stock.high;
-              stock.low = meta.regularMarketDayLow || stock.low;
-              stock.volume = meta.regularMarketVolume || stock.volume;
+              stock.currentPrice = price;
+              stock.prevClose = prevClose;
+              stock.open = open;
+              stock.high = high;
+              stock.low = low;
+              stock.volume = volume;
+              stock.lastUpdated = now;
+              if (name && (!stock.name || stock.name === sym)) {
+                stock.name = `${name} (${sym})`;
+              }
               if (!stock.history) stock.history = [];
-              stock.history.push(stock.currentPrice);
-              if (stock.history.length > 15) stock.history.shift();
+              stock.history.push(price);
+              if (stock.history.length > 20) stock.history.shift();
+            } else {
+              STOCKS.push({
+                symbol: sym,
+                name: name ? `${name} (${sym})` : sym,
+                basePrice: prevClose,
+                currentPrice: price,
+                prevClose,
+                open,
+                high,
+                low,
+                volume,
+                lastUpdated: now,
+                history: Array(15).fill(price)
+              });
             }
+            return;
           }
         }
-      } catch {}
+        unupdated.push(sym);
+      } catch {
+        unupdated.push(sym);
+      }
     }));
-  } catch {}
-}, 20000);
+  }
 
-const symbolLastUpdated = new Map<string, number>();
-
-async function syncStockQuotes(symbols: string[]): Promise<void> {
-  const now = Date.now();
-  // Filter symbols needing refresh (older than 3 seconds)
-  const targets = symbols
-    .map(s => s.trim().toUpperCase())
-    .filter(s => s && (now - (symbolLastUpdated.get(s) || 0) > 3000))
-    .slice(0, 20);
-
-  if (targets.length === 0) return;
-
-  await Promise.allSettled(targets.map(async (sym) => {
+  // 2. Secondary fallback: Tencent Finance for any symbols not updated by Yahoo Finance
+  if (unupdated.length > 0) {
     try {
-      symbolLastUpdated.set(sym, now);
-      const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=1d`, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-        signal: AbortSignal.timeout(3500)
+      const tencentCodeMap = new Map<string, string>();
+      const codesToFetch: string[] = [];
+      
+      unupdated.forEach(sym => {
+        const code = toTencentCode(sym);
+        if (code) {
+          tencentCodeMap.set(code.toLowerCase(), sym);
+          codesToFetch.push(code);
+        }
       });
-      if (res.ok) {
-        const data = await res.json();
-        const meta = data?.chart?.result?.[0]?.meta;
-        if (meta && meta.regularMarketPrice > 0) {
-          const stock = STOCKS.find(s => s.symbol === sym);
-          if (stock) {
-            stock.currentPrice = meta.regularMarketPrice;
-            stock.prevClose = meta.previousClose || meta.chartPreviousClose || stock.prevClose;
-            stock.high = meta.regularMarketDayHigh || meta.regularMarketPrice;
-            stock.low = meta.regularMarketDayLow || meta.regularMarketPrice;
-            stock.volume = meta.regularMarketVolume || stock.volume;
-            if (!stock.history) stock.history = [];
-            stock.history.push(stock.currentPrice);
-            if (stock.history.length > 20) stock.history.shift();
-          } else {
-            STOCKS.push({
-              symbol: sym,
-              name: meta.longName || meta.shortName || sym,
-              basePrice: meta.previousClose || meta.regularMarketPrice || 0,
-              currentPrice: meta.regularMarketPrice || 0,
-              prevClose: meta.previousClose || meta.regularMarketPrice || 0,
-              high: meta.regularMarketDayHigh || meta.regularMarketPrice || 0,
-              low: meta.regularMarketDayLow || meta.regularMarketPrice || 0,
-              volume: meta.regularMarketVolume || 0,
-              history: Array(15).fill(meta.regularMarketPrice || 0)
+
+      if (codesToFetch.length > 0) {
+        for (let i = 0; i < codesToFetch.length; i += 30) {
+          const batch = codesToFetch.slice(i, i + 30);
+          try {
+            const res = await fetch(`https://qt.gtimg.cn/q=${batch.join(",")}`, {
+              signal: AbortSignal.timeout(6000)
             });
-          }
+            if (res.ok) {
+              const buffer = await res.arrayBuffer();
+              const text = new TextDecoder("gbk").decode(buffer);
+              const lines = text.split(";").filter(l => l.trim());
+
+              for (const line of lines) {
+                const eqIdx = line.indexOf("=");
+                if (eqIdx === -1) continue;
+                const varName = line.substring(0, eqIdx).trim().replace(/^v_/, "").toLowerCase();
+                const content = line.substring(eqIdx + 1).replace(/"/g, "").trim();
+                const parts = content.split("~");
+                if (parts.length > 5) {
+                  const chineseName = parts[1];
+                  const price = parseFloat(parts[3]);
+                  const prevClose = parseFloat(parts[4]);
+                  const open = parseFloat(parts[5]) || prevClose;
+                  const high = parseFloat(parts[33]) || price;
+                  const low = parseFloat(parts[34]) || price;
+                  let volume = parseFloat(parts[6]) || 0;
+                  if (varName.startsWith("sh") || varName.startsWith("sz")) {
+                    volume = volume * 100;
+                  }
+
+                  const origSym = tencentCodeMap.get(varName);
+                  if (origSym && price > 0) {
+                    symbolLastUpdated.set(origSym, now);
+                    const stock = STOCKS.find(s => s.symbol === origSym);
+                    if (stock) {
+                      stock.currentPrice = price;
+                      if (prevClose > 0) stock.prevClose = prevClose;
+                      if (open > 0) stock.open = open;
+                      if (high > 0) stock.high = high;
+                      if (low > 0) stock.low = low;
+                      if (volume > 0) stock.volume = volume;
+                      stock.lastUpdated = now;
+                      if (chineseName && (!stock.name || stock.name.includes(origSym))) {
+                        stock.name = `${chineseName} (${origSym})`;
+                      }
+                      if (!stock.history) stock.history = [];
+                      stock.history.push(price);
+                      if (stock.history.length > 20) stock.history.shift();
+                    } else {
+                      STOCKS.push({
+                        symbol: origSym,
+                        name: `${chineseName || origSym} (${origSym})`,
+                        basePrice: prevClose || price,
+                        currentPrice: price,
+                        prevClose: prevClose || price,
+                        open: open || price,
+                        high: high || price,
+                        low: low || price,
+                        volume: volume || 0,
+                        lastUpdated: now,
+                        history: Array(15).fill(price)
+                      });
+                    }
+                  }
+                }
+              }
+            }
+          } catch {}
         }
       }
     } catch {}
-  }));
+  }
 }
+
+// Background task: Periodically refresh real-time quotes every 8s
+let backgroundRefreshIndex = 0;
+setInterval(() => {
+  try {
+    const allSymbols = STOCKS.map(s => s.symbol);
+    if (allSymbols.length > 0) {
+      const batchSize = 15;
+      const start = backgroundRefreshIndex % allSymbols.length;
+      const batch = allSymbols.slice(start, start + batchSize);
+      if (batch.length < batchSize) {
+        batch.push(...allSymbols.slice(0, batchSize - batch.length));
+      }
+      backgroundRefreshIndex = (backgroundRefreshIndex + batchSize) % allSymbols.length;
+      syncRealtimeQuotes(batch);
+    }
+  } catch {}
+}, 8000);
+
+// Prime real-time quotes immediately on server launch
+syncRealtimeQuotes(STOCKS.map(s => s.symbol));
 
 // 1. API: List Stocks
 app.get("/api/stocks", async (req, res) => {
@@ -573,7 +705,9 @@ app.get("/api/stocks", async (req, res) => {
     }
     
     if (requestedSymbols.length > 0) {
-      await syncStockQuotes(requestedSymbols);
+      await syncRealtimeQuotes(requestedSymbols);
+    } else {
+      await syncRealtimeQuotes(STOCKS.map(s => s.symbol).slice(0, 30));
     }
   } catch (err: any) {
     if (!isExpectedFetchFallback(err)) {
@@ -732,41 +866,55 @@ app.get("/api/stocks/quote/:symbol", async (req, res) => {
   try {
     let quote: any = { symbol };
     try {
-      const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?range=1d&interval=1d`, { 
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
-        signal: AbortSignal.timeout(5000)
+      const yahooSym = toYahooSymbol(symbol);
+      const res = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${yahooSym}?range=1d&interval=1d`, { 
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/122.0.0.0 Safari/537.36' },
+        signal: AbortSignal.timeout(4000)
       });
       if (res.ok) {
         const data = await res.json();
         const meta = data?.chart?.result?.[0]?.meta;
         if (meta) {
+          const price = meta.regularMarketPrice || meta.fulldayPrice || meta.postMarketPrice || 0;
+          const prevClose = meta.chartPreviousClose || meta.previousClose || meta.regularMarketPreviousClose || price;
           quote = {
             symbol,
-            longName: symbol,
-            shortName: symbol,
-            regularMarketPrice: meta.regularMarketPrice,
-            regularMarketPreviousClose: meta.previousClose,
-            regularMarketDayHigh: meta.regularMarketDayHigh || meta.regularMarketPrice,
-            regularMarketDayLow: meta.regularMarketDayLow || meta.regularMarketPrice,
+            longName: meta.longName || meta.shortName || symbol,
+            shortName: meta.shortName || meta.longName || symbol,
+            regularMarketPrice: price,
+            regularMarketPreviousClose: prevClose,
+            regularMarketDayOpen: meta.regularMarketDayOpen || meta.chartPreviousClose || price,
+            regularMarketDayHigh: meta.regularMarketDayHigh || price,
+            regularMarketDayLow: meta.regularMarketDayLow || price,
             regularMarketVolume: meta.regularMarketVolume || 0
           };
         }
       }
     } catch (e) {}
+
     const existing = STOCKS.find(s => s.symbol === symbol) || GLOBAL_STOCK_DIRECTORY[symbol];
-    const resolvedName = (existing && existing.name && existing.name !== symbol)
-      ? existing.name
+    const resolvedName = (existing && (existing as any).name && (existing as any).name !== symbol)
+      ? (existing as any).name
       : (GLOBAL_STOCK_DIRECTORY[symbol]?.name || quote.longName || quote.shortName || symbol);
+
+    const price = quote.regularMarketPrice || (existing as any)?.currentPrice || 0;
+    const prevClose = quote.regularMarketPreviousClose || (existing as any)?.prevClose || price;
+    const open = quote.regularMarketDayOpen || (existing as any)?.open || prevClose;
+    const high = quote.regularMarketDayHigh || (existing as any)?.high || price;
+    const low = quote.regularMarketDayLow || (existing as any)?.low || price;
+    const volume = quote.regularMarketVolume || (existing as any)?.volume || 0;
 
     const stockData = {
       symbol: quote.symbol,
       name: resolvedName,
-      basePrice: quote.regularMarketPreviousClose || (existing as any)?.basePrice || 0,
-      currentPrice: quote.regularMarketPrice || quote.postMarketPrice || (existing as any)?.currentPrice || 0,
-      prevClose: quote.regularMarketPreviousClose || (existing as any)?.prevClose || 0,
-      high: quote.regularMarketDayHigh || (existing as any)?.high || 0,
-      low: quote.regularMarketDayLow || (existing as any)?.low || 0,
-      volume: quote.regularMarketVolume || (existing as any)?.volume || 0
+      basePrice: prevClose,
+      currentPrice: price,
+      prevClose,
+      open,
+      high,
+      low,
+      volume,
+      lastUpdated: Date.now()
     };
     
     // Update local cache
@@ -774,9 +922,11 @@ app.get("/api/stocks/quote/:symbol", async (req, res) => {
     if (stockInCache) {
       if (stockData.currentPrice > 0) stockInCache.currentPrice = stockData.currentPrice;
       if (stockData.prevClose > 0) stockInCache.prevClose = stockData.prevClose;
+      if (stockData.open > 0) stockInCache.open = stockData.open;
       if (stockData.high > 0) stockInCache.high = stockData.high;
       if (stockData.low > 0) stockInCache.low = stockData.low;
       if (stockData.volume > 0) stockInCache.volume = stockData.volume;
+      stockInCache.lastUpdated = Date.now();
       if (resolvedName && resolvedName !== symbol) stockInCache.name = resolvedName;
     } else {
       (stockData as any).history = Array(15).fill(stockData.currentPrice || 0);
@@ -825,6 +975,7 @@ app.get("/api/stocks/proxy", async (req, res) => {
 app.get("/api/stocks/candles/:symbol", async (req, res) => {
   const symbol = req.params.symbol.toUpperCase();
   const range = String(req.query.range || "1M").toUpperCase();
+  const yahooSym = toYahooSymbol(symbol);
   
   try {
     const period1 = new Date();
@@ -852,7 +1003,7 @@ app.get("/api/stocks/candles/:symbol", async (req, res) => {
       interval = "1mo";
     }
 
-    const resYahoo = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${symbol}?period1=${Math.floor(period1.getTime()/1000)}&period2=${Math.floor(period2.getTime()/1000)}&interval=${interval}`, { 
+    const resYahoo = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${yahooSym}?period1=${Math.floor(period1.getTime()/1000)}&period2=${Math.floor(period2.getTime()/1000)}&interval=${interval}`, { 
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, Gecko) Chrome/120.0.0.0 Safari/537.36' },
       signal: AbortSignal.timeout(5000)
     });

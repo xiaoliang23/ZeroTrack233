@@ -563,6 +563,12 @@ function StockChart({
   const fallbackCandle: Candle = { open: 0, close: 0, high: 0, low: 0, volume: 0, time: "" };
   const currentCandle: Candle = activeCandles[activeCandleIndex] || fallbackCandle;
 
+  const currencySymbol = useMemo(() => {
+    if (symbol.endsWith(".HK")) return "HK$";
+    if (symbol.endsWith(".SH") || symbol.endsWith(".SZ") || symbol.endsWith(".SS")) return "¥";
+    return "$";
+  }, [symbol]);
+
   // Real-time synchronization: When not hovering over historical candles,
   // align display price and change directly with the active stock's live market quotes
   const displayPrice = (!isHovering && activeStock && activeStock.currentPrice > 0)
@@ -570,12 +576,16 @@ function StockChart({
     : currentCandle.close;
 
   const displayHigh = (!isHovering && activeStock && activeStock.high > 0)
-    ? activeStock.high
+    ? Math.max(activeStock.high, currentCandle.high || 0, displayPrice)
     : currentCandle.high;
 
   const displayLow = (!isHovering && activeStock && activeStock.low > 0)
-    ? activeStock.low
+    ? Math.min(activeStock.low, currentCandle.low > 0 ? currentCandle.low : activeStock.low, displayPrice)
     : currentCandle.low;
+
+  const displayOpen = (!isHovering && activeStock && (activeStock.open || activeStock.basePrice))
+    ? (activeStock.open || activeStock.basePrice || currentCandle.open)
+    : currentCandle.open;
 
   // Real daily change (relative to previous close) when viewing latest, or intra-candle change when hovering
   const displayChange = (!isHovering && activeStock && activeStock.prevClose > 0)
@@ -1613,10 +1623,10 @@ function StockChart({
             </span>
           )}
           <span><strong className="text-theme-text-muted font-normal text-xs">{isHovering ? "时间:" : "最新:"}</strong> <span className="price-digit text-theme-text-heading">{currentCandle.time || "--"}</span></span>
-          <span><strong className="text-theme-text-muted font-normal text-xs">开:</strong> <span className="price-digit text-theme-text-heading">${currentCandle.open?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-theme-text-muted font-normal text-xs">高:</strong> <span className="price-digit text-red-500">${displayHigh?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-theme-text-muted font-normal text-xs">低:</strong> <span className="price-digit text-emerald-500">${displayLow?.toFixed(2) || "--"}</span></span>
-          <span><strong className="text-theme-text-muted font-normal text-xs">{isHovering ? "收:" : "现价:"}</strong> <span className={`price-digit font-bold ${isUp ? (isUpRed ? "text-red-500" : "text-emerald-500") : (isUpRed ? "text-emerald-500" : "text-red-500")}`}>${displayPrice?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal text-xs">开:</strong> <span className="price-digit text-theme-text-heading">{currencySymbol}{displayOpen?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal text-xs">高:</strong> <span className="price-digit text-red-500">{currencySymbol}{displayHigh?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal text-xs">低:</strong> <span className="price-digit text-emerald-500">{currencySymbol}{displayLow?.toFixed(2) || "--"}</span></span>
+          <span><strong className="text-theme-text-muted font-normal text-xs">{isHovering ? "收:" : "现价:"}</strong> <span className={`price-digit font-bold ${isUp ? (isUpRed ? "text-red-500" : "text-emerald-500") : (isUpRed ? "text-emerald-500" : "text-red-500")}`}>{currencySymbol}{displayPrice?.toFixed(2) || "--"}</span></span>
           
           <span className="flex items-center gap-1">
             <strong className="text-theme-text-muted font-normal text-xs">{isHovering ? "K线涨跌:" : "涨跌(较昨收):"}</strong> 
@@ -1625,7 +1635,7 @@ function StockChart({
                 ? isUpRed ? "bg-red-500/15 text-red-500 border-red-500/30" : "bg-emerald-500/15 text-emerald-500 border-emerald-500/30"
                 : isUpRed ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30" : "bg-red-500/15 text-red-500 border-red-500/30"
             }`}>
-              {displayChange >= 0 ? "+" : ""}${displayChange.toFixed(2)} ({displayChangePercent >= 0 ? "+" : ""}{displayChangePercent.toFixed(2)}%)
+              {displayChange >= 0 ? "+" : ""}{currencySymbol}{displayChange.toFixed(2)} ({displayChangePercent >= 0 ? "+" : ""}{displayChangePercent.toFixed(2)}%)
             </span>
           </span>
 

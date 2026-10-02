@@ -331,6 +331,7 @@ export default function App() {
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [activeSymbol, setActiveSymbol] = useState<string>("AAPL");
   const [portfolioHeatmapMode, setPortfolioHeatmapMode] = useState<'value' | 'dividend'>('value');
+  const [lastSyncedAt, setLastSyncedAt] = useState<number>(Date.now());
 
   const handleSelectStock = useCallback((symbol: string, shouldScroll = true) => {
     setActiveSymbol(symbol);
@@ -746,6 +747,7 @@ export default function App() {
           data.forEach(s => prevMap.set(s.symbol, s));
           return Array.from(prevMap.values());
         });
+        setLastSyncedAt(Date.now());
         setStocksError(null);
       }
     } catch (err: any) {
@@ -1276,11 +1278,22 @@ export default function App() {
           {/* Right: Controls & Action Buttons */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-auto">
             
-            {/* Market Status (Micro) */}
-            <div className="bg-emerald-500/10 border border-emerald-500/20 px-2.5 h-8 rounded-xl items-center gap-1.5 hidden xl:flex shrink-0" title="Live Agent Active">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            {/* Market Status & Real-time Quotes Refresh */}
+            <button
+              onClick={() => {
+                const allSyms = Array.from(new Set([...rawPositions.map(p => p.symbol), ...watchlist, activeSymbol].filter(Boolean)));
+                fetchStocks(false, allSyms);
+              }}
+              disabled={loadingStocks}
+              className="bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-2.5 h-7.5 sm:h-8 rounded-xl flex items-center gap-1.5 shrink-0 transition-all cursor-pointer active:scale-95 shadow-2xs"
+              title="点击立即强制同步全球最新高精度实时行情报价"
+            >
+              <RefreshCw size={11} className={loadingStocks ? "animate-spin text-emerald-400" : "text-emerald-500"} />
               <span className="text-[10px] text-emerald-500 font-bold tracking-wider font-mono">LIVE</span>
-            </div>
+              <span className="text-[10px] text-emerald-600/90 dark:text-emerald-400/80 font-mono hidden xl:inline">
+                {loadingStocks ? "同步中..." : new Date(lastSyncedAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </span>
+            </button>
 
             {/* Cloud Sync */}
             <CloudSync 
@@ -2415,9 +2428,11 @@ export default function App() {
                 {filteredStocks.map((s) => {
                   const isWatchlisted = watchlist.includes(s.symbol);
                   const isActive = activeSymbol === s.symbol;
-                  const changeVal = s.currentPrice - s.prevClose;
-                  const changePercent = (changeVal / s.prevClose) * 100;
+                  const effectivePrev = s.prevClose > 0 ? s.prevClose : s.currentPrice;
+                  const changeVal = s.currentPrice - effectivePrev;
+                  const changePercent = effectivePrev > 0 ? (changeVal / effectivePrev) * 100 : 0;
                   const isPositive = changeVal >= 0;
+                  const symCurr = s.symbol.endsWith(".HK") ? "HK$" : (s.symbol.endsWith(".SH") || s.symbol.endsWith(".SZ") || s.symbol.endsWith(".SS")) ? "¥" : "$";
 
                   return (
                     <div
@@ -2461,7 +2476,7 @@ export default function App() {
                       </div>
 
                       <div className="text-right font-mono">
-                        <div className="text-sm md:text-base font-semibold text-theme-text-heading">${s.currentPrice.toFixed(2)}</div>
+                        <div className="text-sm md:text-base font-semibold text-theme-text-heading">{symCurr}{s.currentPrice.toFixed(2)}</div>
                         <div className="mt-0.5">
                           <span className={`inline-block px-2 py-0.5 rounded-md font-semibold font-mono text-xs border shadow-2xs ${
                             isPositive

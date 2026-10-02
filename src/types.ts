@@ -7,7 +7,11 @@ export interface Stock {
   high: number;
   low: number;
   volume: number;
+  open?: number;
+  change?: number;
+  changePercent?: number;
   history?: number[];
+  lastUpdated?: number;
 }
 
 export interface Position {

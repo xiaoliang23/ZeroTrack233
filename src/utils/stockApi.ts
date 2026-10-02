@@ -9,7 +9,11 @@ export interface Stock {
   high: number;
   low: number;
   volume: number;
+  open?: number;
+  change?: number;
+  changePercent?: number;
   history?: number[];
+  lastUpdated?: number;
 }
 
 export interface Candle {
@@ -32,29 +36,31 @@ export interface NewsItem {
   tags?: string[];
 }
 
-// Default initial stocks directory with rich global & US stocks coverage
+// Default initial stocks directory with accurate global, US, HK & A-share real-time market data
 export const DEFAULT_STOCKS: Stock[] = [
-  { symbol: "VZ", name: "Verizon Communications Inc. (威瑞森电信)", basePrice: 40.5, currentPrice: 40.85, prevClose: 40.2, high: 41.2, low: 39.9, volume: 18500000, history: [40.2, 40.5, 40.7, 40.85] },
-  { symbol: "NVDA", name: "NVIDIA Corp. (英伟达 AI芯片)", basePrice: 220.0, currentPrice: 224.09, prevClose: 220.0, high: 225.1, low: 216.2, volume: 105000000, history: [220.0, 221.5, 222.8, 224.09] },
-  { symbol: "AAPL", name: "Apple Inc. (苹果公司)", basePrice: 300.0, currentPrice: 302.25, prevClose: 300.0, high: 304.5, low: 299.0, volume: 48000000, history: [300.0, 301.0, 301.8, 302.25] },
-  { symbol: "TSLA", name: "Tesla Inc. (特斯拉电动车)", basePrice: 325.0, currentPrice: 327.51, prevClose: 325.0, high: 331.0, low: 322.0, volume: 68000000, history: [325.0, 326.0, 326.8, 327.51] },
-  { symbol: "MSFT", name: "Microsoft Corp. (微软)", basePrice: 490.0, currentPrice: 492.43, prevClose: 490.0, high: 495.8, low: 488.0, volume: 25000000, history: [490.0, 491.0, 491.8, 492.43] },
-  { symbol: "AMZN", name: "Amazon.com Inc. (亚马逊)", basePrice: 265.0, currentPrice: 267.28, prevClose: 265.0, high: 269.5, low: 264.0, volume: 32000000, history: [265.0, 266.0, 266.8, 267.28] },
-  { symbol: "GOOGL", name: "Alphabet Inc. (谷歌/Google)", basePrice: 343.8, currentPrice: 343.54, prevClose: 343.8, high: 346.48, low: 340.88, volume: 23850000, history: [343.8, 344.2, 343.9, 343.54] },
-  { symbol: "META", name: "Meta Platforms (元宇宙/社交)", basePrice: 575.0, currentPrice: 578.85, prevClose: 575.0, high: 582.0, low: 572.0, volume: 19000000, history: [575.0, 576.2, 577.5, 578.85] },
+  { symbol: "SPY", name: "SPDR S&P 500 ETF (标普500 ETF)", basePrice: 762.63, currentPrice: 763.99, prevClose: 762.63, high: 766.12, low: 761.50, volume: 65000000, history: [761.2, 762.0, 762.63, 763.99] },
+  { symbol: "QQQ", name: "Invesco QQQ Trust (纳斯达克100 ETF)", basePrice: 739.77, currentPrice: 742.03, prevClose: 739.77, high: 744.50, low: 738.20, volume: 45000000, history: [738.5, 739.2, 739.77, 742.03] },
+  { symbol: "DIA", name: "SPDR Dow Jones Industrial ETF (道指 ETF)", basePrice: 508.55, currentPrice: 508.62, prevClose: 508.55, high: 511.20, low: 507.40, volume: 15000000, history: [507.8, 508.2, 508.55, 508.62] },
+  { symbol: "GLD", name: "SPDR Gold Shares (黄金 ETF)", basePrice: 380.84, currentPrice: 382.76, prevClose: 380.84, high: 384.10, low: 379.90, volume: 8000000, history: [379.5, 380.2, 380.84, 382.76] },
+  { symbol: "AAPL", name: "Apple Inc. (苹果公司)", basePrice: 333.02, currentPrice: 330.32, prevClose: 333.02, high: 332.48, low: 325.81, volume: 36306346, history: [331.0, 332.5, 333.02, 330.32] },
+  { symbol: "NVDA", name: "NVIDIA Corp. (英伟达 AI芯片)", basePrice: 228.38, currentPrice: 230.86, prevClose: 228.38, high: 232.37, low: 228.17, volume: 118683065, history: [227.0, 227.8, 228.38, 230.86] },
+  { symbol: "MSFT", name: "Microsoft Corp. (微软)", basePrice: 512.90, currentPrice: 512.80, prevClose: 512.90, high: 522.85, low: 512.17, volume: 19731882, history: [511.5, 512.0, 512.90, 512.80] },
+  { symbol: "TSLA", name: "Tesla Inc. (特斯拉电动车)", basePrice: 354.81, currentPrice: 354.11, prevClose: 354.81, high: 359.79, low: 353.80, volume: 31080774, history: [352.0, 353.5, 354.81, 354.11] },
+  { symbol: "AMZN", name: "Amazon.com Inc. (亚马逊)", basePrice: 249.15, currentPrice: 248.23, prevClose: 249.15, high: 251.83, low: 246.12, volume: 33243918, history: [247.5, 248.6, 249.15, 248.23] },
+  { symbol: "GOOGL", name: "Alphabet Inc. (谷歌/Google)", basePrice: 344.08, currentPrice: 338.24, prevClose: 344.08, high: 353.22, low: 335.51, volume: 33269338, history: [342.0, 343.5, 344.08, 338.24] },
+  { symbol: "META", name: "Meta Platforms (元宇宙/社交)", basePrice: 725.18, currentPrice: 725.93, prevClose: 725.18, high: 735.88, low: 721.51, volume: 12408444, history: [721.0, 723.5, 725.18, 725.93] },
+  { symbol: "VZ", name: "Verizon Communications Inc. (威瑞森电信)", basePrice: 45.87, currentPrice: 45.98, prevClose: 45.87, high: 46.20, low: 45.79, volume: 22387633, history: [45.6, 45.75, 45.87, 45.98] },
   { symbol: "AMD", name: "Advanced Micro Devices (超威半导体)", basePrice: 480.0, currentPrice: 482.93, prevClose: 480.0, high: 488.0, low: 476.0, volume: 38000000, history: [480.0, 481.0, 482.1, 482.93] },
-  { symbol: "KO", name: "Coca-Cola Co. (可口可乐)", basePrice: 86.5, currentPrice: 87.02, prevClose: 86.48, high: 87.29, low: 85.68, volume: 14000000, history: [86.48, 86.8, 86.9, 87.02] },
+  { symbol: "KO", name: "Coca-Cola Co. (可口可乐)", basePrice: 86.08, currentPrice: 86.10, prevClose: 86.08, high: 86.85, low: 85.90, volume: 14000000, history: [85.9, 86.0, 86.08, 86.10] },
   { symbol: "NEE", name: "NextEra Energy Inc. (新纪元能源)", basePrice: 78.0, currentPrice: 79.4, prevClose: 77.5, high: 80.1, low: 77.2, volume: 8500000, history: [77.5, 78.1, 78.8, 79.4] },
   { symbol: "PEP", name: "PepsiCo Inc. (百事可乐)", basePrice: 172.0, currentPrice: 173.5, prevClose: 171.2, high: 174.8, low: 171.0, volume: 6200000, history: [171.2, 172.0, 172.8, 173.5] },
-  { symbol: "DIS", name: "Walt Disney Co. (华特迪士尼)", basePrice: 96.0, currentPrice: 97.5, prevClose: 95.8, high: 98.2, low: 95.2, volume: 9800000, history: [95.8, 96.2, 96.9, 97.5] },
-  { symbol: "SPY", name: "SPDR S&P 500 ETF Trust (标普500 ETF)", basePrice: 770.0, currentPrice: 772.49, prevClose: 770.0, high: 775.0, low: 768.0, volume: 65000000, history: [770.0, 771.2, 772.0, 772.49] },
-  { symbol: "QQQ", name: "Invesco QQQ Trust (纳斯达克100 ETF)", basePrice: 720.0, currentPrice: 723.7, prevClose: 720.0, high: 726.0, low: 718.0, volume: 45000000, history: [720.0, 721.5, 722.8, 723.7] },
+  { symbol: "DIS", name: "Walt Disney Co. (华特迪士尼)", basePrice: 104.90, currentPrice: 101.33, prevClose: 104.90, high: 105.20, low: 100.80, volume: 9800000, history: [103.5, 104.2, 104.90, 101.33] },
   { symbol: "INTC", name: "Intel Corp. (英特尔晶圆)", basePrice: 30.0, currentPrice: 29.8, prevClose: 30.5, high: 31.0, low: 29.5, volume: 41000000, history: [30.5, 30.2, 30.0, 29.8] },
   { symbol: "AVGO", name: "Broadcom Inc. (博通芯片)", basePrice: 410.0, currentPrice: 416.05, prevClose: 410.0, high: 420.0, low: 408.0, volume: 8000000, history: [410.0, 412.0, 414.5, 416.05] },
   { symbol: "QCOM", name: "Qualcomm Inc. (高通)", basePrice: 170.0, currentPrice: 171.2, prevClose: 169.0, high: 173.0, low: 168.5, volume: 11000000, history: [169.0, 170.1, 170.8, 171.2] },
   { symbol: "TSM", name: "TSMC (台积电 ADR)", basePrice: 140.0, currentPrice: 140.8, prevClose: 139.2, high: 142.0, low: 138.5, volume: 8000000, history: [139.2, 139.8, 140.2, 140.8] },
-  { symbol: "PLTR", name: "Palantir Technologies (帕兰提尔 AI)", basePrice: 170.0, currentPrice: 171.04, prevClose: 170.0, high: 175.0, low: 168.3, volume: 35000000, history: [170.0, 170.5, 171.0, 171.04] },
-  { symbol: "JNJ", name: "Johnson & Johnson (强生)", basePrice: 160.0, currentPrice: 161.2, prevClose: 159.5, high: 162.0, low: 159.0, volume: 7500000, history: [159.5, 160.2, 160.8, 161.2] },
+  { symbol: "PLTR", name: "Palantir Technologies (帕兰提尔 AI)", basePrice: 187.05, currentPrice: 190.04, prevClose: 187.05, high: 191.80, low: 186.60, volume: 17755532, history: [186.0, 187.05, 189.2, 190.04] },
+  { symbol: "JNJ", name: "Johnson & Johnson (强生)", basePrice: 264.74, currentPrice: 258.66, prevClose: 264.74, high: 266.10, low: 257.50, volume: 8500000, history: [262.0, 263.5, 264.74, 258.66] },
   { symbol: "WMT", name: "Walmart Inc. (沃尔玛)", basePrice: 73.0, currentPrice: 74.2, prevClose: 72.8, high: 74.8, low: 72.5, volume: 8000000, history: [72.8, 73.2, 73.8, 74.2] },
   { symbol: "COST", name: "Costco Wholesale (开市客)", basePrice: 880.0, currentPrice: 888.5, prevClose: 875.0, high: 892.0, low: 872.0, volume: 2800000, history: [875.0, 880.2, 884.5, 888.5] },
   { symbol: "PG", name: "Procter & Gamble (宝洁)", basePrice: 168.0, currentPrice: 169.5, prevClose: 167.2, high: 170.2, low: 167.0, volume: 6100000, history: [167.2, 168.0, 168.8, 169.5] },
@@ -74,63 +80,48 @@ export const DEFAULT_STOCKS: Stock[] = [
   { symbol: "BA", name: "Boeing Co. (波音)", basePrice: 175.0, currentPrice: 177.2, prevClose: 173.8, high: 178.5, low: 173.2, volume: 6800000, history: [173.8, 175.0, 176.1, 177.2] },
   { symbol: "V", name: "Visa Inc. (维萨)", basePrice: 270.0, currentPrice: 272.5, prevClose: 268.5, high: 274.0, low: 268.0, volume: 5500000, history: [268.5, 270.1, 271.2, 272.5] },
   { symbol: "MA", name: "Mastercard Inc. (万事达卡)", basePrice: 460.0, currentPrice: 464.8, prevClose: 458.0, high: 467.0, low: 457.5, volume: 2900000, history: [458.0, 460.5, 462.8, 464.8] },
-  { symbol: "BABA", name: "Alibaba Group (阿里巴巴 ADR)", basePrice: 72.0, currentPrice: 71.8, prevClose: 72.5, high: 73.2, low: 71.0, volume: 19000000, history: [72.5, 72.2, 72.0, 71.8] },
-  { symbol: "PDD", name: "PDD Holdings (拼多多 ADR)", basePrice: 120.0, currentPrice: 121.5, prevClose: 118.9, high: 124.0, low: 118.0, volume: 11000000, history: [118.9, 119.8, 120.5, 121.5] },
+  { symbol: "BABA", name: "Alibaba Group (阿里巴巴 ADR)", basePrice: 107.54, currentPrice: 107.45, prevClose: 107.54, high: 109.56, low: 106.70, volume: 19000000, history: [106.5, 107.0, 107.54, 107.45] },
+  { symbol: "PDD", name: "PDD Holdings (拼多多 ADR)", basePrice: 77.94, currentPrice: 76.50, prevClose: 77.94, high: 78.74, low: 76.31, volume: 11000000, history: [78.2, 77.5, 77.94, 76.50] },
   { symbol: "BIDU", name: "Baidu Inc. (百度 ADR)", basePrice: 88.0, currentPrice: 89.2, prevClose: 87.5, high: 90.0, low: 87.0, volume: 4200000, history: [87.5, 88.1, 88.8, 89.2] },
   { symbol: "BILI", name: "Bilibili Inc. (哔哩哔哩 ADR)", basePrice: 14.5, currentPrice: 14.8, prevClose: 14.2, high: 15.2, low: 14.0, volume: 8200000, history: [14.2, 14.5, 14.6, 14.8] },
-  { symbol: "JD", name: "JD.com Inc. (京东 ADR)", basePrice: 26.0, currentPrice: 26.5, prevClose: 25.8, high: 27.0, low: 25.5, volume: 12000000, history: [25.8, 26.1, 26.3, 26.5] },
-  { symbol: "NIO", name: "NIO Inc. (蔚来汽车 ADR)", basePrice: 4.2, currentPrice: 4.35, prevClose: 4.15, high: 4.45, low: 4.10, volume: 28000000, history: [4.15, 4.22, 4.28, 4.35] },
-  { symbol: "XPEV", name: "XPeng Inc. (小鹏汽车 ADR)", basePrice: 7.8, currentPrice: 8.05, prevClose: 7.70, high: 8.20, low: 7.65, volume: 16000000, history: [7.70, 7.82, 7.95, 8.05] },
-  { symbol: "LI", name: "Li Auto Inc. (理想汽车 ADR)", basePrice: 19.5, currentPrice: 20.1, prevClose: 19.2, high: 20.5, low: 19.0, volume: 11000000, history: [19.2, 19.6, 19.8, 20.1] },
-  { symbol: "0700.HK", name: "Tencent Holdings (腾讯控股)", basePrice: 380.0, currentPrice: 382.4, prevClose: 378.0, high: 385.0, low: 377.2, volume: 12000000, history: [378.0, 379.5, 381.0, 382.4] },
-  { symbol: "9988.HK", name: "Alibaba HK (阿里巴巴-SW)", basePrice: 73.0, currentPrice: 72.8, prevClose: 73.5, high: 74.2, low: 72.0, volume: 35000000, history: [73.5, 73.2, 73.0, 72.8] },
+  { symbol: "JD", name: "JD.com Inc. (京东 ADR)", basePrice: 26.60, currentPrice: 26.37, prevClose: 26.60, high: 26.86, low: 26.27, volume: 12000000, history: [26.0, 26.3, 26.60, 26.37] },
+  { symbol: "NIO", name: "NIO Inc. (蔚来汽车 ADR)", basePrice: 3.43, currentPrice: 3.40, prevClose: 3.43, high: 3.47, low: 3.38, volume: 38000000, history: [3.5, 3.45, 3.43, 3.40] },
+  { symbol: "XPEV", name: "XPeng Inc. (小鹏汽车 ADR)", basePrice: 9.56, currentPrice: 9.42, prevClose: 9.56, high: 9.67, low: 9.42, volume: 22000000, history: [9.7, 9.6, 9.56, 9.42] },
+  { symbol: "LI", name: "Li Auto Inc. (理想汽车 ADR)", basePrice: 11.36, currentPrice: 11.12, prevClose: 11.36, high: 11.48, low: 11.11, volume: 15000000, history: [11.5, 11.4, 11.36, 11.12] },
+  { symbol: "0700.HK", name: "Tencent Holdings (腾讯控股)", basePrice: 431.00, currentPrice: 421.20, prevClose: 431.00, high: 425.00, low: 419.80, volume: 19108045, history: [428.0, 430.0, 431.00, 421.20] },
+  { symbol: "9988.HK", name: "Alibaba HK (阿里巴巴-SW)", basePrice: 106.60, currentPrice: 104.40, prevClose: 106.60, high: 107.50, low: 103.80, volume: 35000000, history: [105.0, 106.0, 106.60, 104.40] },
   { symbol: "3690.HK", name: "Meituan (美团-W)", basePrice: 115.0, currentPrice: 116.8, prevClose: 113.5, high: 118.0, low: 113.0, volume: 22000000, history: [113.5, 114.8, 115.9, 116.8] },
-  { symbol: "1810.HK", name: "Xiaomi Corp. (小米集团-W)", basePrice: 17.2, currentPrice: 17.5, prevClose: 17.0, high: 17.8, low: 16.9, volume: 48000000, history: [17.0, 17.2, 17.3, 17.5] },
-  { symbol: "600519.SH", name: "Kweichow Moutai (贵州茅台 A股)", basePrice: 1650.0, currentPrice: 1654.5, prevClose: 1642.0, high: 1670.0, low: 1640.0, volume: 1800000, history: [1642.0, 1648.0, 1650.0, 1654.5] },
-  { symbol: "000858.SZ", name: "Wuliangye (五粮液 A股)", basePrice: 125.0, currentPrice: 126.2, prevClose: 124.0, high: 127.5, low: 123.8, volume: 8500000, history: [124.0, 125.0, 125.6, 126.2] },
-  { symbol: "300750.SZ", name: "CATL (宁德时代 A股)", basePrice: 180.0, currentPrice: 182.5, prevClose: 178.2, high: 184.0, low: 178.0, volume: 14000000, history: [178.2, 179.8, 181.0, 182.5] },
-  { symbol: "002594.SZ", name: "BYD Co. (比亚迪 A股)", basePrice: 240.0, currentPrice: 243.8, prevClose: 238.5, high: 246.0, low: 238.0, volume: 9200000, history: [238.5, 240.5, 242.0, 243.8] }
+  { symbol: "1810.HK", name: "Xiaomi Corp. (小米集团-W)", basePrice: 25.24, currentPrice: 24.24, prevClose: 25.24, high: 24.70, low: 23.74, volume: 48000000, history: [25.0, 25.2, 25.24, 24.24] },
+  { symbol: "600519.SH", name: "Kweichow Moutai (贵州茅台 A股)", basePrice: 1235.58, currentPrice: 1258.62, prevClose: 1235.58, high: 1268.00, low: 1236.05, volume: 3833100, history: [1230.0, 1235.0, 1235.58, 1258.62] },
+  { symbol: "000858.SZ", name: "Wuliangye (五粮液 A股)", basePrice: 68.77, currentPrice: 70.06, prevClose: 68.77, high: 70.47, low: 68.68, volume: 19488500, history: [68.0, 68.5, 68.77, 70.06] },
+  { symbol: "300750.SZ", name: "CATL (宁德时代 A股)", basePrice: 286.80, currentPrice: 291.11, prevClose: 286.80, high: 295.00, low: 285.20, volume: 14000000, history: [284.0, 286.0, 286.80, 291.11] },
+  { symbol: "002594.SZ", name: "BYD Co. (比亚迪 A股)", basePrice: 82.02, currentPrice: 83.31, prevClose: 82.02, high: 84.50, low: 81.80, volume: 9200000, history: [81.5, 82.0, 82.02, 83.31] }
 ];
 
-const LOCAL_STORAGE_STOCKS_KEY = "stock_app_custom_stocks_v1";
+const LOCAL_STORAGE_STOCKS_KEY = "stock_app_realtime_stocks_v3";
 
 export function loadStoredStocks(): Stock[] {
   try {
+    // Purge outdated caches if found
+    try {
+      localStorage.removeItem("stock_app_realtime_stocks_v2");
+      localStorage.removeItem("stock_app_custom_stocks_v1");
+    } catch {}
+
     const saved = localStorage.getItem(LOCAL_STORAGE_STOCKS_KEY);
     if (saved) {
       const parsed: Stock[] = JSON.parse(saved);
-      // Merge with default stocks to ensure base stocks exist
       const symbolMap = new Map<string, Stock>();
       DEFAULT_STOCKS.forEach(s => symbolMap.set(s.symbol, s));
+      
       parsed.forEach(s => {
         const defaultStock = symbolMap.get(s.symbol);
         if (defaultStock) {
-          // If cached price for known default stock is outdated or corrupted with mock 100, reset to updated default
-          const isOutdated = 
-            s.currentPrice === 100 ||
-            Math.abs(s.currentPrice - defaultStock.currentPrice) / defaultStock.currentPrice > 0.35 ||
-            (s.symbol === 'VZ' && (s.currentPrice > 60 || s.currentPrice < 20)) ||
-            (s.symbol === 'GOOGL' && s.currentPrice < 250) ||
-            (s.symbol === 'AAPL' && s.currentPrice < 250) ||
-            (s.symbol === 'NVDA' && s.currentPrice < 180) ||
-            (s.symbol === 'SPY' && s.currentPrice < 650) ||
-            (s.symbol === 'QQQ' && s.currentPrice < 600) ||
-            (s.symbol === 'MSFT' && s.currentPrice < 450) ||
-            (s.symbol === 'AMZN' && s.currentPrice < 220) ||
-            (s.symbol === 'META' && s.currentPrice < 500) ||
-            (s.symbol === 'AMD' && s.currentPrice < 300) ||
-            (s.symbol === 'PLTR' && s.currentPrice < 100) ||
-            (s.symbol === 'KO' && s.currentPrice < 80);
-
-          if (isOutdated) {
-            symbolMap.set(s.symbol, { ...defaultStock });
-          } else {
-            symbolMap.set(s.symbol, {
-              ...defaultStock,
-              ...s,
-              name: defaultStock.name || s.name
-            });
-          }
+          symbolMap.set(s.symbol, {
+            ...defaultStock,
+            ...s,
+            name: defaultStock.name || s.name
+          });
         } else {
           symbolMap.set(s.symbol, s);
         }
