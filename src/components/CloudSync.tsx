@@ -173,6 +173,7 @@ export default function CloudSync({ data, onRemoteUpdate, onOpenAuthGuard }: Clo
   }, [data]);
 
   const isSyncingFromCloudRef = useRef(false);
+  const isSyncingFromGithubRef = useRef(false);
   const loadedUidRef = useRef<string | null>(null);
 
   // Helper to fetch user data from server API & Firestore
@@ -320,6 +321,58 @@ export default function CloudSync({ data, onRemoteUpdate, onOpenAuthGuard }: Clo
     return () => clearTimeout(timer);
   }, [data, activeUser?.email, autoSyncEnabled]);
 
+  // 4. Auto-Sync to GitHub when data changes (debounced by 2.5s)
+  useEffect(() => {
+    if (!autoSyncGithub || !githubToken || !githubUser || !ghHasPulledInitial) return;
+    if (isSyncingFromGithubRef.current) return;
+    if (githubMode === 'repo' && (!repoOwner || !repoName || !repoPath)) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        setGhSyncStatus('syncing');
+        const payload: GitHubSyncPayload = {
+          version: '1.0',
+          updatedAt: new Date().toISOString(),
+          watchlist: data.watchlist,
+          positions: data.positions,
+          priceAlerts: data.priceAlerts,
+          theme: data.theme,
+          isUpRed: data.isUpRed,
+          pnlLossAlertEnabled: data.pnlLossAlertEnabled,
+          pnlLossAlertThreshold: data.pnlLossAlertThreshold,
+        };
+
+        if (githubMode === 'gist') {
+          const info = await syncGistSave(githubToken, payload, gistInfo?.id);
+          setGistInfo(info);
+          saveGitHubConfig(githubToken, githubMode, repoOwner, repoName, repoPath, info, autoSyncGithub);
+        } else {
+          await pushToGitHubRepo(githubToken, repoOwner, repoName, repoPath, payload);
+          saveGitHubConfig(githubToken, githubMode, repoOwner, repoName, repoPath, gistInfo, autoSyncGithub);
+        }
+
+        setGhSyncStatus('synced');
+        setGhLastSynced(new Date().toLocaleTimeString('zh-CN'));
+      } catch (err: any) {
+        console.warn('GitHub auto-sync error:', err);
+        setGhSyncStatus('error');
+      }
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [
+    data,
+    autoSyncGithub,
+    githubToken,
+    githubUser,
+    ghHasPulledInitial,
+    githubMode,
+    repoOwner,
+    repoName,
+    repoPath,
+    gistInfo?.id,
+  ]);
+
   // Load saved GitHub config on mount
   useEffect(() => {
     try {
@@ -367,8 +420,12 @@ export default function CloudSync({ data, onRemoteUpdate, onOpenAuthGuard }: Clo
                 }
 
                 if (pulledData) {
+                  isSyncingFromGithubRef.current = true;
                   onRemoteUpdate(pulledData);
                   setGhLastSynced(new Date().toLocaleTimeString('zh-CN'));
+                  setTimeout(() => {
+                    isSyncingFromGithubRef.current = false;
+                  }, 600);
                 }
               } catch (err) {
                 console.log('GitHub initial pull skipped:', err);
@@ -776,9 +833,13 @@ export default function CloudSync({ data, onRemoteUpdate, onOpenAuthGuard }: Clo
         pulledData = result.data;
       }
 
+      isSyncingFromGithubRef.current = true;
       onRemoteUpdate(pulledData);
       setGhSyncStatus('synced');
       setGhLastSynced(new Date().toLocaleTimeString('zh-CN'));
+      setTimeout(() => {
+        isSyncingFromGithubRef.current = false;
+      }, 600);
       setSuccessMsg(`从 GitHub 调取恢复成功！包含 ${pulledData.watchlist?.length || 0} 只自选股、${pulledData.positions?.length || 0} 个持仓`);
       setTimeout(() => setSuccessMsg(''), 3500);
     } catch (err: any) {
@@ -1437,6 +1498,47 @@ export default function CloudSync({ data, onRemoteUpdate, onOpenAuthGuard }: Clo
                           </div>
                         </div>
                       )}
+                    </div>
+
+                    {/* GitHub Auto-Sync Toggle */}
+                    <div className="flex items-center justify-between p-2.5 bg-theme-bg/60 rounded-xl border border-theme-border-muted text-xs">
+                      <div className="flex items-center gap-2">
+                        <RefreshCw size={13} className={`text-indigo-400 ${ghSyncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+                        <div>
+                          <div className="font-bold text-[11px] text-theme-text-primary">数据变动自动同步至 GitHub</div>
+                          <div className="text-[10px] text-theme-text-muted">
+                            {ghSyncStatus === 'syncing' ? '正在自动推送到 GitHub...' : ghLastSynced ? `最近同步: ${ghLastSynced}` : '自选股或持仓改动时自动静默推送'}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = !autoSyncGithub;
+                          setAutoSyncGithub(next);
+                          saveGitHubConfig(githubToken, githubMode, repoOwner, repoName, repoPath, gistInfo, next);
+                        }}
+                        className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer shrink-0 ${
+                          autoSyncGithub ? 'bg-indigo-600' : 'bg-slate-700'
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                            autoSyncGithub ? 'translate-x-4' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Vercel Cross-Origin Explanation Banner */}
+                    <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-[10px] text-theme-text-secondary leading-relaxed space-y-1">
+                      <div className="font-bold text-amber-400 flex items-center gap-1">
+                        <Sparkles size={11} />
+                        <span>数据如何同步至 Vercel 站点？</span>
+                      </div>
+                      <div className="text-[10px] text-theme-text-muted leading-relaxed">
+                        由于浏览器各域名存储相互隔离，在您的 <b>.vercel.app 网站</b> 上打开本窗口，输入同一个 GitHub Token 并点击<b>「从 GitHub 拉取」</b>，即可实现两端自选股与持仓的 100% 自动实时同步！
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 pt-1">
