@@ -190,8 +190,96 @@ async function fetchWithProxy(url: string, timeoutMs = 8000): Promise<any> {
   return null;
 }
 
+function toDirectTencentCode(sym: string): string {
+  const s = sym.trim().toUpperCase();
+  if (s.endsWith(".HK")) {
+    const num = s.replace(".HK", "").padStart(5, "0");
+    return "hk" + num;
+  }
+  if (s.endsWith(".SH") || s.endsWith(".SS") || /^6[08]\d{4}/.test(s)) {
+    return "sh" + s.replace(/[^0-9]/g, "");
+  }
+  if (s.endsWith(".SZ") || /^(00|30)\d{4}/.test(s)) {
+    return "sz" + s.replace(/[^0-9]/g, "");
+  }
+  const cleanUS = s.split(".")[0].replace(/[^A-Z]/g, "");
+  return "us" + cleanUS;
+}
+
+export async function fetchDirectQuotes(symbols: string[]): Promise<Stock[]> {
+  if (!symbols || symbols.length === 0) return [];
+  const validSymbols = Array.from(new Set(symbols.map(s => s.trim().toUpperCase()).filter(Boolean)));
+  const tencentCodeMap = new Map<string, string>();
+  const codesToFetch: string[] = [];
+
+  validSymbols.forEach(sym => {
+    const code = toDirectTencentCode(sym);
+    if (code) {
+      tencentCodeMap.set(code.toLowerCase(), sym);
+      codesToFetch.push(code);
+    }
+  });
+
+  if (codesToFetch.length === 0) return [];
+
+  const results: Stock[] = [];
+  const CHUNK_SIZE = 30;
+
+  for (let i = 0; i < codesToFetch.length; i += CHUNK_SIZE) {
+    const chunk = codesToFetch.slice(i, i + CHUNK_SIZE);
+    try {
+      const res = await fetch(`https://qt.gtimg.cn/q=${chunk.join(",")}`, {
+        signal: safeTimeoutSignal(6000)
+      });
+      if (res.ok) {
+        const buffer = await res.arrayBuffer();
+        const text = new TextDecoder("gbk").decode(buffer);
+        const lines = text.split(";").filter(l => l.trim());
+
+        for (const line of lines) {
+          const eqIdx = line.indexOf("=");
+          if (eqIdx === -1) continue;
+          const varName = line.substring(0, eqIdx).trim().replace(/^v_/, "").toLowerCase();
+          const content = line.substring(eqIdx + 1).replace(/"/g, "").trim();
+          const parts = content.split("~");
+          if (parts.length > 5) {
+            const chineseName = parts[1];
+            const price = parseFloat(parts[3]);
+            const prevClose = parseFloat(parts[4]);
+            const open = parseFloat(parts[5]) || prevClose;
+            const high = parseFloat(parts[33]) || price;
+            const low = parseFloat(parts[34]) || price;
+            let volume = parseFloat(parts[6]) || 0;
+            if (varName.startsWith("sh") || varName.startsWith("sz")) {
+              volume = volume * 100;
+            }
+
+            const origSym = tencentCodeMap.get(varName);
+            if (origSym && price > 0) {
+              results.push({
+                symbol: origSym,
+                name: chineseName ? `${chineseName} (${origSym})` : origSym,
+                basePrice: prevClose || price,
+                currentPrice: price,
+                prevClose: prevClose || price,
+                open: open || price,
+                high: high || price,
+                low: low || price,
+                volume: volume || 0,
+                lastUpdated: Date.now()
+              });
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return results;
+}
+
 /**
- * Fetch stock quote safely via server API
+ * Fetch stock quote safely via server API or direct CORS engine
  */
 export async function fetchStockQuote(symbol: string): Promise<Stock | null> {
   const cleanSym = symbol.trim().toUpperCase();
@@ -208,7 +296,15 @@ export async function fetchStockQuote(symbol: string): Promise<Stock | null> {
     // Continue to fallback
   }
 
-  // 2. Fallback to known stock directory or local stored stocks
+  // 2. Direct CORS Engine (critical for static hosts like Vercel / GitHub Pages)
+  try {
+    const directQuotes = await fetchDirectQuotes([cleanSym]);
+    if (directQuotes.length > 0) {
+      return directQuotes[0];
+    }
+  } catch {}
+
+  // 3. Fallback to known stock directory or local stored stocks
   const knownStock = DEFAULT_STOCKS.find(s => s.symbol === cleanSym);
   if (knownStock) return { ...knownStock };
 
@@ -227,14 +323,14 @@ export async function fetchStocksList(requestedSymbols: string[] = [], fetchOnly
   const localMap = new Map<string, Stock>();
   currentLocal.forEach(s => localMap.set(s.symbol, s));
 
-  // Try fetching from Server API first (direct server Node fetch to Yahoo)
+  const symbolsToFetch = fetchOnlyRequested 
+    ? requestedSymbols 
+    : Array.from(new Set([...currentLocal.map(s => s.symbol), ...requestedSymbols]));
+
+  // 1. Try fetching from Server API first (for full-stack dev / Cloud Run)
   try {
-    const symbolsToFetch = fetchOnlyRequested 
-      ? requestedSymbols 
-      : Array.from(new Set([...currentLocal.map(s => s.symbol), ...requestedSymbols]));
-      
     const querySymbols = symbolsToFetch.join(",");
-    const res = await fetch(`/api/stocks?symbols=${encodeURIComponent(querySymbols)}`, { signal: safeTimeoutSignal(15000) });
+    const res = await fetch(`/api/stocks?symbols=${encodeURIComponent(querySymbols)}`, { signal: safeTimeoutSignal(10000) });
     const serverStocks = await safeParseResponse(res);
     if (Array.isArray(serverStocks) && serverStocks.length > 0) {
       serverStocks.forEach((s: Stock) => {
@@ -254,8 +350,30 @@ export async function fetchStocksList(requestedSymbols: string[] = [], fetchOnly
       return updatedList;
     }
   } catch {
-    // Fallback smoothly to local cached data
+    // Server API unavailable (e.g. on static Vercel deployment)
   }
+
+  // 2. Direct Client CORS Engine (ensures real-time quotes update seamlessly on Vercel)
+  try {
+    const directQuotes = await fetchDirectQuotes(symbolsToFetch);
+    if (directQuotes.length > 0) {
+      directQuotes.forEach((s: Stock) => {
+        const existing = localMap.get(s.symbol);
+        if (existing) {
+          localMap.set(s.symbol, {
+            ...existing,
+            ...s,
+            name: existing.name || s.name
+          });
+        } else {
+          localMap.set(s.symbol, s);
+        }
+      });
+      const updatedList = Array.from(localMap.values());
+      saveStoredStocks(updatedList);
+      return updatedList;
+    }
+  } catch {}
 
   const updatedList = Array.from(localMap.values());
   if (updatedList.length > 0) {
